@@ -1,0 +1,16 @@
+name: Task
+about: Technical work or maintenance
+labels: [maintenance]
+body:
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope and deliverables
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: Definition of done
+    validations:
+      required: true

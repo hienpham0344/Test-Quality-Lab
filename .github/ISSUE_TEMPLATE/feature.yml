@@ -1,0 +1,20 @@
+name: Feature
+about: New application feature
+labels: [enhancement]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: User goal / SRS requirement IDs
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria and error cases
+    validations:
+      required: true
+  - type: textarea
+    id: tests
+    attributes:
+      label: Required tests and dependencies

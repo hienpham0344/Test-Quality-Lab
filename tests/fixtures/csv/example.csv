@@ -1,0 +1,2 @@
+task_id,func_name,python_solution
+P01,square,"def square(x): return x*x"

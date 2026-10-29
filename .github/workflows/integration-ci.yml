@@ -1,0 +1,22 @@
+name: Integration CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose config --quiet
+      - run: docker compose up -d --build postgres redis backend
+      - name: Verify API readiness
+        run: |
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8000/ready; then exit 0; fi
+            sleep 2
+          done
+          docker compose logs backend postgres redis
+          exit 1
+      - if: always()
+        run: docker compose down -v
