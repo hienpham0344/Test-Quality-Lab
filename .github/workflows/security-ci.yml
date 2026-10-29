@@ -1,0 +1,23 @@
+name: Security CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements-dev.txt
+        working-directory: backend
+      - run: pip-audit -r requirements.txt
+        working-directory: backend
+      - run: python -m pytest sandbox/tests -q
+      - name: Verify privileged docker socket is absent from compose
+        run: |
+          if grep -E '(/var/run/docker\.sock|privileged:[[:space:]]*true)' compose.yaml; then
+            echo 'Unsafe Compose configuration'; exit 1
+          fi
