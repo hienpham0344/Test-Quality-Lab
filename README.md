@@ -17,7 +17,7 @@ and a separate research repository are explicitly out of scope.
 cp .env.example .env
 # Change local-only passwords before using outside a disposable dev environment.
 docker compose up --build -d
-# In a separate terminal:
+# For the local development database, in a separate terminal:
 docker compose exec backend alembic upgrade head
 ```
 
@@ -44,3 +44,4 @@ cd frontend && npm install && npm run lint && npm run typecheck && npm test -- -
 security tests and API contracts in the same PR when appropriate.
 
 See `docs/architecture/overview.md`, `docs/development/setup.md`, and `AGENTS.md`.
+For a Supabase connection, see `docs/development/setup.md` before running migrations.
