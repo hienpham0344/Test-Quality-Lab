@@ -1,11 +1,13 @@
 import uuid
 
 import pytest
+from pydantic import ValidationError
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from app.infrastructure.database.base import Base
 from app.modules.auth.models import User
+from app.modules.projects.router import ProjectInput, ProjectUpdate
 from app.modules.projects.service import ProjectService
 
 
@@ -45,4 +47,20 @@ def test_invalid_name_does_not_change_project(project_context):
     with pytest.raises(ValueError):
         projects.update(owner_id, project.id, " " * 3, None)
     assert projects.get(owner_id, project.id).name == "Valid"
+    assert len(projects.history(owner_id, project.id)) == 1
+
+
+def test_project_input_rejects_unknown_fields():
+    with pytest.raises(ValidationError):
+        ProjectInput.model_validate({"name": "Valid", "unexpected": True})
+    with pytest.raises(ValidationError):
+        ProjectUpdate.model_validate({"owner_id": str(uuid.uuid4())})
+
+
+def test_oversized_description_does_not_change_history(project_context):
+    _, projects, owner_id, _ = project_context
+    project = projects.create(owner_id, "Valid", None)
+    with pytest.raises(ValueError):
+        projects.patch(owner_id, project.id, {"description": "x" * 2001})
+    assert projects.get(owner_id, project.id).description is None
     assert len(projects.history(owner_id, project.id)) == 1

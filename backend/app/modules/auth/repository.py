@@ -1,6 +1,7 @@
 import uuid
+from datetime import datetime
 
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 
 from app.modules.auth.models import AuthSession, AuthToken, User
@@ -50,3 +51,10 @@ class AuthRepository:
             .where(AuthToken.user_id == user_id, AuthToken.kind == kind, AuthToken.used_at.is_(None))
             .values(used_at=when)
         )
+
+    def cleanup_expired(self, before: datetime) -> tuple[int, int]:
+        tokens = self.db.execute(delete(AuthToken).where(AuthToken.expires_at < before))
+        sessions = self.db.execute(
+            delete(AuthSession).where(AuthSession.refresh_expires_at < before)
+        )
+        return tokens.rowcount, sessions.rowcount

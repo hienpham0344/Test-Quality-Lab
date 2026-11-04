@@ -1,5 +1,7 @@
 from functools import lru_cache
+from typing import Literal
 
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -10,6 +12,10 @@ class Settings(BaseSettings):
     artifact_dir: str = "/app/artifacts"
     smtp_host: str = "localhost"
     smtp_port: int = 1025
+    smtp_security: Literal["none", "starttls", "ssl"] = "none"
+    smtp_sender: str = "Test Quality Lab <no-reply@localhost>"
+    smtp_username: str | None = None
+    smtp_password: SecretStr | None = None
     public_app_url: str = "http://localhost:5173"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")

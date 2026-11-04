@@ -1,6 +1,7 @@
 import pytest
+from redis.exceptions import ConnectionError
 
-from app.modules.auth.rate_limit import RateLimiter, RateLimitExceeded
+from app.modules.auth.rate_limit import RateLimiter, RateLimitExceeded, RateLimitUnavailable
 
 
 class FakeRedis:
@@ -23,3 +24,12 @@ def test_login_rate_limit_blocks_repeated_attempts_without_plain_email_keys():
     with pytest.raises(RateLimitExceeded):
         limiter.check("login", "127.0.0.1", "user@example.com")
     assert all("user@example.com" not in key for key in redis.counts)
+
+
+def test_redis_connection_failure_fails_closed():
+    class UnavailableRedis:
+        def eval(self, *_):
+            raise ConnectionError("unavailable")
+
+    with pytest.raises(RateLimitUnavailable):
+        RateLimiter(UnavailableRedis()).check("login", "127.0.0.1", "user@example.com")

@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.infrastructure.database.session import get_db
+from app.infrastructure.email.queue import EmailQueueUnavailable, enqueue_auth_link
 from app.infrastructure.email.smtp import send_auth_link
 from app.modules.auth.models import User
 from app.modules.auth.rate_limit import (
@@ -82,7 +83,7 @@ def register(
         _service(db).register(payload.email, payload.password)
     except AuthError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    except (OSError, smtplib.SMTPException) as exc:
+    except (OSError, smtplib.SMTPException, ValueError) as exc:
         raise HTTPException(status_code=503, detail="Email service unavailable") from exc
     return {"status": "verification_requested"}
 
@@ -90,14 +91,14 @@ def register(
 @router.post("/verification/request")
 def request_verification(
     payload: EmailRequest, request: Request,
-    db: Session = Depends(get_db), limiter: RateLimiter = Depends(get_rate_limiter),
+    limiter: RateLimiter = Depends(get_rate_limiter),
 ) -> dict[str, str]:
     _limit(limiter, "verification_request", request, payload.email)
     try:
-        _service(db).request_verification(payload.email)
+        enqueue_auth_link("verify", AuthService.normalize_email(payload.email))
     except AuthError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    except (OSError, smtplib.SMTPException) as exc:
+    except EmailQueueUnavailable as exc:
         raise HTTPException(status_code=503, detail="Email service unavailable") from exc
     return {"status": "request_accepted"}
 
@@ -153,14 +154,14 @@ def logout(
 @router.post("/password/forgot")
 def forgot(
     payload: EmailRequest, request: Request,
-    db: Session = Depends(get_db), limiter: RateLimiter = Depends(get_rate_limiter),
+    limiter: RateLimiter = Depends(get_rate_limiter),
 ) -> dict[str, str]:
     _limit(limiter, "forgot", request, payload.email)
     try:
-        _service(db).request_password_reset(payload.email)
+        enqueue_auth_link("reset", AuthService.normalize_email(payload.email))
     except AuthError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    except (OSError, smtplib.SMTPException) as exc:
+    except EmailQueueUnavailable as exc:
         raise HTTPException(status_code=503, detail="Email service unavailable") from exc
     return {"status": "request_accepted"}
 

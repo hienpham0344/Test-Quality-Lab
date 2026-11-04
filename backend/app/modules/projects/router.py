@@ -14,11 +14,15 @@ router = APIRouter(prefix="/projects", tags=["projects"])
 
 
 class ProjectInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     name: str
     description: str | None = None
 
 
 class ProjectUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     name: str | None = None
     description: str | None = None
 

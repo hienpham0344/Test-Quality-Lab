@@ -10,7 +10,8 @@ from app.infrastructure.database.base import Base
 from app.infrastructure.database.session import get_db
 from app.main import app
 from app.modules.auth import router as auth_router
-from app.modules.auth.rate_limit import RateLimitExceeded, get_rate_limiter
+from app.modules.auth.rate_limit import RateLimitExceeded, RateLimitUnavailable, get_rate_limiter
+from app.modules.auth.service import AuthService
 
 
 class RedactedLinks(list):
@@ -33,6 +34,16 @@ def api(monkeypatch):
     monkeypatch.setattr(
         auth_router, "send_auth_link", lambda kind, email, token: sent.append((kind, email, token))
     )
+
+    def deliver_queued_link(kind, email):
+        with Session(engine) as db:
+            service = AuthService(db, lambda *args: sent.append(args))
+            if kind == "reset":
+                service.request_password_reset(email)
+            else:
+                service.request_verification(email)
+
+    monkeypatch.setattr(auth_router, "enqueue_auth_link", deliver_queued_link)
 
     def db_override():
         with Session(engine) as db:
@@ -123,6 +134,9 @@ def test_reset_api_does_not_reveal_account_and_revokes_refresh(api):
     assert client.post(
         "/api/v1/auth/refresh", json={"token": tokens["refresh_token"]}
     ).status_code == 401
+    assert client.get(
+        "/api/v1/projects", headers={"Authorization": f"Bearer {tokens['access_token']}"}
+    ).status_code == 401
     assert client.post(
         "/api/v1/auth/login", json={"email": "user@example.com", "password": "long-password-123"}
     ).status_code == 401
@@ -143,3 +157,45 @@ def test_login_rate_limit_returns_429(api):
         "/api/v1/auth/login", json={"email": "user@example.com", "password": "long-password-123"}
     )
     assert response.status_code == 429
+
+
+def test_redis_failure_blocks_authentication(api):
+    client, _ = api
+
+    class UnavailableLimiter:
+        def check(self, *_):
+            raise RateLimitUnavailable
+
+    app.dependency_overrides[get_rate_limiter] = lambda: UnavailableLimiter()
+    response = client.post(
+        "/api/v1/auth/login", json={"email": "user@example.com", "password": "long-password-123"}
+    )
+    assert response.status_code == 503
+
+
+def test_project_rejects_extra_fields_and_noop_does_not_add_history(api):
+    client, sent = api
+    pair = register_and_login(client, sent, "owner@example.com")
+    headers = {"Authorization": f"Bearer {pair['access_token']}"}
+    assert client.post(
+        "/api/v1/projects", json={"name": "Valid", "owner_id": str(uuid.uuid4())}, headers=headers
+    ).status_code == 422
+    project = client.post("/api/v1/projects", json={"name": "Valid"}, headers=headers).json()
+    path = f"/api/v1/projects/{project['id']}"
+    assert client.patch(path, json={"owner_id": str(uuid.uuid4())}, headers=headers).status_code == 422
+    assert client.patch(path, json={"name": None}, headers=headers).status_code == 422
+    assert client.patch(path, json={}, headers=headers).status_code == 200
+    assert len(client.get(f"{path}/history", headers=headers).json()) == 1
+
+
+def test_logout_and_invalid_link_errors(api):
+    client, sent = api
+    pair = register_and_login(client, sent, "user@example.com")
+    headers = {"Authorization": f"Bearer {pair['access_token']}"}
+    assert client.post("/api/v1/auth/logout", headers=headers).status_code == 200
+    assert client.get("/api/v1/projects", headers=headers).status_code == 401
+    assert client.post("/api/v1/auth/refresh", json={"token": pair["refresh_token"]}).status_code == 401
+    assert client.post("/api/v1/auth/verify", json={"token": "invalid"}).status_code == 400
+    assert client.post(
+        "/api/v1/auth/password/reset", json={"token": "invalid", "new_password": "long-password-123"}
+    ).status_code == 400

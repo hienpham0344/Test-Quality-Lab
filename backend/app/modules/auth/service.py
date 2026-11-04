@@ -58,7 +58,7 @@ class AuthService:
         self.send_link = send_link
 
     @staticmethod
-    def _email(email: str) -> str:
+    def normalize_email(email: str) -> str:
         normalized = email.strip().lower()
         if len(normalized) > 320 or not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", normalized):
             raise AuthError("Invalid email")
@@ -84,9 +84,13 @@ class AuthService:
         return raw
 
     def register(self, email: str, password: str) -> User:
-        email = self._email(email)
+        email = self.normalize_email(email)
         self._password(password)
-        if self.repo.user_by_email(email):
+        existing = self.repo.user_by_email(email)
+        if existing is not None:
+            if existing.email_verified_at is None and verify_password(password, existing.password_digest):
+                self._issue_link(existing, "verify")
+                return existing
             raise AuthError("Email already registered")
         user = User(id=uuid.uuid4(), email=email, password_digest=hash_password(password))
         self.db.add(user)
@@ -99,7 +103,7 @@ class AuthService:
         return user
 
     def request_verification(self, email: str) -> None:
-        user = self.repo.user_by_email(self._email(email))
+        user = self.repo.user_by_email(self.normalize_email(email))
         if user and user.email_verified_at is None:
             self._issue_link(user, "verify")
 
@@ -120,7 +124,7 @@ class AuthService:
         self.db.commit()
 
     def request_password_reset(self, email: str) -> None:
-        user = self.repo.user_by_email(self._email(email), lock=True)
+        user = self.repo.user_by_email(self.normalize_email(email), lock=True)
         if user and user.email_verified_at is not None:
             self._issue_link(user, "reset")
 
@@ -159,7 +163,7 @@ class AuthService:
         return TokenPair(access, refresh)
 
     def login(self, email: str, password: str) -> TokenPair:
-        user = self.repo.user_by_email(self._email(email), lock=True)
+        user = self.repo.user_by_email(self.normalize_email(email), lock=True)
         if user is None or not verify_password(password, user.password_digest):
             raise AuthError("Invalid credentials")
         if user.email_verified_at is None:
@@ -196,3 +200,8 @@ class AuthService:
         if session:
             session.revoked_at = utcnow()
             self.db.commit()
+
+    def cleanup_expired(self) -> tuple[int, int]:
+        removed = self.repo.cleanup_expired(utcnow() - timedelta(days=7))
+        self.db.commit()
+        return removed

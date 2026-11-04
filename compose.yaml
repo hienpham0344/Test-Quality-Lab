@@ -22,6 +22,10 @@ services:
       ARTIFACT_DIR: ${ARTIFACT_DIR:-/app/artifacts}
       SMTP_HOST: ${SMTP_HOST:-mailpit}
       SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_SECURITY: ${SMTP_SECURITY:-none}
+      SMTP_SENDER: ${SMTP_SENDER:-Test Quality Lab <no-reply@localhost>}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       PUBLIC_APP_URL: ${PUBLIC_APP_URL:-http://localhost:5173}
     ports:
       - "127.0.0.1:8000:8000"
@@ -46,6 +50,13 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://tql_dev:change-me-local-only@postgres:5432/test_quality_lab}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       ARTIFACT_DIR: ${ARTIFACT_DIR:-/app/artifacts}
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_SECURITY: ${SMTP_SECURITY:-none}
+      SMTP_SENDER: ${SMTP_SENDER:-Test Quality Lab <no-reply@localhost>}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      PUBLIC_APP_URL: ${PUBLIC_APP_URL:-http://localhost:5173}
     volumes:
       - artifacts:/app/artifacts
     depends_on:
@@ -54,6 +65,18 @@ services:
       redis:
         condition: service_healthy
     # NO docker.sock or host filesystem mounts in this trusted worker.
+
+  beat:
+    build:
+      context: .
+      dockerfile: worker/Dockerfile
+    command: ["celery", "-A", "app.infrastructure.queue.celery_app:celery_app", "beat", "--loglevel=info", "--schedule=/tmp/celerybeat-schedule"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://tql_dev:change-me-local-only@postgres:5432/test_quality_lab}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+    depends_on:
+      redis:
+        condition: service_healthy
 
   postgres:
     image: postgres:16-alpine
