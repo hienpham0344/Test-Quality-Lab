@@ -87,6 +87,11 @@ Live tests require `RUN_LIVE_AUTH_TESTS=1`, `TEST_DATABASE_URL` pointing to a
 loopback PostgreSQL database ending in `_test`, and `TEST_REDIS_URL` pointing
 to loopback Redis database 15. Never set these to Supabase or a production database.
 
+The same workflow audits frontend dependencies. A scoped npm override uses
+`minimatch` 11.0.1 or newer under `@typescript-eslint/typescript-estree` to address
+[GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249).
+This dependency is part of lint tooling; the override does not change application APIs.
+
 Project request models reject unknown fields. Issue #19's accepted scope is
 create/list/read/update plus metadata history and ownership checks; DELETE and
 experiment listing require their own specified behavior before implementation.
