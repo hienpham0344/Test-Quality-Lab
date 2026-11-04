@@ -1,7 +1,9 @@
 import uuid
 from datetime import datetime
+from typing import cast
 
 from sqlalchemy import delete, select, update
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.orm import Session
 
 from app.modules.auth.models import AuthSession, AuthToken, User
@@ -57,4 +59,4 @@ class AuthRepository:
         sessions = self.db.execute(
             delete(AuthSession).where(AuthSession.refresh_expires_at < before)
         )
-        return tokens.rowcount, sessions.rowcount
+        return cast(CursorResult, tokens).rowcount, cast(CursorResult, sessions).rowcount
