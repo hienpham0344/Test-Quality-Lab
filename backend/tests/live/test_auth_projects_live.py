@@ -18,6 +18,8 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session
 
+from app.infrastructure.email.queue import enqueue_auth_link
+from app.infrastructure.queue.celery_app import celery_app
 from app.modules.auth.rate_limit import RateLimiter, RateLimitExceeded
 from app.modules.auth.service import AuthError, AuthService
 from app.modules.projects.service import ProjectService
@@ -143,6 +145,15 @@ def test_redis_rate_limit_is_atomic_and_has_expiry():
     redis.close()
 
 
+def test_celery_can_publish_auth_requests():
+    url = os.environ["TEST_REDIS_URL"]
+    assert urlparse(url).hostname in {"localhost", "127.0.0.1"}
+    assert urlparse(url).path == "/15"
+    assert celery_app.conf.broker_url == url
+    # A nonexistent address exercises real publishing without sending an email.
+    enqueue_auth_link("verify", f"{uuid.uuid4().hex}@example.com")
+
+
 def wait_for_mail_token(email, subject):
     deadline = time.monotonic() + 25
     with httpx.Client(base_url="http://127.0.0.1:8025", timeout=5) as mail:
@@ -176,7 +187,8 @@ def test_live_api_mail_queue_sessions_and_projects(pg_engine):
         assert len(api.get(f"{path}/history", headers=headers).json()) == 2
         missing = api.post("/auth/password/forgot", json={"email": f"{uuid.uuid4().hex}@example.com"})
         requested = api.post("/auth/password/forgot", json={"email": email})
-        assert missing.status_code == requested.status_code == 200
+        assert missing.status_code == 200, missing.json().get("detail")
+        assert requested.status_code == 200, requested.json().get("detail")
         assert missing.json() == requested.json() == {"status": "request_accepted"}
         reset = wait_for_mail_token(email, "Reset your password")
         assert api.post("/auth/password/reset", json={"token": reset, "new_password": "new-test-password"}).status_code == 200
