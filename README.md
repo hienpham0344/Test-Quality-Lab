@@ -17,7 +17,7 @@ and a separate research repository are explicitly out of scope.
 cp .env.example .env
 # Change local-only passwords before using outside a disposable dev environment.
 docker compose up --build -d
-# In a separate terminal:
+# For the local development database, in a separate terminal:
 docker compose exec backend alembic upgrade head
 ```
 
@@ -27,10 +27,11 @@ docker compose exec backend alembic upgrade head
 - API readiness: http://localhost:8000/ready
 - Mailpit: http://localhost:8025
 
-The app currently displays a starter page and API status. All product features
-(auth, projects, import, prompting, test generation, execution and evaluation)
-are module placeholders. **Do not upload real secrets or untrusted code** until
-those features are implemented, tested and secured.
+The app includes email verification and password-reset screens, auth/session
+APIs, and owner-scoped project metadata/history APIs. Full auth and project
+management screens, imports, prompting, test generation, execution and evaluation
+remain pending. **Do not upload real secrets or untrusted code**; untrusted Python
+execution remains disabled.
 
 ## Run tests
 
@@ -44,3 +45,4 @@ cd frontend && npm install && npm run lint && npm run typecheck && npm test -- -
 security tests and API contracts in the same PR when appropriate.
 
 See `docs/architecture/overview.md`, `docs/development/setup.md`, and `AGENTS.md`.
+For a Supabase connection, see `docs/development/setup.md` before running migrations.
