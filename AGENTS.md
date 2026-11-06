@@ -18,4 +18,4 @@
 ## Commands
 - `docker compose up --build -d`
 - `cd backend && pytest && ruff check app tests`
-- `cd frontend && npm run lint && npm run typecheck && npm test -- --run`
+- `cd frontend && npm run lint && npm test -- --run`
