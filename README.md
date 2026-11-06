@@ -5,7 +5,7 @@ This repository contains the **application only**; research notebooks, studies,
 and a separate research repository are explicitly out of scope.
 
 ## Stack
-- Frontend: React, Vite, TypeScript, React Router, TanStack Query, Tailwind CSS
+- Frontend: React, Vite, JavaScript / JSX, React Router, TanStack Query, Tailwind CSS
 - API: FastAPI, SQLAlchemy 2, Alembic, PostgreSQL
 - Background jobs: Celery with Redis
 - Runtime: Docker Compose for local development
@@ -37,7 +37,7 @@ execution remains disabled.
 
 ```bash
 cd backend && python -m pip install -r requirements-dev.txt && pytest && ruff check app tests
-cd frontend && npm install && npm run lint && npm run typecheck && npm test -- --run && npm run build
+cd frontend && npm install && npm run lint && npm test -- --run && npm run build
 ```
 
 ## Git workflow

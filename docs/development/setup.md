@@ -10,7 +10,7 @@ Docker is required; no local execution or image build has been verified in the
 scaffold-generation environment. Avoid testing with real secrets/data.
 
 Backend local tests: `cd backend && pip install -r requirements-dev.txt && pytest`.
-Frontend local tests: `cd frontend && npm install && npm run lint && npm run typecheck && npm test -- --run`.
+Frontend local tests: `cd frontend && npm install && npm run lint && npm test -- --run`.
 
 ## Supabase database connection
 
