@@ -1,1 +1,1 @@
-"""Project metadata and ownership. Placeholder: not implemented."""
+"""Owner-scoped project metadata and revision history."""

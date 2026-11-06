@@ -1,4 +1,4 @@
-"""Auth, secret encryption and access policies are NOT implemented in scaffold.
+"""Provider secret encryption and access policies remain unimplemented.
 
 Do not accept or store API keys until encryption, key rotation and owner checks exist.
 """

@@ -1,1 +1,1 @@
-"""Registration, verification, sessions, ownership. Placeholder: not implemented."""
+"""Account registration, email verification, recovery and sessions."""
