@@ -1,132 +1,86 @@
-import smtplib
+"""HTTP endpoints for UC-01 (register, verify), UC-02 (login, logout) and UC-12 (reset).
 
-from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from pydantic import BaseModel
+Contract: docs/api/contracts/auth.md. Each handler: rate limit -> one service call -> DTO.
+"""
+
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
 from app.infrastructure.database.session import get_db
-from app.infrastructure.email.queue import EmailQueueUnavailable, enqueue_auth_link
-from app.infrastructure.email.smtp import send_auth_link
+from app.infrastructure.email.queue import enqueue_auth_link
+from app.modules.auth.account_service import AccountService
+from app.modules.auth.dependencies import bearer_token, current_user, enforce_rate_limit
 from app.modules.auth.models import User
-from app.modules.auth.rate_limit import (
-    RateLimiter,
-    RateLimitExceeded,
-    RateLimitUnavailable,
-    get_rate_limiter,
+from app.modules.auth.rate_limit import RateLimiter, get_rate_limiter
+from app.modules.auth.schemas import (
+    EmailRequest,
+    LoginRequest,
+    RegisterRequest,
+    ResetRequest,
+    StatusResponse,
+    TokenRequest,
+    TokenResponse,
+    UserResponse,
 )
-from app.modules.auth.service import AuthError, AuthService
+from app.modules.auth.session_service import SessionService, TokenPair
 
 router = APIRouter(prefix="/auth", tags=["auth"])
-bearer = HTTPBearer(auto_error=False)
 
 
-class Credentials(BaseModel):
-    email: str
-    password: str
+def _accounts(db: Session) -> AccountService:
+    return AccountService(db, enqueue_auth_link)
 
 
-class EmailRequest(BaseModel):
-    email: str
+def _tokens(pair: TokenPair) -> TokenResponse:
+    return TokenResponse(
+        access_token=pair.access_token, refresh_token=pair.refresh_token, expires_in=pair.expires_in
+    )
 
 
-class TokenRequest(BaseModel):
-    token: str
-
-
-class ResetRequest(TokenRequest):
-    new_password: str
-
-
-class TokenResponse(BaseModel):
-    access_token: str
-    refresh_token: str
-    token_type: str = "bearer"
-
-
-def _service(db: Session) -> AuthService:
-    return AuthService(db, send_auth_link)
-
-
-def _bearer_token(credentials: HTTPAuthorizationCredentials | None) -> str:
-    if credentials is None:
-        raise HTTPException(status_code=401, detail="Authentication required")
-    return credentials.credentials
-
-
-def _limit(limiter: RateLimiter, action: str, request: Request, email: str | None = None) -> None:
-    try:
-        limiter.check(action, request.client.host if request.client else "unknown", email)
-    except RateLimitExceeded as exc:
-        raise HTTPException(status_code=429, detail="Too many requests") from exc
-    except RateLimitUnavailable as exc:
-        raise HTTPException(status_code=503, detail="Authentication service unavailable") from exc
-
-
-def current_user(
-    credentials: HTTPAuthorizationCredentials | None = Depends(bearer),
-    db: Session = Depends(get_db),
-) -> User:
-    try:
-        return _service(db).current_user(_bearer_token(credentials))
-    except AuthError as exc:
-        raise HTTPException(status_code=401, detail=str(exc)) from exc
-
-
-@router.post("/register", status_code=201)
+@router.post("/register", status_code=201, response_model=StatusResponse)
 def register(
-    payload: Credentials, request: Request,
+    payload: RegisterRequest, request: Request,
     db: Session = Depends(get_db), limiter: RateLimiter = Depends(get_rate_limiter),
-) -> dict[str, str]:
-    _limit(limiter, "register", request, payload.email)
-    try:
-        _service(db).register(payload.email, payload.password)
-    except AuthError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    except (OSError, smtplib.SMTPException, ValueError) as exc:
-        raise HTTPException(status_code=503, detail="Email service unavailable") from exc
-    return {"status": "verification_requested"}
+) -> StatusResponse:
+    enforce_rate_limit(limiter, "register", request, payload.email)
+    _accounts(db).register(
+        payload.email, payload.password, payload.confirm_password, payload.display_name
+    )
+    return StatusResponse(
+        status="verification_requested", message="Check your email to verify your account"
+    )
 
 
-@router.post("/verification/request")
+@router.post("/verification/request", response_model=StatusResponse)
 def request_verification(
     payload: EmailRequest, request: Request,
-    limiter: RateLimiter = Depends(get_rate_limiter),
-) -> dict[str, str]:
-    _limit(limiter, "verification_request", request, payload.email)
-    try:
-        enqueue_auth_link("verify", AuthService.normalize_email(payload.email))
-    except AuthError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    except EmailQueueUnavailable as exc:
-        raise HTTPException(status_code=503, detail="Email service unavailable") from exc
-    return {"status": "request_accepted"}
+    db: Session = Depends(get_db), limiter: RateLimiter = Depends(get_rate_limiter),
+) -> StatusResponse:
+    enforce_rate_limit(limiter, "verification_request", request, payload.email)
+    _accounts(db).request_verification_email(payload.email)
+    return StatusResponse(
+        status="request_accepted",
+        message="If the account needs verification, a new link has been sent",
+    )
 
 
-@router.post("/verify")
+@router.post("/verify", response_model=StatusResponse)
 def verify(
     payload: TokenRequest, request: Request,
     db: Session = Depends(get_db), limiter: RateLimiter = Depends(get_rate_limiter),
-) -> dict[str, str]:
-    _limit(limiter, "verify", request)
-    try:
-        _service(db).verify_email(payload.token)
-    except AuthError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return {"status": "verified"}
+) -> StatusResponse:
+    enforce_rate_limit(limiter, "verify", request)
+    _accounts(db).verify_email(payload.token)
+    return StatusResponse(status="verified", message="Email verified. You can now sign in")
 
 
 @router.post("/login", response_model=TokenResponse)
 def login(
-    payload: Credentials, request: Request,
+    payload: LoginRequest, request: Request,
     db: Session = Depends(get_db), limiter: RateLimiter = Depends(get_rate_limiter),
 ) -> TokenResponse:
-    _limit(limiter, "login", request, payload.email)
-    try:
-        pair = _service(db).login(payload.email, payload.password)
-        return TokenResponse(access_token=pair.access_token, refresh_token=pair.refresh_token)
-    except AuthError as exc:
-        raise HTTPException(status_code=401, detail=str(exc)) from exc
+    enforce_rate_limit(limiter, "login", request, payload.email)
+    return _tokens(SessionService(db).login(payload.email, payload.password))
 
 
 @router.post("/refresh", response_model=TokenResponse)
@@ -134,46 +88,38 @@ def refresh(
     payload: TokenRequest, request: Request,
     db: Session = Depends(get_db), limiter: RateLimiter = Depends(get_rate_limiter),
 ) -> TokenResponse:
-    _limit(limiter, "refresh", request)
-    try:
-        pair = _service(db).refresh(payload.token)
-        return TokenResponse(access_token=pair.access_token, refresh_token=pair.refresh_token)
-    except AuthError as exc:
-        raise HTTPException(status_code=401, detail=str(exc)) from exc
+    enforce_rate_limit(limiter, "refresh", request)
+    return _tokens(SessionService(db).refresh(payload.token))
 
 
-@router.post("/logout")
-def logout(
-    credentials: HTTPAuthorizationCredentials | None = Depends(bearer),
-    db: Session = Depends(get_db),
-) -> dict[str, str]:
-    _service(db).logout(_bearer_token(credentials))
-    return {"status": "logged_out"}
+@router.post("/logout", response_model=StatusResponse)
+def logout(token: str = Depends(bearer_token), db: Session = Depends(get_db)) -> StatusResponse:
+    SessionService(db).logout(token)
+    return StatusResponse(status="logged_out", message="Signed out")
 
 
-@router.post("/password/forgot")
+@router.get("/me", response_model=UserResponse)
+def me(user: User = Depends(current_user)) -> User:
+    return user
+
+
+@router.post("/password/forgot", response_model=StatusResponse)
 def forgot(
     payload: EmailRequest, request: Request,
-    limiter: RateLimiter = Depends(get_rate_limiter),
-) -> dict[str, str]:
-    _limit(limiter, "forgot", request, payload.email)
-    try:
-        enqueue_auth_link("reset", AuthService.normalize_email(payload.email))
-    except AuthError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    except EmailQueueUnavailable as exc:
-        raise HTTPException(status_code=503, detail="Email service unavailable") from exc
-    return {"status": "request_accepted"}
+    db: Session = Depends(get_db), limiter: RateLimiter = Depends(get_rate_limiter),
+) -> StatusResponse:
+    enforce_rate_limit(limiter, "forgot", request, payload.email)
+    _accounts(db).request_password_reset_email(payload.email)
+    return StatusResponse(
+        status="request_accepted", message="If the account exists, a reset link has been sent"
+    )
 
 
-@router.post("/password/reset")
+@router.post("/password/reset", response_model=StatusResponse)
 def reset(
     payload: ResetRequest, request: Request,
     db: Session = Depends(get_db), limiter: RateLimiter = Depends(get_rate_limiter),
-) -> dict[str, str]:
-    _limit(limiter, "reset", request)
-    try:
-        _service(db).reset_password(payload.token, payload.new_password)
-    except AuthError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return {"status": "password_reset"}
+) -> StatusResponse:
+    enforce_rate_limit(limiter, "reset", request)
+    _accounts(db).reset_password(payload.token, payload.new_password)
+    return StatusResponse(status="password_reset", message="Password changed. Sign in again")

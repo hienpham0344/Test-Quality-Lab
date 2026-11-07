@@ -50,11 +50,17 @@ describe('email verification', () => {
         expect(container.textContent).toContain('invalid or has expired');
         expect(requests).not.toHaveBeenCalled();
     });
-    it('does not offer retry for a consumed or expired link', async () => {
+    it('offers a new verification email instead of retrying a consumed or expired link', async () => {
         requests.mockResolvedValue(new Response(null, { status: 400 }));
         await openPage('/verify-email');
         expect(container.textContent).toContain('invalid or has expired');
-        expect(container.querySelector('button')).toBeNull();
+        const buttons = [...container.querySelectorAll('button')].map((button) => button.textContent);
+        expect(buttons).toEqual(['Resend verification email']);
+        expect(container.querySelector('form[aria-label="Resend verification email"]')).not.toBeNull();
+    });
+    it('redirects to sign in after a successful verification', async () => {
+        await openPage('/verify-email');
+        expect(container.querySelector('form[aria-label="Sign in"]')).not.toBeNull();
     });
     it('retains the token for retry after temporary downtime', async () => {
         requests.mockResolvedValueOnce(new Response(null, { status: 503 }));

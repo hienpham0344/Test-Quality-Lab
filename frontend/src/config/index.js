@@ -6,8 +6,8 @@ export const APP_CONFIG = {
   plannedModules: [
     {
       title: 'Authentication',
-      description: 'Role-based access and user sessions',
-      status: 'Planned · not implemented',
+      description: 'Register, verify email, sign in and sign out',
+      status: 'Available',
     },
     {
       title: 'Python & CSV import',

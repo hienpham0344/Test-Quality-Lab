@@ -1,0 +1,734 @@
+{
+  "info": {
+    "name": "Test Quality Lab API",
+    "description": "Manual API tests. Select the 'Test Quality Lab - local' environment, start the stack (docker compose up -d) and run folders top to bottom. Emails are read from Mailpit.\n\nPublic auth routes are rate limited per IP (e.g. register 5/min): wait a minute between full runs.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "auth",
+      "item": [
+        {
+          "name": "UC-01 Register and verify email",
+          "item": [
+            {
+              "name": "POST /auth/register",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/auth/register",
+                "description": "FR-AUT-001. Creates an unverified USER and queues the verification email.\n\nContract: docs/api/contracts/auth.md",
+                "auth": {
+                  "type": "noauth"
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\",\n  \"confirm_password\": \"{{password}}\",\n  \"display_name\": \"{{displayName}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "// Fresh address on every run so the flow can be repeated.",
+                      "pm.environment.set('email', `user.${Date.now()}@example.com`);"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 201', () => pm.response.to.have.status(201));",
+                      "pm.test('verification requested', () => pm.expect(pm.response.json().status).to.eql('verification_requested'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "POST /auth/register - invalid input (400)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/auth/register",
+                "description": "FR-AUT-001 exception: every invalid field is reported, nothing is created.\n\nContract: docs/api/contracts/auth.md",
+                "auth": {
+                  "type": "noauth"
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"not-an-email\",\n  \"password\": \"short\",\n  \"confirm_password\": \"different\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 400', () => pm.response.to.have.status(400));",
+                      "pm.test('error code AUTH_INVALID_INPUT', () => pm.expect(pm.response.json().detail.code).to.eql('AUTH_INVALID_INPUT'));",
+                      "pm.test('field errors', () => pm.expect(pm.response.json().detail.fields).to.have.keys('email', 'password', 'confirm_password'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "POST /auth/login - not verified yet (403)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/auth/login",
+                "description": "FR-AUT-005: an unverified account cannot sign in.\n\nContract: docs/api/contracts/auth.md",
+                "auth": {
+                  "type": "noauth"
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 403', () => pm.response.to.have.status(403));",
+                      "pm.test('error code AUTH_EMAIL_NOT_VERIFIED', () => pm.expect(pm.response.json().detail.code).to.eql('AUTH_EMAIL_NOT_VERIFIED'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "POST /auth/verification/request (resend)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/auth/verification/request",
+                "description": "UC-01 A1. Issues a new link; older verification links stop working. Same answer for unknown emails.\n\nContract: docs/api/contracts/auth.md",
+                "auth": {
+                  "type": "noauth"
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{email}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 200', () => pm.response.to.have.status(200));",
+                      "pm.test('accepted', () => pm.expect(pm.response.json().status).to.eql('request_accepted'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Mailpit - read newest verification link",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{mailpitUrl}}/api/v1/search?query=to:{{email}}",
+                "description": "Helper for manual testing: stores the newest verification token in {{verifyToken}}. Mailpit UI: http://localhost:8025\n\nContract: docs/api/contracts/auth.md",
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "// The Celery worker sends the email asynchronously.",
+                      "setTimeout(() => {}, 2500);"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const messages = pm.response.json().messages || [];",
+                      "const mail = messages.find((m) => m.Subject === 'Verify your email');",
+                      "pm.test('email arrived in Mailpit', () => pm.expect(mail, 'no email yet - send again').to.exist);",
+                      "if (mail) {",
+                      "  pm.sendRequest(pm.environment.get('mailpitUrl') + '/api/v1/message/' + mail.ID, (err, res) => {",
+                      "    const match = /#token=([A-Za-z0-9_-]+)/.exec(res.json().Text);",
+                      "    pm.test('link token found', () => pm.expect(match).to.not.be.null);",
+                      "    pm.environment.set('verifyToken', match[1]);",
+                      "  });",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "POST /auth/verify",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/auth/verify",
+                "description": "FR-AUT-005. One-time token, valid 24 hours.\n\nContract: docs/api/contracts/auth.md",
+                "auth": {
+                  "type": "noauth"
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"token\": \"{{verifyToken}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 200', () => pm.response.to.have.status(200));",
+                      "pm.test('verified', () => pm.expect(pm.response.json().status).to.eql('verified'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "POST /auth/verify - reused link (400)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/auth/verify",
+                "description": "A used, expired or unknown token is rejected.\n\nContract: docs/api/contracts/auth.md",
+                "auth": {
+                  "type": "noauth"
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"token\": \"{{verifyToken}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 400', () => pm.response.to.have.status(400));",
+                      "pm.test('error code AUTH_INVALID_TOKEN', () => pm.expect(pm.response.json().detail.code).to.eql('AUTH_INVALID_TOKEN'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "POST /auth/register - duplicate email (409)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/auth/register",
+                "description": "FR-AUT-001 exception: the email is already registered.\n\nContract: docs/api/contracts/auth.md",
+                "auth": {
+                  "type": "noauth"
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\",\n  \"confirm_password\": \"{{password}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 409', () => pm.response.to.have.status(409));",
+                      "pm.test('error code AUTH_DUPLICATE_EMAIL', () => pm.expect(pm.response.json().detail.code).to.eql('AUTH_DUPLICATE_EMAIL'));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "UC-02 Sign in and sign out",
+          "item": [
+            {
+              "name": "POST /auth/login - wrong password (401)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/auth/login",
+                "description": "FR-AUT-002: same answer for unknown email and wrong password.\n\nContract: docs/api/contracts/auth.md",
+                "auth": {
+                  "type": "noauth"
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"wrong-password-123\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 401', () => pm.response.to.have.status(401));",
+                      "pm.test('error code AUTH_INVALID_CREDENTIALS', () => pm.expect(pm.response.json().detail.code).to.eql('AUTH_INVALID_CREDENTIALS'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "POST /auth/login",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/auth/login",
+                "description": "FR-AUT-002. Stores {{accessToken}} and {{refreshToken}} for the next requests.\n\nContract: docs/api/contracts/auth.md",
+                "auth": {
+                  "type": "noauth"
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 200', () => pm.response.to.have.status(200));",
+                      "const body = pm.response.json();",
+                      "pm.environment.set('accessToken', body.access_token);",
+                      "pm.environment.set('refreshToken', body.refresh_token);",
+                      "pm.test('bearer tokens', () => pm.expect(pm.response.json().token_type).to.eql('bearer'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "GET /auth/me",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/auth/me",
+                "description": "Current user of the access token (collection Bearer auth).\n\nContract: docs/api/contracts/auth.md"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 200', () => pm.response.to.have.status(200));",
+                      "pm.test('own account', () => pm.expect(pm.response.json().email).to.eql(pm.environment.get('email')));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "POST /auth/refresh",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/auth/refresh",
+                "description": "Rotates the token pair; the old pair stops working.\n\nContract: docs/api/contracts/auth.md",
+                "auth": {
+                  "type": "noauth"
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"token\": \"{{refreshToken}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 200', () => pm.response.to.have.status(200));",
+                      "const body = pm.response.json();",
+                      "pm.environment.set('accessToken', body.access_token);",
+                      "pm.environment.set('refreshToken', body.refresh_token);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "POST /auth/logout",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": "{{baseUrl}}/auth/logout",
+                "description": "FR-AUT-003. Revokes the session and its refresh token. Repeating it is harmless.\n\nContract: docs/api/contracts/auth.md"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 200', () => pm.response.to.have.status(200));",
+                      "pm.test('logged out', () => pm.expect(pm.response.json().status).to.eql('logged_out'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "GET /auth/me - after logout (401)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/auth/me",
+                "description": "FR-AUT-003: the old access token is rejected.\n\nContract: docs/api/contracts/auth.md"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 401', () => pm.response.to.have.status(401));",
+                      "pm.test('error code AUTH_SESSION_INVALID', () => pm.expect(pm.response.json().detail.code).to.eql('AUTH_SESSION_INVALID'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "POST /auth/refresh - after logout (401)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/auth/refresh",
+                "description": "NFR-SEC-001: logout also invalidates the refresh token.\n\nContract: docs/api/contracts/auth.md",
+                "auth": {
+                  "type": "noauth"
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"token\": \"{{refreshToken}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 401', () => pm.response.to.have.status(401));",
+                      "pm.test('error code AUTH_SESSION_INVALID', () => pm.expect(pm.response.json().detail.code).to.eql('AUTH_SESSION_INVALID'));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "UC-12 Password reset",
+          "item": [
+            {
+              "name": "POST /auth/password/forgot",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/auth/password/forgot",
+                "description": "FR-AUT-006. Same answer whether or not the account exists.\n\nContract: docs/api/contracts/auth.md",
+                "auth": {
+                  "type": "noauth"
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{email}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Mailpit - read newest reset link",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{mailpitUrl}}/api/v1/search?query=to:{{email}}",
+                "description": "Helper for manual testing: stores the newest reset token in {{resetToken}}.\n\nContract: docs/api/contracts/auth.md",
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "// The Celery worker sends the email asynchronously.",
+                      "setTimeout(() => {}, 2500);"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const messages = pm.response.json().messages || [];",
+                      "const mail = messages.find((m) => m.Subject === 'Reset your password');",
+                      "pm.test('email arrived in Mailpit', () => pm.expect(mail, 'no email yet - send again').to.exist);",
+                      "if (mail) {",
+                      "  pm.sendRequest(pm.environment.get('mailpitUrl') + '/api/v1/message/' + mail.ID, (err, res) => {",
+                      "    const match = /#token=([A-Za-z0-9_-]+)/.exec(res.json().Text);",
+                      "    pm.test('link token found', () => pm.expect(match).to.not.be.null);",
+                      "    pm.environment.set('resetToken', match[1]);",
+                      "  });",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "POST /auth/password/reset",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/auth/password/reset",
+                "description": "FR-AUT-006. Revokes every session of the user.\n\nContract: docs/api/contracts/auth.md",
+                "auth": {
+                  "type": "noauth"
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"token\": \"{{resetToken}}\",\n  \"new_password\": \"{{newPassword}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "POST /auth/login - with new password",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/auth/login",
+                "description": "Contract: docs/api/contracts/auth.md",
+                "auth": {
+                  "type": "noauth"
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{newPassword}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 200', () => pm.response.to.have.status(200));",
+                      "const body = pm.response.json();",
+                      "pm.environment.set('accessToken', body.access_token);",
+                      "pm.environment.set('refreshToken', body.refresh_token);"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

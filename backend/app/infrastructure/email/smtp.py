@@ -1,12 +1,21 @@
 import smtplib
 import ssl
+from datetime import timedelta
 from email.message import EmailMessage
 from urllib.parse import quote, urlparse
 
 from app.core.config import get_settings
 
 
-def send_auth_link(kind: str, address: str, token: str) -> None:
+def describe_validity(valid_for: timedelta) -> str:
+    minutes = int(valid_for.total_seconds() // 60)
+    if minutes % 60 == 0:
+        hours = minutes // 60
+        return "1 hour" if hours == 1 else f"{hours} hours"
+    return f"{minutes} minutes"
+
+
+def send_auth_link(kind: str, address: str, token: str, valid_for: timedelta) -> None:
     settings = get_settings()
     if kind not in {"verify", "reset"}:
         raise ValueError("Invalid email link kind")
@@ -28,7 +37,7 @@ def send_auth_link(kind: str, address: str, token: str) -> None:
     message["From"] = settings.smtp_sender
     message["To"] = address
     message["Subject"] = subject
-    message.set_content(f"Open this link within 30 minutes:\n{link}\n")
+    message.set_content(f"Open this link within {describe_validity(valid_for)}:\n{link}\n")
     smtp_client: smtplib.SMTP
     if settings.smtp_security == "ssl":
         smtp_client = smtplib.SMTP_SSL(

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AuthApiError, resetPassword } from '../../lib/api';
+import { resetPassword } from '../../services/api';
+import { AuthLayout } from './components/AuthLayout';
 import { tokenFromFragment } from './token';
 export function ResetPasswordPage() {
     const started = useRef(false);
@@ -27,12 +28,10 @@ export function ResetPasswordPage() {
             setStatus('done');
         }
         catch (error) {
-            setStatus(error instanceof AuthApiError && error.status === 400 ? 'invalid' : 'error');
+            setStatus(error.status === 400 ? 'invalid' : 'error');
         }
     }
-    return (<main className="min-h-screen bg-slate-950 text-slate-100 p-8">
-      <section className="mx-auto max-w-md space-y-5 rounded-2xl border border-slate-700 bg-slate-900 p-8">
-        <h1 className="text-2xl font-bold">Reset your password</h1>
+    return (<AuthLayout title="Reset your password">
         {token === undefined ? <p role="status">Checking your link…</p> : !token
             ? <p role="alert">This link is invalid or has expired.</p> : status === 'done'
             ? <p role="status">Password changed. You can now sign in.</p>
@@ -48,7 +47,6 @@ export function ResetPasswordPage() {
               {status === 'error' && <p role="alert">Password reset is temporarily unavailable. Please try again.</p>}
               <button className="rounded bg-indigo-600 px-4 py-2 disabled:opacity-50" type="submit" disabled={status === 'saving' || status === 'invalid' || password !== confirmation}>Save password</button>
             </form>}
-        <Link className="text-indigo-300 underline" to="/">Back to home</Link>
-      </section>
-    </main>);
+        <Link className="text-indigo-300 underline" to="/login">Go to sign in</Link>
+    </AuthLayout>);
 }

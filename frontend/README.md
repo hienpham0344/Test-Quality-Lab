@@ -9,8 +9,7 @@ React with JavaScript / JSX, Vite, React Router, TanStack Query and Tailwind CSS
 - `src/features/`: feature pages, components and feature-specific logic.
 - `src/components/common/`: reusable UI components.
 - `src/components/layout/`: shared header, footer and route layout.
-- `src/services/api.js`: shared API implementation.
-- `src/lib/api.js`: compatibility exports for existing consumers; do not duplicate API logic here.
+- `src/services/api.js`: the only API client (one function per endpoint).
 - `src/hooks/`: shared hooks, including API health state.
 - `src/config/`: public application configuration. Never place secrets here.
 - `src/styles/`: global styles.

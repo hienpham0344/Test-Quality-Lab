@@ -26,9 +26,9 @@ jobs:
         working-directory: backend
       - run: ruff check app tests
         working-directory: backend
-      - run: mypy app/core app/api app/jobs app/modules/auth app/modules/projects app/infrastructure/email
+      - run: mypy app/core app/api app/jobs app/modules/auth app/modules/audit app/modules/projects app/infrastructure/email
         working-directory: backend
-      - run: pytest -q -m 'not live' --cov=app.modules.auth --cov=app.modules.projects --cov=app.infrastructure.email --cov=app.infrastructure.queue --cov=app.jobs --cov-branch --cov-report=term-missing --cov-fail-under=90
+      - run: pytest -q -m 'not live' --cov=app.modules.auth --cov=app.modules.audit --cov=app.modules.projects --cov=app.api --cov=app.core --cov=app.infrastructure.email --cov=app.infrastructure.queue --cov=app.jobs --cov-branch --cov-report=term-missing --cov-fail-under=90
         working-directory: backend
   live-services:
     runs-on: ubuntu-latest

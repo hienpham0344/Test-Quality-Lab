@@ -6,4 +6,6 @@ alembic==1.20.1
 psycopg[binary]==3.3.6
 redis==6.4.0
 celery==5.6.3
+# kombu 5.7 imports packaging in its Redis transport but does not declare it.
+packaging==25.0
 pydantic-settings==2.16.2

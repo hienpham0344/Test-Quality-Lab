@@ -36,7 +36,10 @@ migration contents.
 
 The backend exposes `POST /api/v1/auth/register`, `/auth/verify`, `/auth/login`,
 `/auth/refresh`, `/auth/logout`, `/auth/verification/request`,
-`/auth/password/forgot`, and `/auth/password/reset`. Verification and reset
+`/auth/password/forgot`, `/auth/password/reset` and `GET /auth/me`. The full
+request/response/error contract is `docs/api/contracts/auth.md`; Postman requests
+are in `docs/api/postman/`. Access tokens last 15 minutes, refresh tokens 1 day,
+verification links 24 hours and reset links 30 minutes. Verification and reset
 tokens are accepted in JSON request bodies and stored only as hashes. Mailpit
 receives the links in local Compose. The frontend must read the link fragment
 and POST its token to the matching API route. Password reset revokes every old
@@ -61,11 +64,12 @@ Mailpit uses `SMTP_SECURITY=none` locally. Remote SMTP requires `starttls` or
 `SMTP_USERNAME` and `SMTP_PASSWORD` if the provider requires authentication;
 keep credentials only in the ignored `.env`. Plain remote SMTP is rejected.
 
-Run the Celery `worker` service: password-reset and verification-resend requests
-enqueue a job before any account lookup. They return the same accepted response
+Run the Celery `worker` service: registration, password-reset and verification-resend
+requests enqueue a job; resend and reset do so before any account lookup. They return the same accepted response
 for existing and missing accounts. The worker retries delivery up to three times.
-Registration still reports duplicate verified accounts explicitly; it is not an
-account-enumeration-resistant endpoint.
+Registration still reports duplicate accounts explicitly (409, as SRS 3.15 requires);
+it is not an account-enumeration-resistant endpoint. Login returns the same 401 for an
+unknown email and a wrong password, and spends the same hashing time for both.
 
 Run one `beat` service alongside the worker. At 03:00 UTC daily it removes auth
 tokens and sessions whose expiry is older than seven days. It does not remove users,
@@ -76,7 +80,7 @@ projects, project history, or active credentials.
 Install `backend/requirements-test.txt`, then from `backend` run:
 
 ```bash
-pytest -q -m 'not live' --cov=app.modules.auth --cov=app.modules.projects --cov=app.infrastructure.email --cov=app.infrastructure.queue --cov=app.jobs --cov-branch --cov-fail-under=90
+pytest -q -m 'not live' --cov=app.modules.auth --cov=app.modules.audit --cov=app.modules.projects --cov=app.api --cov=app.core --cov=app.infrastructure.email --cov=app.infrastructure.queue --cov=app.jobs --cov-branch --cov-fail-under=90
 ```
 
 The Auth and Project Quality workflow enforces the coverage gate and runs a

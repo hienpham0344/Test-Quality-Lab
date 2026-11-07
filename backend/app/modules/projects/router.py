@@ -6,8 +6,8 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
 from app.infrastructure.database.session import get_db
+from app.modules.auth.dependencies import current_user
 from app.modules.auth.models import User
-from app.modules.auth.router import current_user
 from app.modules.projects.service import ProjectService
 
 router = APIRouter(prefix="/projects", tags=["projects"])

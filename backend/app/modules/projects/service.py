@@ -4,7 +4,7 @@ import uuid
 
 from sqlalchemy.orm import Session
 
-from app.modules.auth.service import utcnow
+from app.core.clock import utcnow
 from app.modules.projects.models import Project, ProjectHistory
 from app.modules.projects.repository import ProjectRepository
 
