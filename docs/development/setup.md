@@ -60,9 +60,39 @@ After a failed registration email, retrying the same unverified email/password
 resends verification without creating another user or changing the password.
 
 Mailpit uses `SMTP_SECURITY=none` locally. Remote SMTP requires `starttls` or
-`ssl`, a configured `SMTP_SENDER`, and an HTTPS `PUBLIC_APP_URL`. Set both
+`ssl` and a configured `SMTP_SENDER`. `PUBLIC_APP_URL` (the link host inside
+emails) must be HTTPS unless it is `localhost`/`127.0.0.1`. Set both
 `SMTP_USERNAME` and `SMTP_PASSWORD` if the provider requires authentication;
 keep credentials only in the ignored `.env`. Plain remote SMTP is rejected.
+
+#### Sending real email (Gmail)
+
+By default every email goes to Mailpit (http://localhost:8025). To deliver to real inboxes:
+
+1. On the sending Gmail account, enable 2-Step Verification and create an
+   [App password](https://myaccount.google.com/apppasswords). The normal password is rejected.
+2. In `.env`, set `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=587`, `SMTP_SECURITY=starttls`,
+   `SMTP_USERNAME=<account>`, `SMTP_PASSWORD=<app password>` and
+   `SMTP_SENDER=Test Quality Lab <account>` (the sender must be the same account).
+3. Open a new terminal and run `docker compose up -d --force-recreate backend worker beat`.
+4. Check the value the container received: `docker compose exec worker sh -c 'echo $SMTP_HOST:$SMTP_PORT'`
+   must print `smtp.gmail.com:587`.
+
+Docker Compose uses variables already set in your shell in place of `.env` values. If step 4 still
+prints `mailpit:1025`, your terminal holds old values (VS Code adds `.env` values to new terminals when
+`python.terminal.useEnvFile` is `true`; set it to `false`). Open a fresh terminal and recreate again.
+
+The worker log only shows `Retry ... Email delivery unavailable`. To see Gmail's own answer, test the
+login from the worker (prints no secret):
+
+```bash
+docker compose exec -T worker python -c "import os,smtplib,ssl; s=smtplib.SMTP(os.environ['SMTP_HOST'],int(os.environ['SMTP_PORT']),timeout=15); s.starttls(context=ssl.create_default_context()); s.login(os.environ['SMTP_USERNAME'],os.environ['SMTP_PASSWORD']); print('LOGIN OK')"
+```
+
+Common answers: `535 BadCredentials` (not an App password, or the
+wrong account); `534 5.7.9 WebLoginRequired` (Google blocked the sign-in: sign in on the web, approve
+the security alert, retry). The first emails from a new sender often land in Spam. Emails queued while
+delivery was failing may be lost when the worker is recreated; request them again.
 
 Run the Celery `worker` service: registration, password-reset and verification-resend
 requests enqueue a job; resend and reset do so before any account lookup. They return the same accepted response
