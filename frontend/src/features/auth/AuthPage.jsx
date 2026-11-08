@@ -1,0 +1,107 @@
+import { useRef, useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { AuthApiError, forgotPassword, login, register, requestVerification } from '../../services/api'
+import { AuthField, AuthLayout, authButton, authLink } from './AuthLayout'
+
+const screens = {
+  login: { title: 'Sign in', description: 'Access your test projects and experiment results.', submit: 'Sign in', request: login },
+  signup: { title: 'Create an account', description: 'Create a workspace for your Python test experiments.', submit: 'Create account', request: register },
+  forgot: { title: 'Forgot your password?', description: 'Enter the email address you use for Test Quality Lab.', submit: 'Send reset link', request: forgotPassword },
+  resend: { title: 'Resend verification', description: 'Request a new link to verify your email address.', submit: 'Send verification link', request: requestVerification },
+}
+
+function requestError(error, mode) {
+  const status = error instanceof AuthApiError ? error.status : 0
+  if (status === 401 && mode === 'login') return 'Sign-in failed. Check your credentials and make sure your email is verified.'
+  if (status === 422 && mode === 'signup') return 'Unable to create this account. Check your details or sign in if you already registered.'
+  if (status === 422) return 'Check the email address and try again.'
+  if (status === 429) return 'Too many attempts. Wait a moment and try again.'
+  return 'The service is temporarily unavailable. Please try again.'
+}
+
+export function AuthPage({ mode, onSignIn }) {
+  const screen = screens[mode]
+  const isLogin = mode === 'login'
+  const isSignup = mode === 'signup'
+  const navigate = useNavigate()
+  const location = useLocation()
+  const busy = useRef(false)
+  const [errors, setErrors] = useState({})
+  const [message, setMessage] = useState('')
+  const [pending, setPending] = useState(false)
+  const [done, setDone] = useState(false)
+
+  async function submit(event) {
+    event.preventDefault()
+    if (busy.current) return
+    const form = event.currentTarget
+    const data = new FormData(form)
+    const email = String(data.get('email')).trim()
+    const password = String(data.get('password') ?? '')
+    const length = [...password].length
+    const invalid = {}
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 320) invalid.email = 'Enter a valid email address.'
+    if (isLogin && (!length || length > 1024)) invalid.password = 'Enter your password (up to 1024 characters).'
+    if (isSignup && (length < 12 || length > 1024)) invalid.password = 'Use 12 to 1024 characters.'
+    if (isSignup && password !== data.get('confirmation')) invalid.confirmation = 'Passwords do not match.'
+    setErrors(invalid)
+    setMessage('')
+    const firstError = Object.keys(invalid)[0]
+    if (firstError) {
+      form.elements.namedItem(firstError)?.focus()
+      return
+    }
+
+    busy.current = true
+    setPending(true)
+    try {
+      const result = await screen.request(email, password)
+      if (isLogin) {
+        onSignIn(result)
+        navigate('/', { replace: true })
+      } else {
+        form.reset()
+        setDone(true)
+      }
+    } catch (error) {
+      setMessage(requestError(error, mode))
+    } finally {
+      busy.current = false
+      setPending(false)
+    }
+  }
+
+  return (
+    <AuthLayout title={screen.title} description={screen.description}>
+      {isLogin && location.state?.expired && <p role="status" className="text-sm text-amber-200">Your session expired. Sign in again to continue.</p>}
+      {done ? (
+        <div className="space-y-4">
+          <p role="status" className="text-sm leading-6 text-emerald-200">
+            {isSignup ? 'Check your inbox for a verification link before signing in.'
+              : mode === 'forgot' ? 'If an eligible account exists, a password reset link will be sent.'
+                : 'If an eligible account exists, a verification link will be sent.'}
+          </p>
+          <Link to="/login" className={authLink}>Back to sign in</Link>
+        </div>
+      ) : (
+        <form className="space-y-4" onSubmit={submit} noValidate>
+          <AuthField name="email" label="Email address" type="email" autoComplete="email" required error={errors.email} />
+          {(isLogin || isSignup) && <AuthField name="password" label="Password" type="password"
+            autoComplete={isLogin ? 'current-password' : 'new-password'} required
+            hint={isSignup ? 'Use at least 12 characters.' : undefined} error={errors.password} />}
+          {isSignup && <AuthField name="confirmation" label="Confirm password" type="password"
+            autoComplete="new-password" required error={errors.confirmation} />}
+          {message && <p role="alert" className="text-sm text-rose-300">{message}</p>}
+          <button className={authButton} disabled={pending} type="submit">{pending ? 'Please wait…' : screen.submit}</button>
+        </form>
+      )}
+      {isLogin ? (
+        <nav aria-label="Account options" className="flex flex-wrap gap-x-5 gap-y-3 text-sm">
+          <Link className={authLink} to="/signup">Create an account</Link>
+          <Link className={authLink} to="/forgot-password">Forgot password?</Link>
+          <Link className={authLink} to="/resend-verification">Resend verification</Link>
+        </nav>
+      ) : !done && <Link className={authLink} to="/login">Back to sign in</Link>}
+    </AuthLayout>
+  )
+}

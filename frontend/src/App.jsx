@@ -1,7 +1,9 @@
+import { useState } from 'react'
 import AppRoutes from './routes'
 
 export function App() {
-  return <AppRoutes />
+  const [session, setSession] = useState(null)
+  return <AppRoutes session={session} onSignIn={setSession} />
 }
 
 export default App

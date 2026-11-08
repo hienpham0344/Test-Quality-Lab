@@ -23,7 +23,7 @@ export function VerifyEmailPage() {
         started.current = true;
         const token = tokenFromFragment(window.location.hash);
         tokenRef.current = token;
-        window.history.replaceState(null, '', window.location.pathname + window.location.search);
+        window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search);
         if (!token) {
             setStatus('invalid');
             return;
@@ -41,7 +41,10 @@ export function VerifyEmailPage() {
         </p>
         {status === 'unavailable' && <button className="rounded bg-indigo-600 px-4 py-2" onClick={() => { if (tokenRef.current)
         void submitToken(tokenRef.current); }}>Try again</button>}
-        <Link className="text-indigo-300 underline" to="/">Back to home</Link>
+        <div className="flex flex-wrap gap-4">
+          {status === 'invalid' && <Link className="text-indigo-300 underline" to="/resend-verification">Resend verification</Link>}
+          <Link className="text-indigo-300 underline" to="/login">Back to sign in</Link>
+        </div>
       </section>
     </main>);
 }

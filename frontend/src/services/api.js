@@ -18,9 +18,26 @@ async function postAuth(path, payload) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
+        cache: 'no-store',
     });
     if (!response.ok)
         throw new AuthApiError(response.status);
+    return response;
+}
+export async function login(email, password) {
+    const response = await postAuth('login', { email, password })
+    const { access_token: accessToken } = await response.json()
+    if (typeof accessToken !== 'string' || !accessToken) throw new Error('Invalid sign-in response')
+    return { accessToken }
+}
+export function register(email, password) {
+    return postAuth('register', { email, password })
+}
+export function forgotPassword(email) {
+    return postAuth('password/forgot', { email })
+}
+export function requestVerification(email) {
+    return postAuth('verification/request', { email })
 }
 export function verifyEmail(token) {
     return postAuth('verify', { token });
