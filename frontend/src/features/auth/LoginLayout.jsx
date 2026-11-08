@@ -1,5 +1,7 @@
 import { Braces, FlaskConical, ListChecks, ScrollText } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { LoginBackground } from './LoginBackground'
+import './login-motion.css'
 
 const capabilities = [
   { title: 'Python & CSV', detail: 'Import Python functions or CSV datasets.', icon: Braces },
@@ -9,8 +11,10 @@ const capabilities = [
 
 export function LoginLayout({ title, description, children }) {
   return (
-    <main className="min-h-screen bg-[#0f131d] text-[#dfe2f1]">
-      <div className="mx-auto grid min-h-screen max-w-[1440px] items-center gap-10 px-5 py-8 sm:px-10 sm:py-12 lg:grid-cols-[1.3fr_1fr] lg:gap-14">
+    <main className="login-scene relative isolate min-h-screen overflow-hidden bg-[#0f131d] text-[#dfe2f1]">
+      <div className="login-scene-glow pointer-events-none absolute inset-0 -z-10" aria-hidden="true" />
+      <LoginBackground />
+      <div className="relative mx-auto grid min-h-screen max-w-[1440px] items-center gap-8 px-5 py-8 sm:px-8 sm:py-12 md:grid-cols-[1.3fr_1fr] lg:gap-14">
         <aside className="space-y-7">
           <Link to="/" className="inline-flex min-h-11 items-center gap-3 font-mono text-sm uppercase tracking-widest text-indigo-200 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-indigo-300">
             <FlaskConical size={22} aria-hidden="true" /> Test Quality Lab
@@ -19,21 +23,42 @@ export function LoginLayout({ title, description, children }) {
             <p className="max-w-xl text-3xl font-semibold leading-tight tracking-tight sm:text-5xl">Evaluate AI-generated Python tests</p>
             <p className="max-w-lg leading-7 text-[#c7c4d7]">A workspace for experiments that compare how different prompts generate and test Python code.</p>
           </div>
-          <section aria-label="Planned capabilities" className="hidden space-y-3 lg:block">
+          <section aria-label="Planned capabilities" className="hidden space-y-3 md:block">
             <p className="font-mono text-xs uppercase tracking-widest text-sky-300">Planned capabilities</p>
             <ul className="grid grid-cols-3 gap-3">
               {capabilities.map(({ title, detail, icon: Icon }) => (
-                <li key={title} className="rounded-lg border border-[#353944] bg-[#171b26] p-4">
-                  <Icon size={18} aria-hidden="true" className="mb-3 text-sky-300" />
+                <li key={title} className="login-motion-card group min-w-0 rounded-lg border border-[#353944] bg-[#171b26] p-3 lg:p-4">
+                  <Icon size={18} aria-hidden="true" className="mb-3 text-sky-300 motion-safe:transition-transform motion-safe:group-hover:scale-110" />
                   <h2 className="font-semibold">{title}</h2>
                   <p className="mt-1 text-sm leading-5 text-[#c7c4d7]">{detail}</p>
                 </li>
               ))}
             </ul>
+            <div className="login-motion-card login-workflow space-y-3 rounded-lg border border-[#353944] bg-[#171b26] p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="font-mono text-xs uppercase tracking-wider text-sky-300">Experiment workflow</h2>
+                <span className="text-xs text-[#c7c4d7]">Illustrative</span>
+              </div>
+              <svg viewBox="0 0 560 56" preserveAspectRatio="none" aria-hidden="true" className="h-12 w-full rounded bg-[#0a0e18]">
+                <defs>
+                  <linearGradient id="login-trace" x2="100%" y2="0%">
+                    <stop stopColor="#c0c1ff" />
+                    <stop offset="100%" stopColor="#7bd0ff" />
+                  </linearGradient>
+                </defs>
+                <path d="M0 40 L60 36 L100 43 L150 24 L210 28 L265 13 L315 19 L373 8 L425 16 L470 12 L520 27 L560 22"
+                  fill="none" stroke="url(#login-trace)" strokeWidth="2" opacity=".35" />
+                <path className="login-workflow-trace" d="M0 40 L60 36 L100 43 L150 24 L210 28 L265 13 L315 19 L373 8 L425 16 L470 12 L520 27 L560 22"
+                  fill="none" stroke="url(#login-trace)" strokeWidth="2" strokeDasharray="10 4" />
+              </svg>
+              <ol className="grid grid-cols-4 gap-2 text-center font-mono text-xs text-[#c7c4d7]">
+                <li>Import</li><li>Generate</li><li>Evaluate</li><li>Review</li>
+              </ol>
+            </div>
           </section>
         </aside>
-        <section aria-labelledby="login-title" className="relative mx-auto w-full max-w-lg overflow-hidden rounded-xl border border-[#353944] bg-[#1c1f2a] p-6 shadow-xl sm:p-9">
-          <div aria-hidden="true" className="absolute inset-x-0 top-0 h-1 bg-linear-to-r from-indigo-300 to-sky-300" />
+        <section aria-labelledby="login-title" className="login-motion-card login-form-card relative mx-auto w-full max-w-lg overflow-hidden rounded-xl border border-[#353944] bg-[#1c1f2a] p-6 shadow-xl sm:p-9">
+          <div aria-hidden="true" className="login-card-accent absolute inset-x-0 top-0 h-1 bg-linear-to-r from-indigo-300 via-sky-300 to-indigo-400" />
           <header className="mb-7 space-y-2">
             <h1 id="login-title" className="text-3xl font-semibold tracking-tight">{title}</h1>
             <p className="text-sm leading-6 text-[#c7c4d7]">{description}</p>
