@@ -99,8 +99,7 @@ export function AuthPage({ mode, onSignIn }) {
           {!usesLoginShell && <Link to="/login" className={authLink}>Back to sign in</Link>}
         </div>
       ) : (
-        <form className={isSignup || isForgot ? 'space-y-4 [&_label]:font-mono [&_label]:text-xs [&_label]:uppercase [&_label]:tracking-wide [&_label]:text-slate-300' : 'space-y-4'}
-          onSubmit={submit} noValidate>
+        <form className="space-y-4" onSubmit={submit} noValidate>
           <AuthField name="email" label="Email address" type="email" autoComplete="email" required
             error={errors.email} icon={usesLoginShell ? Mail : undefined}
             placeholder={usesLoginShell ? 'engineer@example.com' : undefined}
