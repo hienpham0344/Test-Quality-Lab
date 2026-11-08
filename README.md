@@ -28,10 +28,10 @@ docker compose exec backend alembic upgrade head
 - Mailpit: http://localhost:8025
 
 The app includes email verification and password-reset screens, auth/session
-APIs, and owner-scoped project metadata/history APIs. Full auth and project
-management screens, imports, prompting, test generation, execution and evaluation
-remain pending. **Do not upload real secrets or untrusted code**; untrusted Python
-execution remains disabled.
+APIs, owner-scoped project metadata/history APIs, and owner-scoped Python source
+ingestion/versioning with static AST inspection. Full auth and project management
+screens, CSV imports, prompting, test generation, execution and evaluation remain
+pending. **Do not upload real secrets**; untrusted Python execution remains disabled.
 
 ## Run tests
 
