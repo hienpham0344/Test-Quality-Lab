@@ -22,7 +22,7 @@ export function LoginLayout({ title, description, children }) {
           </Link>
           <div className="space-y-4">
             <p className="max-w-xl text-3xl font-semibold leading-tight tracking-tight sm:text-5xl">Evaluate AI-generated Python tests</p>
-            <p className="max-w-lg leading-7 text-[#c7c4d7]">A workspace for experiments that compare how different prompts generate and test Python code.</p>
+            <p className="leading-7 text-[#c7c4d7]">Compare Python tests generated with different prompts.</p>
           </div>
           <section aria-label="Planned capabilities" className="hidden space-y-3 md:block">
             <p className="font-mono text-xs uppercase tracking-widest text-sky-300">Planned capabilities</p>

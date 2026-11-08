@@ -3,10 +3,10 @@ import { Pause, Play } from 'lucide-react'
 
 const trace = 'M0 50 L40 48 L80 55 L120 40 L160 42 L200 28 L240 32 L280 18 L320 24 L360 12 L400 16 L440 26 L480 20 L520 38 L560 32 L600 44'
 const stages = [
-  { label: 'Import', x: 80, y: 55, color: '#7bd0ff' },
+  { label: 'Import', x: 80, y: 55, color: '#7bd0ff', labelOffset: '-translate-y-1.5' },
   { label: 'Generate', x: 200, y: 28, color: '#c0c1ff' },
-  { label: 'Evaluate', x: 360, y: 12, color: '#7bd0ff' },
-  { label: 'Review', x: 520, y: 38, color: '#00a6e0' },
+  { label: 'Evaluate', x: 360, y: 12, color: '#7bd0ff', labelOffset: '-translate-y-4' },
+  { label: 'Review', x: 520, y: 38, color: '#00a6e0', labelOffset: 'translate-y-2.5' },
 ]
 
 export function ExperimentWorkflow() {
@@ -57,8 +57,8 @@ export function ExperimentWorkflow() {
           ))}
         </svg>
         <ol className="pointer-events-none absolute inset-x-1 top-1/2 grid grid-cols-4 gap-1 text-center font-mono text-[10px] uppercase text-[#dfe2f1] lg:inset-x-3 lg:text-xs">
-          {stages.map(({ label }, index) => (
-            <li key={label}><span className="rounded bg-[#0a0e18]/90 px-1 py-0.5 lg:px-2"><span className="hidden xl:inline">0{index + 1} · </span>{label}</span></li>
+          {stages.map(({ label, labelOffset }, index) => (
+            <li key={label} className={labelOffset}><span className="rounded bg-[#0a0e18]/90 px-1 py-0.5 lg:px-2"><span className="hidden xl:inline">0{index + 1} · </span>{label}</span></li>
           ))}
         </ol>
       </div>

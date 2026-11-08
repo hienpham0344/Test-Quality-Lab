@@ -40,6 +40,8 @@
     animation: login-workflow-pulse 2s ease-out infinite;
   }
 
+  .login-workflow-beacon { animation-duration: 1s; }
+
   .login-workflow-node { animation-delay: 200ms; }
   .login-workflow g:nth-of-type(2) .login-workflow-node { animation-delay: 500ms; }
   .login-workflow g:nth-of-type(3) .login-workflow-node { animation-delay: 800ms; }
