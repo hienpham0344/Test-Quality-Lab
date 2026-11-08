@@ -4,7 +4,8 @@
 |---|---|---|
 | Authentication (AUT) | backend/app/modules/auth, frontend/src/features/auth | UC-01, UC-02 and UC-12 screens; protected projects, logout, and expired-session recovery with frontend tests |
 | Projects (PRJ) | backend/app/modules/projects, frontend/src/features/projects | FR-PRJ-001/002 and UC-03 implemented: owner-scoped project CRUD and history backend, dashboard and editor screens with loading, empty and error states; experiment listing pending |
-| Input Python/CSV (PYS/CSV) | sources/datasets | Not implemented |
+| Python input (FR-PYS-001/002/003/004) | backend/app/modules/sources | Upload/paste, immutable SHA-256 versions, AST function discovery and static policy checks implemented (#23/#24); execution disabled |
+| CSV input (CSV) | datasets | Not implemented |
 | Experiments (EXP) | experiments | Not implemented |
 | AI provider and prompts (AIC/PRM) | ai_config/prompts | Not implemented |
 | Generation/execution/evaluation (GEN/EXE/EVL) | generation/execution/evaluation | Not implemented |
