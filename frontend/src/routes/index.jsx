@@ -1,5 +1,6 @@
 import { Navigate, Routes, Route } from 'react-router-dom'
 import { MainLayout } from '../components/layout'
+import { LoginLayout } from '../components/login/LoginLayout'
 import { HomePage } from '../features/home/HomePage'
 import { AuthPage } from '../features/auth/AuthPage'
 import { RequireSession } from '../components/auth/RequireSession'
@@ -16,11 +17,13 @@ export default function AppRoutes({ session, expired, logoutNotice, signingOut, 
           <Route path="/projects" element={<ProjectsPage session={session} onExpire={onExpire} />} />
         </Route>
       </Route>
-      <Route path="/login" element={session
-        ? <Navigate to="/projects" replace />
-        : <AuthPage key="login" mode="login" onSignIn={onSignIn} />} />
-      <Route path="/signup" element={<AuthPage key="signup" mode="signup" />} />
-      <Route path="/forgot-password" element={<AuthPage key="forgot" mode="forgot" />} />
+      <Route element={<LoginLayout />}>
+        <Route path="/login" element={session
+          ? <Navigate to="/projects" replace />
+          : <AuthPage key="login" mode="login" onSignIn={onSignIn} />} />
+        <Route path="/signup" element={<AuthPage key="signup" mode="signup" />} />
+        <Route path="/forgot-password" element={<AuthPage key="forgot" mode="forgot" />} />
+      </Route>
       <Route path="/resend-verification" element={<AuthPage key="resend" mode="resend" />} />
       <Route path="/verify-email" element={<VerifyEmailPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />

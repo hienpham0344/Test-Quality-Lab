@@ -45,6 +45,23 @@ async function submit(fields) {
 }
 
 describe('authentication forms', () => {
+  it.each([
+    ['/forgot-password', 'Forgot your password?'],
+    ['/signup', 'Create an account'],
+  ])('replaces only the form when navigating to %s', async (path, title) => {
+    await open('/login')
+    const workflow = container.querySelector('.login-workflow')
+    expect(workflow).not.toBeNull()
+
+    await act(async () => container.querySelector(`a[href="${path}"]`).click())
+    expect(container.querySelector('h1').textContent).toBe(title)
+    expect(container.querySelector('.login-workflow')).toBe(workflow)
+
+    await act(async () => container.querySelector('a[href="/login"]').click())
+    expect(container.querySelector('h1').textContent).toBe('Sign in')
+    expect(container.querySelector('.login-workflow')).toBe(workflow)
+  })
+
   it('focuses an invalid signup field and does not send the request', async () => {
     await open('/signup')
     await submit({ email: 'invalid', password: 'short', confirmation: 'different' })

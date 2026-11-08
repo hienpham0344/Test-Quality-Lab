@@ -1,14 +1,14 @@
 import { useRef, useState } from 'react'
-import { ArrowRight, Eye, EyeOff, LockKeyhole, Mail } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Eye, EyeOff, LockKeyhole, Mail, ShieldCheck } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { AuthApiError, forgotPassword, login, register, requestVerification } from '../../services/api'
 import { AuthField, AuthLayout, authButton, authLink } from '../../components/auth/AuthLayout'
-import { LoginLayout } from '../../components/login/LoginLayout'
+import { AuthPanel } from '../../components/login/LoginLayout'
 
 const screens = {
   login: { title: 'Sign in', description: 'Access your test projects and experiment results.', submit: 'Sign in', request: login },
   signup: { title: 'Create an account', description: 'Create a workspace for your Python test experiments.', submit: 'Create account', request: register },
-  forgot: { title: 'Forgot your password?', description: 'Enter the email address you use for Test Quality Lab.', submit: 'Send reset link', request: forgotPassword },
+  forgot: { title: 'Forgot your password?', description: 'Enter your registered email address and we’ll send you instructions to reset your password.', submit: 'Send reset link', request: forgotPassword },
   resend: { title: 'Resend verification', description: 'Request a new link to verify your email address.', submit: 'Send verification link', request: requestVerification },
 }
 
@@ -25,7 +25,9 @@ export function AuthPage({ mode, onSignIn }) {
   const screen = screens[mode]
   const isLogin = mode === 'login'
   const isSignup = mode === 'signup'
-  const Layout = isLogin ? LoginLayout : AuthLayout
+  const isForgot = mode === 'forgot'
+  const usesLoginShell = isLogin || isSignup || isForgot
+  const Layout = usesLoginShell ? AuthPanel : AuthLayout
   const navigate = useNavigate()
   const location = useLocation()
   const busy = useRef(false)
@@ -80,7 +82,8 @@ export function AuthPage({ mode, onSignIn }) {
   }
 
   return (
-    <Layout title={screen.title} description={screen.description}>
+    <Layout title={screen.title} description={screen.description}
+      badge={isForgot ? 'Account recovery' : isSignup ? 'Account registration' : undefined}>
       {isLogin && location.state?.expired && <p role="status" className="text-sm text-amber-200">Your session expired. Sign in again to continue.</p>}
       {isLogin && location.state?.returnTo && !location.state.expired && <p role="status" className="text-sm text-indigo-200">Sign in to open your projects.</p>}
       {isLogin && location.state?.logoutUnconfirmed && <p role="alert" className="text-sm text-amber-200">You signed out of this tab, but the server could not confirm sign-out.</p>}
@@ -92,11 +95,17 @@ export function AuthPage({ mode, onSignIn }) {
               : mode === 'forgot' ? 'If an eligible account exists, a password reset link will be sent.'
                 : 'If an eligible account exists, a verification link will be sent.'}
           </p>
-          <Link to="/login" className={authLink}>Back to sign in</Link>
+          {!usesLoginShell && <Link to="/login" className={authLink}>Back to sign in</Link>}
         </div>
       ) : (
         <form className="space-y-4" onSubmit={submit} noValidate>
-          <AuthField name="email" label="Email address" type="email" autoComplete="email" required error={errors.email} icon={isLogin ? Mail : undefined} />
+          <AuthField name="email" label="Email address" type="email" autoComplete="email" required
+            error={errors.email} icon={usesLoginShell ? Mail : undefined}
+            placeholder={isForgot ? 'engineer@example.com' : undefined}
+            hint={isForgot && <span className="inline-flex items-center gap-2">
+              <ShieldCheck size={16} aria-hidden="true" className="shrink-0 text-indigo-300" />
+              Reset links expire after 30 minutes.
+            </span>} />
           {(isLogin || isSignup) && <AuthField name="password" label="Password" type={showPassword ? 'text' : 'password'}
             autoComplete={isLogin ? 'current-password' : 'new-password'} required
             icon={isLogin ? LockKeyhole : undefined}
@@ -112,9 +121,11 @@ export function AuthPage({ mode, onSignIn }) {
           {isSignup && <AuthField name="confirmation" label="Confirm password" type="password"
             autoComplete="new-password" required error={errors.confirmation} />}
           {message && <p role="alert" className="text-sm text-rose-300">{message}</p>}
-          <button className={authButton + (isLogin ? ' inline-flex items-center justify-center gap-2' : '')} disabled={pending} type="submit">
+          <button className={isForgot || isSignup
+            ? 'inline-flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-linear-to-r from-indigo-500 to-indigo-700 px-4 py-3 font-semibold text-white shadow-lg shadow-indigo-600/20 hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-indigo-300 disabled:cursor-not-allowed disabled:opacity-60'
+            : authButton + (isLogin ? ' inline-flex items-center justify-center gap-2' : '')} disabled={pending} type="submit">
             {pending ? 'Please wait…' : screen.submit}
-            {isLogin && !pending && <ArrowRight size={18} aria-hidden="true" />}
+            {usesLoginShell && !pending && <ArrowRight size={18} aria-hidden="true" />}
           </button>
         </form>
       )}
@@ -126,6 +137,12 @@ export function AuthPage({ mode, onSignIn }) {
           </p>
           <Link className="whitespace-nowrap text-[#a7a5b6] hover:text-indigo-100 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-indigo-300"
             to="/resend-verification">Resend verification email</Link>
+        </nav>
+      ) : usesLoginShell ? (
+        <nav aria-label="Account options" className="border-t border-slate-700/50 pt-4">
+          <Link className={authLink + ' inline-flex min-h-10 items-center gap-2 text-sm'} to="/login">
+            <ArrowLeft size={16} aria-hidden="true" /> Back to sign in
+          </Link>
         </nav>
       ) : !done && <Link className={authLink} to="/login">Back to sign in</Link>}
     </Layout>
