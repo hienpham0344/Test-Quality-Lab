@@ -7,7 +7,7 @@ import { AuthPanel } from '../../components/login/LoginLayout'
 
 const screens = {
   login: { title: 'Sign in', description: 'Access your test projects and experiment results.', submit: 'Sign in', request: login },
-  signup: { title: 'Create an account', description: 'Create a workspace for your Python test experiments.', submit: 'Create account', request: register },
+  signup: { title: 'Create an account', description: 'Register to access your Python test projects and experiments.', submit: 'Create account', request: register },
   forgot: { title: 'Forgot your password?', description: 'Enter your registered email address and we’ll send you instructions to reset your password.', submit: 'Send reset link', request: forgotPassword },
   resend: { title: 'Resend verification', description: 'Request a new link to verify your email address.', submit: 'Send verification link', request: requestVerification },
 }
@@ -25,6 +25,7 @@ export function AuthPage({ mode, onSignIn }) {
   const screen = screens[mode]
   const isLogin = mode === 'login'
   const isSignup = mode === 'signup'
+  const hasPassword = isLogin || isSignup
   const isForgot = mode === 'forgot'
   const usesLoginShell = isLogin || isSignup || isForgot
   const Layout = usesLoginShell ? AuthPanel : AuthLayout
@@ -82,7 +83,7 @@ export function AuthPage({ mode, onSignIn }) {
   }
 
   return (
-    <Layout title={screen.title} description={screen.description}
+    <Layout title={screen.title} description={screen.description} centered={isSignup}
       badge={isForgot ? 'Account recovery' : isSignup ? 'Account registration' : undefined}>
       {isLogin && location.state?.expired && <p role="status" className="text-sm text-amber-200">Your session expired. Sign in again to continue.</p>}
       {isLogin && location.state?.returnTo && !location.state.expired && <p role="status" className="text-sm text-indigo-200">Sign in to open your projects.</p>}
@@ -98,31 +99,34 @@ export function AuthPage({ mode, onSignIn }) {
           {!usesLoginShell && <Link to="/login" className={authLink}>Back to sign in</Link>}
         </div>
       ) : (
-        <form className="space-y-4" onSubmit={submit} noValidate>
+        <form className={isSignup ? 'space-y-4 [&_label]:font-mono [&_label]:text-xs [&_label]:uppercase [&_label]:tracking-wide [&_label]:text-slate-300' : 'space-y-4'}
+          onSubmit={submit} noValidate>
           <AuthField name="email" label="Email address" type="email" autoComplete="email" required
             error={errors.email} icon={usesLoginShell ? Mail : undefined}
-            placeholder={isForgot ? 'engineer@example.com' : undefined}
+            placeholder={isForgot || isSignup ? 'engineer@example.com' : undefined}
             hint={isForgot && <span className="inline-flex items-center gap-2">
               <ShieldCheck size={16} aria-hidden="true" className="shrink-0 text-indigo-300" />
               Reset links expire after 30 minutes.
             </span>} />
-          {(isLogin || isSignup) && <AuthField name="password" label="Password" type={showPassword ? 'text' : 'password'}
+          {hasPassword && <AuthField name="password" label="Password" type={showPassword ? 'text' : 'password'}
             autoComplete={isLogin ? 'current-password' : 'new-password'} required
-            icon={isLogin ? LockKeyhole : undefined}
+            icon={LockKeyhole}
             labelAction={isLogin && <Link className={authLink + ' text-sm'} to="/forgot-password">Forgot password?</Link>}
-            action={isLogin && (
+            action={(
               <button type="button" aria-label={showPassword ? 'Hide password' : 'Show password'}
                 onClick={() => setShowPassword((visible) => !visible)}
                 className="absolute inset-y-0 right-0 grid w-11 cursor-pointer place-items-center rounded-r-lg text-slate-300 hover:text-white focus-visible:outline-2 focus-visible:outline-indigo-300">
                 {showPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
               </button>
             )}
-            hint={isSignup ? 'Use at least 12 characters.' : undefined} error={errors.password} />}
+            hint={isSignup ? 'Use 12 to 1024 characters.' : undefined} error={errors.password} />}
           {isSignup && <AuthField name="confirmation" label="Confirm password" type="password"
-            autoComplete="new-password" required error={errors.confirmation} />}
+            autoComplete="new-password" required icon={LockKeyhole} error={errors.confirmation} />}
+          {isSignup && <p className="text-sm leading-6 text-slate-300">Verify your email after registration to sign in.</p>}
           {message && <p role="alert" className="text-sm text-rose-300">{message}</p>}
           <button className={isForgot || isSignup
-            ? 'inline-flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-linear-to-r from-indigo-500 to-indigo-700 px-4 py-3 font-semibold text-white shadow-lg shadow-indigo-600/20 hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-indigo-300 disabled:cursor-not-allowed disabled:opacity-60'
+            ? 'inline-flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-linear-to-r px-4 py-3 font-semibold shadow-lg shadow-indigo-600/20 hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-indigo-300 disabled:cursor-not-allowed disabled:opacity-60 ' +
+              (isSignup ? 'from-indigo-300 to-sky-400 font-mono text-sm uppercase tracking-wide text-slate-950' : 'from-indigo-500 to-indigo-700 text-white')
             : authButton + (isLogin ? ' inline-flex items-center justify-center gap-2' : '')} disabled={pending} type="submit">
             {pending ? 'Please wait…' : screen.submit}
             {usesLoginShell && !pending && <ArrowRight size={18} aria-hidden="true" />}
@@ -138,6 +142,10 @@ export function AuthPage({ mode, onSignIn }) {
           <Link className="whitespace-nowrap text-[#a7a5b6] hover:text-indigo-100 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-indigo-300"
             to="/resend-verification">Resend verification email</Link>
         </nav>
+      ) : isSignup ? (
+        <p className="text-center text-sm text-slate-300">
+          Already have an account?{' '}<Link className={authLink} to="/login">Sign in</Link>
+        </p>
       ) : usesLoginShell ? (
         <nav aria-label="Account options" className="border-t border-slate-700/50 pt-4">
           <Link className={authLink + ' inline-flex min-h-10 items-center gap-2 text-sm'} to="/login">

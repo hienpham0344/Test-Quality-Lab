@@ -44,14 +44,15 @@ export function LoginLayout() {
   )
 }
 
-export function AuthPanel({ title, description, badge, children }) {
+export function AuthPanel({ title, description, badge, centered = false, children }) {
   return (
     <section aria-labelledby="login-title"
       className={`login-motion-card login-form-card relative mx-auto w-full max-w-lg overflow-hidden rounded-2xl border p-6 shadow-xl sm:p-9 ${badge ? 'border-slate-700/60 bg-[#111625]' : 'border-[#353944] bg-[#1c1f2a]'}`}>
-      {!badge && <div aria-hidden="true" className="login-card-accent absolute inset-x-0 top-0 h-1 bg-linear-to-r from-indigo-300 via-sky-300 to-indigo-400" />}
-      <header className="mb-7 space-y-2">
-        {badge && <p className="mb-4 inline-flex items-center gap-2 rounded-md border border-indigo-400/20 bg-indigo-400/10 px-2.5 py-1 font-mono text-xs uppercase tracking-wide text-indigo-200">
-          <LockKeyhole size={13} aria-hidden="true" />{badge}
+      {(!badge || centered) && <div aria-hidden="true" className="login-card-accent absolute inset-x-0 top-0 h-1 bg-linear-to-r from-indigo-300 via-sky-300 to-indigo-400" />}
+      <header className={`mb-7 space-y-2 ${centered ? 'text-center' : ''}`}>
+        {badge && <p className={`mb-4 inline-flex items-center gap-2 border px-2.5 py-1 font-mono text-xs uppercase tracking-wide ${centered ? 'rounded-full border-sky-400/20 bg-sky-400/10 text-sky-200' : 'rounded-md border-indigo-400/20 bg-indigo-400/10 text-indigo-200'}`}>
+          {centered ? <span aria-hidden="true" className="size-1.5 rounded-full bg-sky-300" /> : <LockKeyhole size={13} aria-hidden="true" />}
+          {badge}
         </p>}
         <h1 id="login-title" className="text-3xl font-semibold tracking-tight">{title}</h1>
         <p className="text-sm leading-6 text-[#c7c4d7]">{description}</p>
