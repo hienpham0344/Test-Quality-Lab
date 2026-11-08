@@ -23,14 +23,21 @@ export function AuthLayout({ title, description, children }) {
   )
 }
 
-export function AuthField({ name, label, error, hint, ...props }) {
+export function AuthField({ name, label, error, hint, icon: Icon, action, labelAction, ...props }) {
   const description = [hint && name + '-hint', error && name + '-error'].filter(Boolean).join(' ')
   return (
     <div className="space-y-1.5">
-      <label className="block text-sm font-medium" htmlFor={name}>{label}</label>
-      <input id={name} name={name} aria-invalid={Boolean(error)} aria-describedby={description || undefined}
-        className="min-h-11 w-full rounded-lg border border-slate-600 bg-slate-950 px-3 py-2 text-base focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-300 aria-invalid:border-rose-400"
-        {...props} />
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+        <label className="block text-sm font-medium" htmlFor={name}>{label}</label>
+        {labelAction}
+      </div>
+      <div className="relative">
+        {Icon && <Icon size={18} aria-hidden="true" className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-slate-400" />}
+        <input id={name} name={name} aria-invalid={Boolean(error)} aria-describedby={description || undefined}
+          className={`min-h-11 w-full rounded-lg border border-slate-600 bg-slate-950 px-3 py-2 text-base focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-300 aria-invalid:border-rose-400 ${Icon ? 'pl-10' : ''} ${action ? 'pr-12' : ''}`}
+          {...props} />
+        {action}
+      </div>
       {hint && <p id={name + '-hint'} className="text-sm text-slate-300">{hint}</p>}
       {error && <p id={name + '-error'} className="text-sm text-rose-300">{error}</p>}
     </div>

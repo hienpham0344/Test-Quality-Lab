@@ -1,7 +1,9 @@
 import { useRef, useState } from 'react'
+import { ArrowRight, Eye, EyeOff, LockKeyhole, Mail } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { AuthApiError, forgotPassword, login, register, requestVerification } from '../../services/api'
 import { AuthField, AuthLayout, authButton, authLink } from './AuthLayout'
+import { LoginLayout } from './LoginLayout'
 
 const screens = {
   login: { title: 'Sign in', description: 'Access your test projects and experiment results.', submit: 'Sign in', request: login },
@@ -23,6 +25,7 @@ export function AuthPage({ mode, onSignIn }) {
   const screen = screens[mode]
   const isLogin = mode === 'login'
   const isSignup = mode === 'signup'
+  const Layout = isLogin ? LoginLayout : AuthLayout
   const navigate = useNavigate()
   const location = useLocation()
   const busy = useRef(false)
@@ -30,6 +33,7 @@ export function AuthPage({ mode, onSignIn }) {
   const [message, setMessage] = useState('')
   const [pending, setPending] = useState(false)
   const [done, setDone] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
   async function submit(event) {
     event.preventDefault()
@@ -76,7 +80,7 @@ export function AuthPage({ mode, onSignIn }) {
   }
 
   return (
-    <AuthLayout title={screen.title} description={screen.description}>
+    <Layout title={screen.title} description={screen.description}>
       {isLogin && location.state?.expired && <p role="status" className="text-sm text-amber-200">Your session expired. Sign in again to continue.</p>}
       {isLogin && location.state?.returnTo && !location.state.expired && <p role="status" className="text-sm text-indigo-200">Sign in to open your projects.</p>}
       {isLogin && location.state?.logoutUnconfirmed && <p role="alert" className="text-sm text-amber-200">You signed out of this tab, but the server could not confirm sign-out.</p>}
@@ -92,23 +96,34 @@ export function AuthPage({ mode, onSignIn }) {
         </div>
       ) : (
         <form className="space-y-4" onSubmit={submit} noValidate>
-          <AuthField name="email" label="Email address" type="email" autoComplete="email" required error={errors.email} />
-          {(isLogin || isSignup) && <AuthField name="password" label="Password" type="password"
+          <AuthField name="email" label="Email address" type="email" autoComplete="email" required error={errors.email} icon={isLogin ? Mail : undefined} />
+          {(isLogin || isSignup) && <AuthField name="password" label="Password" type={showPassword ? 'text' : 'password'}
             autoComplete={isLogin ? 'current-password' : 'new-password'} required
+            icon={isLogin ? LockKeyhole : undefined}
+            labelAction={isLogin && <Link className={authLink + ' text-sm'} to="/forgot-password">Forgot password?</Link>}
+            action={isLogin && (
+              <button type="button" aria-label={showPassword ? 'Hide password' : 'Show password'}
+                onClick={() => setShowPassword((visible) => !visible)}
+                className="absolute inset-y-0 right-0 grid w-11 cursor-pointer place-items-center rounded-r-lg text-slate-300 hover:text-white focus-visible:outline-2 focus-visible:outline-indigo-300">
+                {showPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
+              </button>
+            )}
             hint={isSignup ? 'Use at least 12 characters.' : undefined} error={errors.password} />}
           {isSignup && <AuthField name="confirmation" label="Confirm password" type="password"
             autoComplete="new-password" required error={errors.confirmation} />}
           {message && <p role="alert" className="text-sm text-rose-300">{message}</p>}
-          <button className={authButton} disabled={pending} type="submit">{pending ? 'Please wait…' : screen.submit}</button>
+          <button className={authButton + (isLogin ? ' inline-flex items-center justify-center gap-2' : '')} disabled={pending} type="submit">
+            {pending ? 'Please wait…' : screen.submit}
+            {isLogin && !pending && <ArrowRight size={18} aria-hidden="true" />}
+          </button>
         </form>
       )}
       {isLogin ? (
-        <nav aria-label="Account options" className="flex flex-wrap gap-x-5 gap-y-3 text-sm">
+        <nav aria-label="Account options" className="flex flex-wrap gap-x-5 gap-y-3 border-t border-[#353944] pt-5 text-sm">
           <Link className={authLink} to="/signup">Create an account</Link>
-          <Link className={authLink} to="/forgot-password">Forgot password?</Link>
           <Link className={authLink} to="/resend-verification">Resend verification</Link>
         </nav>
       ) : !done && <Link className={authLink} to="/login">Back to sign in</Link>}
-    </AuthLayout>
+    </Layout>
   )
 }
