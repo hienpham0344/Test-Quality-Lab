@@ -3,7 +3,7 @@ import { act, StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { App } from '../../App';
+import { App } from '../../src/App';
 let container;
 let root;
 let requests;

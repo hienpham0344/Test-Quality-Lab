@@ -1,7 +1,7 @@
 import { useApiHealth } from '../../hooks'
 import { APP_CONFIG } from '../../config'
-import HeroBanner from './components/HeroBanner'
-import PlannedModuleCard from './components/PlannedModuleCard'
+import HeroBanner from '../../components/home/HeroBanner'
+import PlannedModuleCard from '../../components/home/PlannedModuleCard'
 
 export function HomePage() {
   const { statusText } = useApiHealth()

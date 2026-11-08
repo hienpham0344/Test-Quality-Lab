@@ -6,7 +6,9 @@ React with JavaScript / JSX, Vite, React Router, TanStack Query and Tailwind CSS
 
 - `src/main.jsx`: application bootstrap and providers.
 - `src/App.jsx` and `src/routes/`: application routes.
-- `src/features/`: feature pages, components and feature-specific logic.
+- `src/features/`: page components grouped by feature.
+- `src/components/<page>/`: components and assets used by a page, such as `login/` and `home/`.
+- `src/components/auth/`: layouts and guards shared by authentication pages.
 - `src/components/common/`: reusable UI components.
 - `src/components/layout/`: shared header, footer and route layout.
 - `src/services/api.js`: shared API implementation.
@@ -14,9 +16,9 @@ React with JavaScript / JSX, Vite, React Router, TanStack Query and Tailwind CSS
 - `src/hooks/`: shared hooks, including API health state.
 - `src/config/`: public application configuration. Never place secrets here.
 - `src/styles/`: global styles.
+- `tests/`: page and flow tests grouped by feature.
 
-Keep logic used by only one feature inside that feature. The `@/` alias resolves
-to `src/` in Vite and editor configuration.
+The `@/` alias resolves to `src/` in Vite and editor configuration.
 
 ## Checks
 
