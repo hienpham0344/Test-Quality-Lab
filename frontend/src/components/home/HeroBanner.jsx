@@ -1,6 +1,6 @@
 import { Activity, ShieldCheck } from 'lucide-react'
-import { Card } from '../../../components/common'
-import { APP_CONFIG } from '../../../config'
+import { Card } from '../common'
+import { APP_CONFIG } from '../../config'
 
 export default function HeroBanner({ apiStatus }) {
   return (

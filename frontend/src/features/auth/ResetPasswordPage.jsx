@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AuthApiError, resetPassword } from '../../services/api'
-import { AuthField, AuthLayout, authButton, authLink } from './AuthLayout'
-import { tokenFromFragment } from './token'
+import { AuthField, AuthLayout, authButton, authLink } from '../../components/auth/AuthLayout'
+import { tokenFromFragment } from '../../lib/auth-token'
 
 export function ResetPasswordPage() {
   const started = useRef(false)

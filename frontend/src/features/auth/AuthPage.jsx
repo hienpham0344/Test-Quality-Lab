@@ -2,8 +2,8 @@ import { useRef, useState } from 'react'
 import { ArrowRight, Eye, EyeOff, LockKeyhole, Mail } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { AuthApiError, forgotPassword, login, register, requestVerification } from '../../services/api'
-import { AuthField, AuthLayout, authButton, authLink } from './AuthLayout'
-import { LoginLayout } from './LoginLayout'
+import { AuthField, AuthLayout, authButton, authLink } from '../../components/auth/AuthLayout'
+import { LoginLayout } from '../../components/login/LoginLayout'
 
 const screens = {
   login: { title: 'Sign in', description: 'Access your test projects and experiment results.', submit: 'Sign in', request: login },

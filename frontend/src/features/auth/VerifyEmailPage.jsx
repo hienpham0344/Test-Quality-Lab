@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AuthApiError, verifyEmail } from '../../lib/api';
-import { tokenFromFragment } from './token';
+import { tokenFromFragment } from '../../lib/auth-token';
 export function VerifyEmailPage() {
     const started = useRef(false);
     const tokenRef = useRef(null);
