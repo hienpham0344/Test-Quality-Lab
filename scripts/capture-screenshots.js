@@ -126,7 +126,7 @@ async function startViteAndCapture() {
         ready = true;
         break;
       }
-    } catch {}
+    } catch { }
     await delay(500);
   }
 
@@ -165,7 +165,7 @@ async function startViteAndCapture() {
         wsUrl = pageTarget.webSocketDebuggerUrl;
         break;
       }
-    } catch {}
+    } catch { }
     await delay(500);
   }
 
@@ -291,7 +291,7 @@ async function startViteAndCapture() {
     cleanup(viteProcess, chromeProcess);
     try {
       fs.rmSync(tmpProfile, { recursive: true, force: true });
-    } catch {}
+    } catch { }
     mockServer.close(() => {
       console.log('Mock server stopped. Done!');
       process.exit(0);
@@ -303,11 +303,11 @@ function cleanup(viteProcess, chromeProcess) {
   if (viteProcess) {
     try {
       process.kill(viteProcess.pid);
-    } catch {}
+    } catch { }
   }
   if (chromeProcess) {
     try {
       process.kill(chromeProcess.pid);
-    } catch {}
+    } catch { }
   }
 }
