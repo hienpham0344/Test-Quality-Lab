@@ -119,9 +119,13 @@ export function AuthPage({ mode, onSignIn }) {
         </form>
       )}
       {isLogin ? (
-        <nav aria-label="Account options" className="flex flex-wrap gap-x-5 gap-y-3 border-t border-[#353944] pt-5 text-sm">
-          <Link className={authLink} to="/signup">Create an account</Link>
-          <Link className={authLink} to="/resend-verification">Resend verification</Link>
+        <nav aria-label="Account options" className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 pt-5 text-sm">
+          <p className="text-[#c7c4d7]">
+            Don't have a lab account?{' '}
+            <Link className={authLink + ' whitespace-nowrap decoration-indigo-300/50'} to="/signup">Request Access</Link>
+          </p>
+          <Link className="whitespace-nowrap text-[#a7a5b6] hover:text-indigo-100 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-indigo-300"
+            to="/resend-verification">Resend verification email</Link>
         </nav>
       ) : !done && <Link className={authLink} to="/login">Back to sign in</Link>}
     </Layout>
