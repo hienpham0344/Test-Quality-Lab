@@ -35,5 +35,4 @@ an ESLint parser dependency, not the application language.
 
 The home route uses `MainLayout`. Existing `/verify-email` and `/reset-password`
 routes retain their standalone screens and one-time fragment-token behavior.
-Login, signup, forgot-password, protected routes and session UX remain separate
-Sprint 1 work.
+Protected project routes under `/projects` and `/projects/:projectId` support owner-scoped project creation, listing, editing, loading/empty/error states, and revision history.

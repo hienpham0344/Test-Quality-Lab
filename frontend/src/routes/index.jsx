@@ -7,6 +7,7 @@ import { RequireSession } from '../components/auth/RequireSession'
 import { ResetPasswordPage } from '../features/auth/ResetPasswordPage'
 import { VerifyEmailPage } from '../features/auth/VerifyEmailPage'
 import { ProjectsPage } from '../features/projects/ProjectsPage'
+import { ProjectEditorPage } from '../features/projects/ProjectEditorPage'
 
 export default function AppRoutes({ session, expired, logoutNotice, signingOut, onSignIn, onSignOut, onExpire }) {
   return (
@@ -15,6 +16,8 @@ export default function AppRoutes({ session, expired, logoutNotice, signingOut, 
         <Route path="/" element={<HomePage />} />
         <Route element={<RequireSession session={session} expired={expired} logoutNotice={logoutNotice} signingOut={signingOut} />}>
           <Route path="/projects" element={<ProjectsPage session={session} onExpire={onExpire} />} />
+          <Route path="/projects/new" element={<ProjectEditorPage session={session} onExpire={onExpire} mode="create" />} />
+          <Route path="/projects/:projectId" element={<ProjectEditorPage session={session} onExpire={onExpire} mode="edit" />} />
         </Route>
       </Route>
       <Route element={<LoginLayout />}>
