@@ -124,7 +124,7 @@ export function AuthPage({ mode, onSignIn }) {
           {isSignup && <p className="text-sm leading-6 text-slate-300">Verify your email after registration to sign in.</p>}
           {message && <p role="alert" className="text-sm text-rose-300">{message}</p>}
           <button className={usesLoginShell
-            ? 'inline-flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-linear-to-r from-indigo-300 to-sky-400 px-4 py-3 font-mono text-sm font-semibold uppercase tracking-wide text-slate-950 shadow-lg shadow-indigo-600/20 hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-indigo-300 disabled:cursor-not-allowed disabled:opacity-60'
+            ? 'inline-flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-linear-to-r from-indigo-300 to-sky-400 px-4 py-3 text-sm font-semibold text-slate-950 shadow-lg shadow-indigo-600/20 hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-indigo-300 disabled:cursor-not-allowed disabled:opacity-60'
             : authButton} disabled={pending} type="submit">
             {pending ? 'Please wait…' : screen.submit}
             {usesLoginShell && !pending && <ArrowRight size={18} aria-hidden="true" />}
