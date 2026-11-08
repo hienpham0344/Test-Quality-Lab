@@ -62,6 +62,14 @@ export function ExperimentWorkflow() {
           ))}
         </ol>
       </div>
+      <dl className="flex flex-wrap justify-between gap-x-4 gap-y-1 pt-1 font-mono text-xs text-[#c7c4d7]">
+        <div className="flex gap-1.5"><dt>Input</dt><dd className="text-indigo-200">Python / CSV</dd></div>
+        <div className="flex gap-1.5"><dt>Prompts</dt><dd className="text-indigo-200">L1–L5</dd></div>
+        <div className="flex items-center gap-1.5 text-sky-300">
+          <span aria-hidden="true" className="size-1.5 rounded-full bg-current" />
+          <dt>Review</dt><dd>Metrics &amp; AI logs</dd>
+        </div>
+      </dl>
     </div>
   )
 }
