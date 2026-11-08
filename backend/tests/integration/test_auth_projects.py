@@ -8,6 +8,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.infrastructure.database.base import Base
 from app.infrastructure.database.session import get_db
+from app.infrastructure.email.queue import EmailQueueUnavailable
 from app.main import app
 from app.modules.auth import router as auth_router
 from app.modules.auth.rate_limit import RateLimitExceeded, RateLimitUnavailable, get_rate_limiter
@@ -199,3 +200,125 @@ def test_logout_and_invalid_link_errors(api):
     assert client.post(
         "/api/v1/auth/password/reset", json={"token": "invalid", "new_password": "long-password-123"}
     ).status_code == 400
+
+
+def test_auth_link_tokens_cannot_cross_purpose_or_be_reused(api):
+    client, sent = api
+    assert client.post(
+        "/api/v1/auth/register",
+        json={"email": "user@example.com", "password": "long-password-123"},
+    ).status_code == 201
+    verification_token = sent[-1][2]
+    assert client.post(
+        "/api/v1/auth/password/reset",
+        json={"token": verification_token, "new_password": "new-password-123"},
+    ).status_code == 400
+    assert client.post(
+        "/api/v1/auth/verify", json={"token": verification_token}
+    ).status_code == 200
+    assert client.post(
+        "/api/v1/auth/verify", json={"token": verification_token}
+    ).status_code == 400
+
+    assert client.post(
+        "/api/v1/auth/password/forgot", json={"email": "user@example.com"}
+    ).status_code == 200
+    reset_token = sent[-1][2]
+    assert client.post("/api/v1/auth/verify", json={"token": reset_token}).status_code == 400
+    assert client.post(
+        "/api/v1/auth/password/reset",
+        json={"token": reset_token, "new_password": "new-password-123"},
+    ).status_code == 200
+    assert client.post(
+        "/api/v1/auth/password/reset",
+        json={"token": reset_token, "new_password": "another-password-123"},
+    ).status_code == 400
+
+
+def test_verification_request_hides_account_state(api):
+    client, sent = api
+    assert client.post(
+        "/api/v1/auth/register",
+        json={"email": "user@example.com", "password": "long-password-123"},
+    ).status_code == 201
+    original_token = sent[-1][2]
+    before = len(sent)
+    missing = client.post(
+        "/api/v1/auth/verification/request", json={"email": "missing@example.com"}
+    )
+    assert len(sent) == before
+    unverified = client.post(
+        "/api/v1/auth/verification/request", json={"email": "user@example.com"}
+    )
+    assert missing.status_code == unverified.status_code == 200
+    assert missing.json() == unverified.json() == {"status": "request_accepted"}
+    assert len(sent) == before + 1
+    assert sent[-1][2] not in str(unverified.json())
+
+    assert client.post("/api/v1/auth/verify", json={"token": original_token}).status_code == 200
+    before = len(sent)
+    verified = client.post(
+        "/api/v1/auth/verification/request", json={"email": "user@example.com"}
+    )
+    assert verified.status_code == 200
+    assert verified.json() == missing.json()
+    assert len(sent) == before
+
+
+@pytest.mark.parametrize("path", ["/api/v1/auth/verification/request", "/api/v1/auth/password/forgot"])
+def test_email_request_returns_503_when_queue_is_unavailable(api, monkeypatch, path):
+    client, _ = api
+
+    def unavailable(*_):
+        raise EmailQueueUnavailable
+
+    monkeypatch.setattr(auth_router, "enqueue_auth_link", unavailable)
+    response = client.post(path, json={"email": "user@example.com"})
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Email service unavailable"}
+
+
+def test_refresh_token_cannot_access_project_routes(api):
+    client, sent = api
+    tokens = register_and_login(client, sent, "owner@example.com")
+    access = {"Authorization": f"Bearer {tokens['access_token']}"}
+    refresh = {"Authorization": f"Bearer {tokens['refresh_token']}"}
+    project_id = client.post("/api/v1/projects", json={"name": "Private"}, headers=access).json()["id"]
+
+    assert client.get("/api/v1/projects", headers=refresh).status_code == 401
+    assert client.get(f"/api/v1/projects/{project_id}", headers=refresh).status_code == 401
+    assert client.get(f"/api/v1/projects/{project_id}/history", headers=refresh).status_code == 401
+    assert client.patch(
+        f"/api/v1/projects/{project_id}", json={"name": "Changed"}, headers=refresh
+    ).status_code == 401
+    assert client.get(f"/api/v1/projects/{project_id}", headers=access).json()["name"] == "Private"
+
+
+def test_logout_revokes_only_the_callers_session_across_project_routes(api):
+    client, sent = api
+    owner = register_and_login(client, sent, "owner@example.com")
+    other = register_and_login(client, sent, "other@example.com")
+    owner_header = {"Authorization": f"Bearer {owner['access_token']}"}
+    other_header = {"Authorization": f"Bearer {other['access_token']}"}
+    project_id = client.post(
+        "/api/v1/projects", json={"name": "Owner's project"}, headers=owner_header
+    ).json()["id"]
+    other_project_id = client.post(
+        "/api/v1/projects", json={"name": "Other's project"}, headers=other_header
+    ).json()["id"]
+
+    assert client.post("/api/v1/auth/logout", headers=owner_header).status_code == 200
+    assert client.get("/api/v1/projects", headers=owner_header).status_code == 401
+    assert client.get(f"/api/v1/projects/{project_id}", headers=owner_header).status_code == 401
+    assert client.get(
+        f"/api/v1/projects/{project_id}/history", headers=owner_header
+    ).status_code == 401
+    assert client.patch(
+        f"/api/v1/projects/{project_id}", json={"name": "Changed"}, headers=owner_header
+    ).status_code == 401
+    assert client.post(
+        "/api/v1/auth/refresh", json={"token": owner["refresh_token"]}
+    ).status_code == 401
+
+    assert client.get(f"/api/v1/projects/{other_project_id}", headers=other_header).status_code == 200
+    assert client.get(f"/api/v1/projects/{project_id}", headers=other_header).status_code == 404
