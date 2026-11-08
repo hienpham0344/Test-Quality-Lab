@@ -39,6 +39,24 @@ export function forgotPassword(email) {
 export function requestVerification(email) {
     return postAuth('verification/request', { email })
 }
+async function sessionRequest(path, accessToken, options) {
+    const response = await fetch(`${baseUrl}/api/v1/${path}`, {
+        ...options,
+        headers: { Authorization: `Bearer ${accessToken}` },
+        cache: 'no-store',
+    })
+    if (!response.ok) throw new AuthApiError(response.status)
+    return response
+}
+export async function listProjects(accessToken, signal) {
+    const response = await sessionRequest('projects', accessToken, { signal })
+    const projects = await response.json()
+    if (!Array.isArray(projects)) throw new Error('Invalid project list')
+    return projects
+}
+export function logout(accessToken) {
+    return sessionRequest('auth/logout', accessToken, { method: 'POST', signal: AbortSignal.timeout(10000) })
+}
 export function verifyEmail(token) {
     return postAuth('verify', { token });
 }

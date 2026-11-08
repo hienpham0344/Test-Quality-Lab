@@ -58,7 +58,11 @@ export function AuthPage({ mode, onSignIn }) {
       const result = await screen.request(email, password)
       if (isLogin) {
         onSignIn(result)
-        navigate('/', { replace: true })
+        const target = location.state?.returnTo
+        const destination = target?.pathname === '/projects'
+          ? { pathname: '/projects', search: target.search?.startsWith('?') ? target.search : '' }
+          : '/'
+        navigate(destination, { replace: true })
       } else {
         form.reset()
         setDone(true)
@@ -74,6 +78,9 @@ export function AuthPage({ mode, onSignIn }) {
   return (
     <AuthLayout title={screen.title} description={screen.description}>
       {isLogin && location.state?.expired && <p role="status" className="text-sm text-amber-200">Your session expired. Sign in again to continue.</p>}
+      {isLogin && location.state?.returnTo && !location.state.expired && <p role="status" className="text-sm text-indigo-200">Sign in to open your projects.</p>}
+      {isLogin && location.state?.logoutUnconfirmed && <p role="alert" className="text-sm text-amber-200">You signed out of this tab, but the server could not confirm sign-out.</p>}
+      {isLogin && location.state?.loggedOut && <p role="status" className="text-sm text-emerald-200">You have signed out.</p>}
       {done ? (
         <div className="space-y-4">
           <p role="status" className="text-sm leading-6 text-emerald-200">

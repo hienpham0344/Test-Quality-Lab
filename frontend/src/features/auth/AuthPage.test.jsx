@@ -94,3 +94,79 @@ describe('authentication forms', () => {
     expect(container.querySelector('[role=alert]').textContent).toContain('Too many attempts')
   })
 })
+
+describe('protected routing and session UX', () => {
+  const credentials = { email: 'test@example.com', password: 'example-password' }
+  const accessToken = 'test-access'
+
+  function mockSession({ projects = () => Response.json([{ id: 'project-1', name: 'Private workspace' }]),
+    logoutStatus = 200 } = {}) {
+    fetchMock.mockImplementation(async (url) => {
+      if (url.endsWith('/auth/login')) return Response.json({ access_token: accessToken })
+      if (url.endsWith('/projects')) return projects()
+      if (url.endsWith('/auth/logout')) return new Response(null, { status: logoutStatus })
+      throw new Error('Unexpected request')
+    })
+  }
+
+  async function clickButton(label) {
+    const button = [...container.querySelectorAll('button')].find((item) => item.textContent.trim() === label)
+    await act(async () => button.click())
+  }
+
+  it('redirects guests without requesting projects', async () => {
+    await open('/projects')
+    expect(container.querySelector('h1').textContent).toBe('Sign in')
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('returns to protected projects after sign-in and authenticates the request', async () => {
+    mockSession()
+    await open('/projects?view=list')
+    await submit(credentials)
+    await vi.waitFor(() => expect(container.querySelector('h2')?.textContent).toBe('Private workspace'))
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringMatching(/\/projects$/),
+      expect.objectContaining({ headers: { Authorization: 'Bearer ' + accessToken }, cache: 'no-store' }))
+  })
+
+  it('clears private content and prompts for sign-in after session rejection', async () => {
+    let rejected = false
+    mockSession({ projects: () => rejected
+      ? new Response(null, { status: 401 })
+      : Response.json([{ id: 'project-1', name: 'Private workspace' }]) })
+    await open('/projects')
+    await submit(credentials)
+    await vi.waitFor(() => expect(container.textContent).toContain('Private workspace'))
+    rejected = true
+    await act(async () => client.refetchQueries({ queryKey: ['private', 'projects'] }))
+    await vi.waitFor(() => expect(container.textContent).toContain('Your session expired'))
+    expect(container.textContent).not.toContain('Private workspace')
+  })
+
+  it('keeps the session when the projects API is temporarily unavailable', async () => {
+    let unavailable = true
+    mockSession({ projects: () => unavailable ? new Response(null, { status: 503 }) : Response.json([]) })
+    await open('/projects')
+    await submit(credentials)
+    await vi.waitFor(() => expect(container.textContent).toContain('Please try again'))
+    unavailable = false
+    await clickButton('Try again')
+    await vi.waitFor(() => expect(container.textContent).toContain('You don’t have any projects yet'))
+  })
+
+  it.each([
+    [200, 'You have signed out.'],
+    [503, 'the server could not confirm sign-out'],
+  ])('clears the session after logout responds %s', async (logoutStatus, message) => {
+    mockSession({ logoutStatus })
+    await open('/projects')
+    await submit(credentials)
+    await vi.waitFor(() => expect(container.textContent).toContain('Private workspace'))
+    await clickButton('Sign out')
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringMatching(/\/auth\/logout$/),
+      expect.objectContaining({ method: 'POST', headers: { Authorization: 'Bearer ' + accessToken } }))
+    expect(container.querySelector('h1').textContent).toBe('Sign in')
+    expect(container.textContent).toContain(message)
+    expect(container.textContent).not.toContain('Private workspace')
+  })
+})
