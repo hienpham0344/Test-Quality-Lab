@@ -30,7 +30,23 @@
   .login-form-card { animation-delay: 140ms; }
 
   .login-workflow-trace {
-    animation: login-trace-flow 1400ms linear 3;
+    animation: login-trace-flow 4s linear infinite;
+  }
+
+  .login-workflow-node,
+  .login-workflow-beacon {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: login-workflow-pulse 2s ease-out infinite;
+  }
+
+  .login-workflow-node { animation-delay: 200ms; }
+  .login-workflow g:nth-of-type(2) .login-workflow-node { animation-delay: 500ms; }
+  .login-workflow g:nth-of-type(3) .login-workflow-node { animation-delay: 800ms; }
+  .login-workflow g:nth-of-type(4) .login-workflow-node { animation-delay: 1100ms; }
+
+  .login-workflow[data-paused="true"] :is(.login-workflow-trace, .login-workflow-node, .login-workflow-beacon) {
+    animation-play-state: paused;
   }
 
   @media (hover: hover) {
@@ -48,7 +64,12 @@
 }
 
 @keyframes login-trace-flow {
-  to { stroke-dashoffset: -28; }
+  to { stroke-dashoffset: -112; }
+}
+
+@keyframes login-workflow-pulse {
+  0% { opacity: .85; transform: scale(1); }
+  75%, 100% { opacity: .2; transform: scale(1.85); }
 }
 
 @keyframes login-glow-drift {

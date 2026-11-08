@@ -1,6 +1,7 @@
 import { Braces, FlaskConical, ListChecks, ScrollText } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { LoginBackground } from './LoginBackground'
+import { ExperimentWorkflow } from './ExperimentWorkflow'
 import './login-motion.css'
 
 const capabilities = [
@@ -34,27 +35,7 @@ export function LoginLayout({ title, description, children }) {
                 </li>
               ))}
             </ul>
-            <div className="login-motion-card login-workflow space-y-3 rounded-lg border border-[#353944] bg-[#171b26] p-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 className="font-mono text-xs uppercase tracking-wider text-sky-300">Experiment workflow</h2>
-                <span className="text-xs text-[#c7c4d7]">Illustrative</span>
-              </div>
-              <svg viewBox="0 0 560 56" preserveAspectRatio="none" aria-hidden="true" className="h-12 w-full rounded bg-[#0a0e18]">
-                <defs>
-                  <linearGradient id="login-trace" x2="100%" y2="0%">
-                    <stop stopColor="#c0c1ff" />
-                    <stop offset="100%" stopColor="#7bd0ff" />
-                  </linearGradient>
-                </defs>
-                <path d="M0 40 L60 36 L100 43 L150 24 L210 28 L265 13 L315 19 L373 8 L425 16 L470 12 L520 27 L560 22"
-                  fill="none" stroke="url(#login-trace)" strokeWidth="2" opacity=".35" />
-                <path className="login-workflow-trace" d="M0 40 L60 36 L100 43 L150 24 L210 28 L265 13 L315 19 L373 8 L425 16 L470 12 L520 27 L560 22"
-                  fill="none" stroke="url(#login-trace)" strokeWidth="2" strokeDasharray="10 4" />
-              </svg>
-              <ol className="grid grid-cols-4 gap-2 text-center font-mono text-xs text-[#c7c4d7]">
-                <li>Import</li><li>Generate</li><li>Evaluate</li><li>Review</li>
-              </ol>
-            </div>
+            <ExperimentWorkflow />
           </section>
         </aside>
         <section aria-labelledby="login-title" className="login-motion-card login-form-card relative mx-auto w-full max-w-lg overflow-hidden rounded-xl border border-[#353944] bg-[#1c1f2a] p-6 shadow-xl sm:p-9">
