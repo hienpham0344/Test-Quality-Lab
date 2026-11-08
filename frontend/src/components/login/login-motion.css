@@ -52,8 +52,11 @@
   }
 
   @media (hover: hover) {
-    .login-motion-card:hover {
+    .login-motion-card:not(.login-form-card):hover {
       transform: translateY(-3px);
+    }
+
+    .login-motion-card:hover {
       border-color: rgb(192 193 255 / 48%);
       box-shadow: 0 12px 28px -6px rgb(10 14 24 / 70%), 0 0 20px -2px rgb(128 131 255 / 20%);
     }
