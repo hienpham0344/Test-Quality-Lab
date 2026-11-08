@@ -64,6 +64,8 @@ class SourceService:
             return None
         code, digest = self._validated(data)
         current = self.repo.version(source_id, source.current_revision)
+        if current is None:
+            raise RuntimeError("Current source revision is missing")
         if current.sha256 == digest:
             return current
         now = utcnow()

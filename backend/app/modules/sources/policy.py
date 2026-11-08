@@ -58,27 +58,27 @@ def inspect_python(code: str) -> list[FunctionSummary]:
         else:
             raise SourcePolicyError(f"Top-level behavior is unsupported at line {node.lineno}")
 
-    for node in ast.walk(tree):
-        if isinstance(node, ast.AsyncFunctionDef):
-            raise SourcePolicyError(f"Async functions are unsupported at line {node.lineno}")
-        elif isinstance(node, ast.FunctionDef) and node.decorator_list:
-            raise SourcePolicyError(f"Decorators are unsupported at line {node.lineno}")
-        elif isinstance(node, ast.Import):
-            for alias in node.names:
+    for item in ast.walk(tree):
+        if isinstance(item, ast.AsyncFunctionDef):
+            raise SourcePolicyError(f"Async functions are unsupported at line {item.lineno}")
+        elif isinstance(item, ast.FunctionDef) and item.decorator_list:
+            raise SourcePolicyError(f"Decorators are unsupported at line {item.lineno}")
+        elif isinstance(item, ast.Import):
+            for alias in item.names:
                 if alias.name not in ALLOWED_IMPORTS:
                     raise SourcePolicyError(
-                        f"Unsupported import '{alias.name}' at line {node.lineno}"
+                        f"Unsupported import '{alias.name}' at line {item.lineno}"
                     )
-        elif isinstance(node, ast.ImportFrom):
-            if any(alias.name == "*" for alias in node.names):
-                raise SourcePolicyError(f"Wildcard import is unsupported at line {node.lineno}")
-            if node.level or node.module not in ALLOWED_IMPORTS:
-                raise SourcePolicyError(f"Unsupported import '{node.module}' at line {node.lineno}")
-        elif isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
-            if node.func.id in UNSUPPORTED_CALLS:
-                raise SourcePolicyError(f"Unsupported call '{node.func.id}' at line {node.lineno}")
-        elif isinstance(node, (ast.Yield, ast.YieldFrom, ast.Await)):
-            raise SourcePolicyError(f"Unsupported behavior at line {node.lineno}")
+        elif isinstance(item, ast.ImportFrom):
+            if any(alias.name == "*" for alias in item.names):
+                raise SourcePolicyError(f"Wildcard import is unsupported at line {item.lineno}")
+            if item.level or item.module not in ALLOWED_IMPORTS:
+                raise SourcePolicyError(f"Unsupported import '{item.module}' at line {item.lineno}")
+        elif isinstance(item, ast.Call) and isinstance(item.func, ast.Name):
+            if item.func.id in UNSUPPORTED_CALLS:
+                raise SourcePolicyError(f"Unsupported call '{item.func.id}' at line {item.lineno}")
+        elif isinstance(item, (ast.Yield, ast.YieldFrom, ast.Await)):
+            raise SourcePolicyError(f"Unsupported behavior at line {item.lineno}")
 
     if not functions:
         raise SourcePolicyError("No selectable functions found")
