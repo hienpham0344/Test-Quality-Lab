@@ -6,13 +6,13 @@ export const authButton = 'min-h-11 w-full cursor-pointer rounded-lg bg-indigo-4
 
 export function AuthLayout({ title, description, children }) {
   return (
-    <main className="min-h-screen bg-slate-950 px-4 py-10 text-slate-100 sm:px-8 sm:py-16">
+    <main className="min-h-screen bg-slate-950 px-4 py-8 text-slate-100 sm:px-8 sm:py-12">
       <div className="mx-auto max-w-md">
-        <Link to="/" className={'mb-8 inline-flex min-h-11 items-center gap-3 ' + authLink}>
+        <Link to="/" className={'mb-4 inline-flex sm:mb-6 min-h-11 items-center gap-3 ' + authLink}>
           <FlaskConical aria-hidden="true" size={24} /> Test Quality Lab
         </Link>
-        <section aria-labelledby="auth-title" className="space-y-6 rounded-2xl border border-slate-700 bg-slate-900 p-5 sm:p-8">
-          <header className="space-y-2">
+        <section aria-labelledby="auth-title" className="flex flex-col gap-4 rounded-2xl border border-slate-700 bg-slate-900 p-5 sm:p-8">
+          <header className="mb-2 space-y-2">
             <h1 id="auth-title" className="text-3xl font-semibold tracking-tight">{title}</h1>
             {description && <p className="text-sm leading-6 text-slate-300">{description}</p>}
           </header>
@@ -27,7 +27,7 @@ export function AuthField({ name, label, error, hint, icon: Icon, action, labelA
   const description = [hint && name + '-hint', error && name + '-error'].filter(Boolean).join(' ')
   return (
     <div className="space-y-1.5">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <label className="block text-sm font-medium" htmlFor={name}>{label}</label>
         {labelAction}
       </div>

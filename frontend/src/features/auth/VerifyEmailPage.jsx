@@ -30,8 +30,8 @@ export function VerifyEmailPage() {
         }
         void submitToken(token);
     }, []);
-    return (<main className="min-h-screen bg-slate-950 text-slate-100 p-8">
-      <section className="mx-auto max-w-md space-y-5 rounded-2xl border border-slate-700 bg-slate-900 p-8">
+    return (<main className="min-h-screen bg-slate-950 px-4 py-8 text-slate-100 sm:px-8 sm:py-12">
+      <section className="mx-auto max-w-md space-y-4 rounded-2xl border border-slate-700 bg-slate-900 p-5 sm:p-8">
         <h1 className="text-2xl font-bold">Verify your email</h1>
         <p role="status">
           {status === 'checking' ? 'Checking your link…' : status === 'verified'
@@ -41,7 +41,7 @@ export function VerifyEmailPage() {
         </p>
         {status === 'unavailable' && <button className="rounded bg-indigo-600 px-4 py-2" onClick={() => { if (tokenRef.current)
         void submitToken(tokenRef.current); }}>Try again</button>}
-        <div className="flex flex-wrap gap-4">
+        <div className="flex flex-wrap gap-x-4 gap-y-2">
           {status === 'invalid' && <Link className="text-indigo-300 underline" to="/resend-verification">Resend verification</Link>}
           <Link className="text-indigo-300 underline" to="/login">Back to sign in</Link>
         </div>

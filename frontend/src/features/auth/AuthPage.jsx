@@ -124,7 +124,7 @@ export function AuthPage({ mode, onSignIn }) {
           {isSignup && <p className="text-sm leading-6 text-slate-300">Verify your email after registration to sign in.</p>}
           {message && <p role="alert" className="text-sm text-rose-300">{message}</p>}
           <button className={usesLoginShell
-            ? 'inline-flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-linear-to-r from-indigo-300 to-sky-400 px-4 py-3 text-sm font-semibold text-slate-950 shadow-lg shadow-indigo-600/20 hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-indigo-300 disabled:cursor-not-allowed disabled:opacity-60'
+            ? 'inline-flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-linear-to-r from-indigo-300 to-sky-400 px-4 py-3 text-base font-semibold text-slate-950 shadow-lg shadow-indigo-600/20 hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-indigo-300 disabled:cursor-not-allowed disabled:opacity-60'
             : authButton} disabled={pending} type="submit">
             {pending ? 'Please wait…' : screen.submit}
             {usesLoginShell && !pending && <ArrowRight size={18} aria-hidden="true" />}
@@ -132,10 +132,10 @@ export function AuthPage({ mode, onSignIn }) {
         </form>
       )}
       {isLogin ? (
-        <nav aria-label="Account options" className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 pt-5 text-sm">
+        <nav aria-label="Account options" className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-sm">
           <p className="text-[#c7c4d7]">
-            Don't have a lab account?{' '}
-            <Link className={authLink + ' whitespace-nowrap decoration-indigo-300/50'} to="/signup">Request Access</Link>
+            Don't have an account?{' '}
+            <Link className={authLink + ' whitespace-nowrap decoration-indigo-300/50'} to="/signup">Create an account</Link>
           </p>
           <Link className="whitespace-nowrap text-[#a7a5b6] hover:text-indigo-100 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-indigo-300"
             to="/resend-verification">Resend verification email</Link>
@@ -145,8 +145,8 @@ export function AuthPage({ mode, onSignIn }) {
           Already have an account?{' '}<Link className={authLink} to="/login">Sign in</Link>
         </p>
       ) : usesLoginShell ? (
-        <nav aria-label="Account options" className="border-t border-slate-700/50 pt-4">
-          <Link className={authLink + ' inline-flex min-h-10 items-center gap-2 text-sm'} to="/login">
+        <nav aria-label="Account options" className="flex justify-center">
+          <Link className={authLink + ' inline-flex min-h-11 items-center gap-2 text-sm'} to="/login">
             <ArrowLeft size={16} aria-hidden="true" /> Back to sign in
           </Link>
         </nav>

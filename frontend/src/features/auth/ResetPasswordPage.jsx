@@ -74,7 +74,7 @@ export function ResetPasswordPage() {
           </button>
         </form>
       )}
-      <nav aria-label="Password recovery options" className="flex flex-wrap gap-4 text-sm">
+      <nav aria-label="Password recovery options" className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
         <Link className={authLink} to="/login">Back to sign in</Link>
         {(token === null || status === 'invalid') && <Link className={authLink} to="/forgot-password">Request a new link</Link>}
       </nav>
