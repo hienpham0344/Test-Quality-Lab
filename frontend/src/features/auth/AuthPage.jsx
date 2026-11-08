@@ -83,7 +83,7 @@ export function AuthPage({ mode, onSignIn }) {
   }
 
   return (
-    <Layout title={screen.title} description={screen.description} centered={hasPassword}
+    <Layout title={screen.title} description={screen.description} centered={usesLoginShell}
       badge={isForgot ? 'Account recovery' : isSignup ? 'Account registration' : isLogin ? 'Account sign-in' : undefined}>
       {isLogin && location.state?.expired && <p role="status" className="text-sm text-amber-200">Your session expired. Sign in again to continue.</p>}
       {isLogin && location.state?.returnTo && !location.state.expired && <p role="status" className="text-sm text-indigo-200">Sign in to open your projects.</p>}
@@ -99,7 +99,7 @@ export function AuthPage({ mode, onSignIn }) {
           {!usesLoginShell && <Link to="/login" className={authLink}>Back to sign in</Link>}
         </div>
       ) : (
-        <form className={isSignup ? 'space-y-4 [&_label]:font-mono [&_label]:text-xs [&_label]:uppercase [&_label]:tracking-wide [&_label]:text-slate-300' : 'space-y-4'}
+        <form className={isSignup || isForgot ? 'space-y-4 [&_label]:font-mono [&_label]:text-xs [&_label]:uppercase [&_label]:tracking-wide [&_label]:text-slate-300' : 'space-y-4'}
           onSubmit={submit} noValidate>
           <AuthField name="email" label="Email address" type="email" autoComplete="email" required
             error={errors.email} icon={usesLoginShell ? Mail : undefined}
@@ -125,8 +125,7 @@ export function AuthPage({ mode, onSignIn }) {
           {isSignup && <p className="text-sm leading-6 text-slate-300">Verify your email after registration to sign in.</p>}
           {message && <p role="alert" className="text-sm text-rose-300">{message}</p>}
           <button className={usesLoginShell
-            ? 'inline-flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-linear-to-r px-4 py-3 font-semibold shadow-lg shadow-indigo-600/20 hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-indigo-300 disabled:cursor-not-allowed disabled:opacity-60 ' +
-              (hasPassword ? 'from-indigo-300 to-sky-400 font-mono text-sm uppercase tracking-wide text-slate-950' : 'from-indigo-500 to-indigo-700 text-white')
+            ? 'inline-flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-linear-to-r from-indigo-300 to-sky-400 px-4 py-3 font-mono text-sm font-semibold uppercase tracking-wide text-slate-950 shadow-lg shadow-indigo-600/20 hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-indigo-300 disabled:cursor-not-allowed disabled:opacity-60'
             : authButton} disabled={pending} type="submit">
             {pending ? 'Please wait…' : screen.submit}
             {usesLoginShell && !pending && <ArrowRight size={18} aria-hidden="true" />}
