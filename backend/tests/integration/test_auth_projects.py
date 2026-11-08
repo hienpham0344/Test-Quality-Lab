@@ -292,3 +292,33 @@ def test_refresh_token_cannot_access_project_routes(api):
         f"/api/v1/projects/{project_id}", json={"name": "Changed"}, headers=refresh
     ).status_code == 401
     assert client.get(f"/api/v1/projects/{project_id}", headers=access).json()["name"] == "Private"
+
+
+def test_logout_revokes_only_the_callers_session_across_project_routes(api):
+    client, sent = api
+    owner = register_and_login(client, sent, "owner@example.com")
+    other = register_and_login(client, sent, "other@example.com")
+    owner_header = {"Authorization": f"Bearer {owner['access_token']}"}
+    other_header = {"Authorization": f"Bearer {other['access_token']}"}
+    project_id = client.post(
+        "/api/v1/projects", json={"name": "Owner's project"}, headers=owner_header
+    ).json()["id"]
+    other_project_id = client.post(
+        "/api/v1/projects", json={"name": "Other's project"}, headers=other_header
+    ).json()["id"]
+
+    assert client.post("/api/v1/auth/logout", headers=owner_header).status_code == 200
+    assert client.get("/api/v1/projects", headers=owner_header).status_code == 401
+    assert client.get(f"/api/v1/projects/{project_id}", headers=owner_header).status_code == 401
+    assert client.get(
+        f"/api/v1/projects/{project_id}/history", headers=owner_header
+    ).status_code == 401
+    assert client.patch(
+        f"/api/v1/projects/{project_id}", json={"name": "Changed"}, headers=owner_header
+    ).status_code == 401
+    assert client.post(
+        "/api/v1/auth/refresh", json={"token": owner["refresh_token"]}
+    ).status_code == 401
+
+    assert client.get(f"/api/v1/projects/{other_project_id}", headers=other_header).status_code == 200
+    assert client.get(f"/api/v1/projects/{project_id}", headers=other_header).status_code == 404
