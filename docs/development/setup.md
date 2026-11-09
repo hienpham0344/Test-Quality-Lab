@@ -36,7 +36,10 @@ migration contents.
 
 The backend exposes `POST /api/v1/auth/register`, `/auth/verify`, `/auth/login`,
 `/auth/refresh`, `/auth/logout`, `/auth/verification/request`,
-`/auth/password/forgot`, and `/auth/password/reset`. Verification and reset
+`/auth/password/forgot`, `/auth/password/reset` and `GET /auth/me`. The full
+request/response/error contract is `docs/api/contracts/auth.md`; Postman requests
+are in `docs/api/postman/`. Access tokens last 15 minutes, refresh tokens 1 day,
+verification links 24 hours and reset links 30 minutes. Verification and reset
 tokens are accepted in JSON request bodies and stored only as hashes. Mailpit
 receives the links in local Compose. The frontend must read the link fragment
 and POST its token to the matching API route. Password reset revokes every old
@@ -57,15 +60,46 @@ After a failed registration email, retrying the same unverified email/password
 resends verification without creating another user or changing the password.
 
 Mailpit uses `SMTP_SECURITY=none` locally. Remote SMTP requires `starttls` or
-`ssl`, a configured `SMTP_SENDER`, and an HTTPS `PUBLIC_APP_URL`. Set both
+`ssl` and a configured `SMTP_SENDER`. `PUBLIC_APP_URL` (the link host inside
+emails) must be HTTPS unless it is `localhost`/`127.0.0.1`. Set both
 `SMTP_USERNAME` and `SMTP_PASSWORD` if the provider requires authentication;
 keep credentials only in the ignored `.env`. Plain remote SMTP is rejected.
 
-Run the Celery `worker` service: password-reset and verification-resend requests
-enqueue a job before any account lookup. They return the same accepted response
+#### Sending real email (Gmail)
+
+By default every email goes to Mailpit (http://localhost:8025). To deliver to real inboxes:
+
+1. On the sending Gmail account, enable 2-Step Verification and create an
+   [App password](https://myaccount.google.com/apppasswords). The normal password is rejected.
+2. In `.env`, set `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=587`, `SMTP_SECURITY=starttls`,
+   `SMTP_USERNAME=<account>`, `SMTP_PASSWORD=<app password>` and
+   `SMTP_SENDER=Test Quality Lab <account>` (the sender must be the same account).
+3. Open a new terminal and run `docker compose up -d --force-recreate backend worker beat`.
+4. Check the value the container received: `docker compose exec worker sh -c 'echo $SMTP_HOST:$SMTP_PORT'`
+   must print `smtp.gmail.com:587`.
+
+Docker Compose uses variables already set in your shell in place of `.env` values. If step 4 still
+prints `mailpit:1025`, your terminal holds old values (VS Code adds `.env` values to new terminals when
+`python.terminal.useEnvFile` is `true`; set it to `false`). Open a fresh terminal and recreate again.
+
+The worker log only shows `Retry ... Email delivery unavailable`. To see Gmail's own answer, test the
+login from the worker (prints no secret):
+
+```bash
+docker compose exec -T worker python -c "import os,smtplib,ssl; s=smtplib.SMTP(os.environ['SMTP_HOST'],int(os.environ['SMTP_PORT']),timeout=15); s.starttls(context=ssl.create_default_context()); s.login(os.environ['SMTP_USERNAME'],os.environ['SMTP_PASSWORD']); print('LOGIN OK')"
+```
+
+Common answers: `535 BadCredentials` (not an App password, or the
+wrong account); `534 5.7.9 WebLoginRequired` (Google blocked the sign-in: sign in on the web, approve
+the security alert, retry). The first emails from a new sender often land in Spam. Emails queued while
+delivery was failing may be lost when the worker is recreated; request them again.
+
+Run the Celery `worker` service: registration, password-reset and verification-resend
+requests enqueue a job; resend and reset do so before any account lookup. They return the same accepted response
 for existing and missing accounts. The worker retries delivery up to three times.
-Registration still reports duplicate verified accounts explicitly; it is not an
-account-enumeration-resistant endpoint.
+Registration still reports duplicate accounts explicitly (409, as SRS 3.15 requires);
+it is not an account-enumeration-resistant endpoint. Login returns the same 401 for an
+unknown email and a wrong password, and spends the same hashing time for both.
 
 Run one `beat` service alongside the worker. At 03:00 UTC daily it removes auth
 tokens and sessions whose expiry is older than seven days. It does not remove users,
@@ -76,7 +110,7 @@ projects, project history, or active credentials.
 Install `backend/requirements-test.txt`, then from `backend` run:
 
 ```bash
-pytest -q -m 'not live' --cov=app.modules.auth --cov=app.modules.projects --cov=app.infrastructure.email --cov=app.infrastructure.queue --cov=app.jobs --cov-branch --cov-fail-under=90
+pytest -q -m 'not live' --cov=app.modules.auth --cov=app.modules.audit --cov=app.modules.projects --cov=app.api --cov=app.core --cov=app.infrastructure.email --cov=app.infrastructure.queue --cov=app.jobs --cov-branch --cov-fail-under=90
 ```
 
 The Auth and Project Quality workflow enforces the coverage gate and runs a

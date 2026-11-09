@@ -9,8 +9,8 @@ from sqlalchemy.pool import StaticPool
 from app.infrastructure.database.base import Base
 from app.infrastructure.database.session import get_db
 from app.main import app
+from app.modules.auth.dependencies import current_user
 from app.modules.auth.models import User
-from app.modules.auth.router import current_user
 from app.modules.projects.service import ProjectService
 from app.modules.sources.models import Source  # noqa: F401 — register metadata
 

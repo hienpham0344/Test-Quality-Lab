@@ -3,7 +3,7 @@ import uuid
 
 from sqlalchemy.orm import Session
 
-from app.modules.auth.service import utcnow
+from app.core.clock import utcnow
 from app.modules.sources.models import Source, SourceVersion
 from app.modules.sources.policy import inspect_python
 from app.modules.sources.repository import SourceRepository

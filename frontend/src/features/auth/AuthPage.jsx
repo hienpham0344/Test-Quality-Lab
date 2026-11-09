@@ -14,9 +14,12 @@ const screens = {
 
 function requestError(error, mode) {
   const status = error instanceof AuthApiError ? error.status : 0
+  if (error?.code === 'AUTH_EMAIL_NOT_VERIFIED') return 'Verify your email before signing in.'
+  if (error?.code === 'AUTH_DUPLICATE_EMAIL') return 'This email is already registered. Sign in or request a verification link.'
+  if (status === 400 && mode === 'login') return 'Check your email and password and try again.'
   if (status === 401 && mode === 'login') return 'Sign-in failed. Check your credentials and make sure your email is verified.'
-  if (status === 422 && mode === 'signup') return 'Unable to create this account. Check your details or sign in if you already registered.'
-  if (status === 422) return 'Check the email address and try again.'
+  if ((status === 400 || status === 422) && mode === 'signup') return 'Unable to create this account. Check your details or sign in if you already registered.'
+  if (status === 400 || status === 422) return 'Check the email address and try again.'
   if (status === 429) return 'Too many attempts. Wait a moment and try again.'
   return 'The service is temporarily unavailable. Please try again.'
 }
@@ -45,12 +48,15 @@ export function AuthPage({ mode, onSignIn }) {
     const data = new FormData(form)
     const email = String(data.get('email')).trim()
     const password = String(data.get('password') ?? '')
+    const confirmation = String(data.get('confirmation') ?? '')
+    const displayName = String(data.get('displayName') ?? '').trim()
     const length = [...password].length
     const invalid = {}
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 320) invalid.email = 'Enter a valid email address.'
     if (isLogin && (!length || length > 1024)) invalid.password = 'Enter your password (up to 1024 characters).'
     if (isSignup && (length < 12 || length > 1024)) invalid.password = 'Use 12 to 1024 characters.'
-    if (isSignup && password !== data.get('confirmation')) invalid.confirmation = 'Passwords do not match.'
+    if (isSignup && [...displayName].length > 100) invalid.displayName = 'Use up to 100 characters.'
+    if (isSignup && password !== confirmation) invalid.confirmation = 'Passwords do not match.'
     setErrors(invalid)
     setMessage('')
     const firstError = Object.keys(invalid)[0]
@@ -62,9 +68,13 @@ export function AuthPage({ mode, onSignIn }) {
     busy.current = true
     setPending(true)
     try {
-      const result = await screen.request(email, password)
+      const result = isSignup
+        ? await screen.request(email, password, confirmation, displayName)
+        : await screen.request(email, password)
       if (isLogin) {
-        onSignIn(result)
+        const accessToken = result?.access_token
+        if (typeof accessToken !== 'string' || !accessToken) throw new Error('Invalid sign-in response')
+        onSignIn({ accessToken })
         const target = location.state?.returnTo
         const destination = target?.pathname === '/projects'
           ? { pathname: '/projects', search: target.search?.startsWith('?') ? target.search : '' }
@@ -75,7 +85,22 @@ export function AuthPage({ mode, onSignIn }) {
         setDone(true)
       }
     } catch (error) {
-      setMessage(requestError(error, mode))
+      const fieldErrors = {}
+      if (error instanceof AuthApiError) {
+        const fieldNames = { email: 'email', password: 'password', confirm_password: 'confirmation', display_name: 'displayName' }
+        for (const [field, name] of Object.entries(fieldNames)) {
+          if (typeof error.fields[field] === 'string' && form.elements.namedItem(name)) {
+            fieldErrors[name] = error.fields[field]
+          }
+        }
+      }
+      const firstField = Object.keys(fieldErrors)[0]
+      if (firstField) {
+        setErrors(fieldErrors)
+        form.elements.namedItem(firstField)?.focus()
+      } else {
+        setMessage(requestError(error, mode))
+      }
     } finally {
       busy.current = false
       setPending(false)
@@ -91,7 +116,7 @@ export function AuthPage({ mode, onSignIn }) {
       {isLogin && location.state?.loggedOut && <p role="status" className="text-sm text-emerald-200">You have signed out.</p>}
       {done ? (
         <div className="space-y-4">
-          <p role="status" className="text-sm leading-6 text-emerald-200">
+          <p role="status" className={`text-sm leading-6 text-emerald-200 ${usesLoginShell ? 'text-center' : ''}`}>
             {isSignup ? 'Check your inbox for a verification link before signing in.'
               : mode === 'forgot' ? 'If an eligible account exists, a password reset link will be sent.'
                 : 'If an eligible account exists, a verification link will be sent.'}
@@ -107,6 +132,8 @@ export function AuthPage({ mode, onSignIn }) {
               <ShieldCheck size={16} aria-hidden="true" className="shrink-0 text-indigo-300" />
               Reset links expire after 30 minutes.
             </span>} />
+          {isSignup && <AuthField name="displayName" label="Display name (optional)" autoComplete="name"
+            error={errors.displayName} />}
           {hasPassword && <AuthField name="password" label="Password" type={showPassword ? 'text' : 'password'}
             autoComplete={isLogin ? 'current-password' : 'new-password'} required
             icon={LockKeyhole}

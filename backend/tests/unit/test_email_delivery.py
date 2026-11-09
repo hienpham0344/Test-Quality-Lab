@@ -1,3 +1,4 @@
+from datetime import timedelta
 from types import SimpleNamespace
 
 import pytest
@@ -33,11 +34,14 @@ def test_verification_link_sends_token_in_fragment(monkeypatch):
     )
     monkeypatch.setattr(email_adapter.smtplib, "SMTP", FakeSMTP)
 
-    email_adapter.send_auth_link("verify", "user@example.com", "one-time-token")
+    email_adapter.send_auth_link(
+        "verify", "user@example.com", "one-time-token", timedelta(hours=24)
+    )
 
     assert len(messages) == 1
     assert messages[0]["To"] == "user@example.com"
     assert "http://localhost:5173/verify-email#token=one-time-token" in messages[0].get_content()
+    assert "within 24 hours" in messages[0].get_content()
 
 
 def test_remote_smtp_rejects_plaintext_and_local_sender(monkeypatch):
@@ -48,12 +52,12 @@ def test_remote_smtp_rejects_plaintext_and_local_sender(monkeypatch):
     )
     monkeypatch.setattr(email_adapter, "get_settings", lambda: settings)
     with pytest.raises(ValueError, match="TLS"):
-        email_adapter.send_auth_link("reset", "user@example.com", "token")
+        email_adapter.send_auth_link("reset", "user@example.com", "token", timedelta(minutes=30))
 
     settings.smtp_security = "starttls"
     settings.smtp_sender = "no-reply@localhost"
     with pytest.raises(ValueError, match="sender"):
-        email_adapter.send_auth_link("reset", "user@example.com", "token")
+        email_adapter.send_auth_link("reset", "user@example.com", "token", timedelta(minutes=30))
 
 
 def test_remote_smtp_uses_tls_authentication_and_configured_sender(monkeypatch):
@@ -89,6 +93,14 @@ def test_remote_smtp_uses_tls_authentication_and_configured_sender(monkeypatch):
         ),
     )
     monkeypatch.setattr(email_adapter.smtplib, "SMTP", FakeSMTP)
-    email_adapter.send_auth_link("reset", "user@example.com", "token")
+    email_adapter.send_auth_link("reset", "user@example.com", "token", timedelta(minutes=30))
     assert [call[0] for call in calls] == ["connect", "starttls", "login", "send"]
     assert calls[-1] == ("send", "no-reply@example.com", "user@example.com")
+
+
+@pytest.mark.parametrize(
+    "valid_for,text",
+    [(timedelta(minutes=30), "30 minutes"), (timedelta(hours=1), "1 hour"), (timedelta(hours=24), "24 hours")],
+)
+def test_link_validity_is_described_for_humans(valid_for, text):
+    assert email_adapter.describe_validity(valid_for) == text

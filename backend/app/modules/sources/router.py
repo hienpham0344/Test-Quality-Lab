@@ -6,8 +6,8 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 from sqlalchemy.orm import Session
 
 from app.infrastructure.database.session import get_db
+from app.modules.auth.dependencies import current_user
 from app.modules.auth.models import User
-from app.modules.auth.router import current_user
 from app.modules.sources.service import MAX_SOURCE_BYTES, SourceService
 
 router = APIRouter(prefix="/projects/{project_id}/sources", tags=["sources"])

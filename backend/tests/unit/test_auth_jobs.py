@@ -3,78 +3,78 @@ from datetime import timedelta
 
 import pytest
 from celery.exceptions import Retry
-from sqlalchemy import create_engine, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.infrastructure.database.base import Base
+from app.core.clock import utcnow
 from app.jobs import tasks
 from app.modules.auth.models import AuthToken
-from app.modules.auth.service import AuthService, utcnow
-
-
-class RedactedLinks(list):
-    def __repr__(self):
-        return f"RedactedLinks(count={len(self)})"
 
 
 @pytest.fixture
-def queued_auth(monkeypatch):
-    engine = create_engine("sqlite://")
-    Base.metadata.create_all(engine)
-    sent = RedactedLinks()
-
-    def deliver(kind, email, token):
-        sent.append((kind, email, token))
+def worker_env(monkeypatch, engine, auth, link_worker):
     monkeypatch.setattr(tasks, "SessionLocal", lambda: Session(engine))
-    monkeypatch.setattr(tasks, "send_auth_link", deliver)
-    with Session(engine) as db:
-        AuthService(db, deliver).register("user@example.com", "long-enough-password")
-    yield engine, sent
-    engine.dispose()
+    monkeypatch.setattr(tasks, "send_auth_link", link_worker.capture)
+    auth.register()
+    auth.queued.clear()  # the task under test plays the worker
+    return link_worker
 
 
-def test_worker_sends_verification_and_reset_only_for_eligible_accounts(queued_auth):
-    engine, sent = queued_auth
+def test_worker_sends_links_only_to_eligible_accounts(worker_env, auth):
     tasks.request_auth_link.run("verify", "missing@example.com")
     tasks.request_auth_link.run("reset", "user@example.com")
-    assert len(sent) == 1
+    assert worker_env.outbox == []
+
     tasks.request_auth_link.run("verify", "user@example.com")
-    assert len(sent) == 2
-    with Session(engine) as db:
-        AuthService(db, lambda *_: None).verify_email(sent[-1][2])
+    auth.accounts.verify_email(worker_env.latest("verify"))
     tasks.request_auth_link.run("verify", "user@example.com")
-    assert len(sent) == 2
     tasks.request_auth_link.run("reset", "user@example.com")
-    assert sent[-1][:2] == ("reset", "user@example.com")
-    with Session(engine) as db:
-        AuthService(db, lambda *_: None).reset_password(sent[-1][2], "new-test-password")
-        assert AuthService(db, lambda *_: None).login("user@example.com", "new-test-password")
+
+    assert [item[0] for item in worker_env.outbox] == ["verify", "reset"]
+    auth.accounts.reset_password(worker_env.latest("reset"), "new-test-password")
+    assert auth.sessions.login("user@example.com", "new-test-password")
 
 
-def test_worker_retry_hides_smtp_details(queued_auth, monkeypatch):
-    def fail_send(*_):
-        raise smtplib.SMTPException("provider response with private details")
-
-    monkeypatch.setattr(tasks, "send_auth_link", fail_send)
+def run_with_retry_context(*args):
     tasks.request_auth_link.push_request(
         called_directly=False, retries=0, is_eager=True,
-        args=("verify", "user@example.com"), kwargs={}, argsrepr="(<redacted>)",
+        args=args, kwargs={}, argsrepr="(<redacted>)",
     )
     try:
         with pytest.raises(Retry) as failure:
-            tasks.request_auth_link.run("verify", "user@example.com")
-        assert str(failure.value.exc) == "Email delivery unavailable"
-        assert failure.value.when == 60
-        assert failure.value.sig.options["argsrepr"] == "(<redacted>)"
+            tasks.request_auth_link.run(*args)
+        return failure.value
     finally:
         tasks.request_auth_link.pop_request()
 
 
-def test_scheduled_cleanup_removes_only_records_past_retention(queued_auth):
-    engine, _ = queued_auth
-    with Session(engine) as db:
-        db.scalar(select(AuthToken)).expires_at = utcnow() - timedelta(days=8)
-        db.commit()
+def test_worker_retry_hides_smtp_details(worker_env, monkeypatch):
+    def fail_send(*_):
+        raise smtplib.SMTPException("provider response with private details")
+
+    monkeypatch.setattr(tasks, "send_auth_link", fail_send)
+    retry = run_with_retry_context("verify", "user@example.com")
+
+    assert str(retry.exc) == "Email delivery unavailable"
+    assert retry.when == 60
+    assert retry.sig.options["argsrepr"] == "(<redacted>)"
+
+
+def test_worker_rejects_unknown_link_kind(worker_env):
+    assert str(run_with_retry_context("unknown", "user@example.com").exc) == (
+        "Email delivery unavailable"
+    )
+
+
+def test_scheduled_cleanup_removes_only_records_past_retention(worker_env, auth, db):
+    auth.accounts.request_verification_email("user@example.com")
+    auth.deliver()
+    db.scalar(select(AuthToken)).expires_at = utcnow() - timedelta(days=8)
+    db.commit()
+
     assert tasks.cleanup_expired_auth.run() == {"tokens": 1, "sessions": 0}
-    with Session(engine) as db:
-        assert db.scalar(select(AuthToken)) is None
+    assert db.scalar(select(AuthToken)) is None
+
+
+def test_ping_is_a_safe_probe():
+    assert tasks.ping.run() == {"status": "ok"}

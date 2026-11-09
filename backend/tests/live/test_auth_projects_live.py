@@ -20,10 +20,13 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session
 
+from app.core.exceptions import AppError
 from app.infrastructure.email.queue import enqueue_auth_link
 from app.infrastructure.queue.celery_app import celery_app
+from app.modules.auth.account_service import AccountService
+from app.modules.auth.link_service import AuthLinkService
 from app.modules.auth.rate_limit import RateLimiter, RateLimitExceeded
-from app.modules.auth.service import AuthError, AuthService
+from app.modules.auth.session_service import SessionService
 from app.modules.projects.service import ProjectService
 
 pytestmark = [
@@ -49,11 +52,14 @@ def pg_engine():
 def seed_user(engine):
     links = []
     with Session(engine) as db:
-        service = AuthService(db, lambda _kind, _email, token: links.append(token))
-        user = service.register(f"{uuid.uuid4().hex}@example.com", "test-password-long")
-        service.verify_email(links[-1])
-        pair = service.login(user.email, "test-password-long")
-        service.request_password_reset(user.email)
+        sender = AuthLinkService(db, lambda _kind, _email, token, _ttl: links.append(token))
+        user = AccountService(db, lambda *_: None).register(
+            f"{uuid.uuid4().hex}@example.com", "test-password-long", "test-password-long"
+        )
+        sender.send_verification(user.email)
+        AccountService(db, lambda *_: None).verify_email(links[-1])
+        pair = SessionService(db).login(user.email, "test-password-long")
+        sender.send_password_reset(user.email)
         return user.id, pair, links[-1]
 
 
@@ -65,9 +71,9 @@ def test_postgres_reset_link_is_single_use_under_concurrency(pg_engine):
         with Session(pg_engine) as db:
             barrier.wait(timeout=10)
             try:
-                AuthService(db, lambda *_: None).reset_password(token, "new-test-password")
+                AccountService(db, lambda *_: None).reset_password(token, "new-test-password")
                 return "reset"
-            except AuthError:
+            except AppError:
                 return "rejected"
 
     with ThreadPoolExecutor(max_workers=2) as pool:
@@ -82,14 +88,14 @@ def test_postgres_reset_revokes_a_racing_refresh(pg_engine):
     def reset():
         with Session(pg_engine) as db:
             barrier.wait(timeout=10)
-            AuthService(db, lambda *_: None).reset_password(token, "new-test-password")
+            AccountService(db, lambda *_: None).reset_password(token, "new-test-password")
 
     def refresh():
         with Session(pg_engine) as db:
             barrier.wait(timeout=10)
             try:
-                return AuthService(db, lambda *_: None).refresh(pair.refresh_token)
-            except AuthError:
+                return SessionService(db).refresh(pair.refresh_token)
+            except AppError:
                 return None
 
     with ThreadPoolExecutor(max_workers=2) as pool:
@@ -97,11 +103,11 @@ def test_postgres_reset_revokes_a_racing_refresh(pg_engine):
         reset_result.result(timeout=20)
         refreshed = refresh_result.result(timeout=20)
     with Session(pg_engine) as db:
-        service = AuthService(db, lambda *_: None)
-        with pytest.raises(AuthError):
+        service = SessionService(db)
+        with pytest.raises(AppError):
             service.current_user(pair.access_token)
         if refreshed:
-            with pytest.raises(AuthError):
+            with pytest.raises(AppError):
                 service.current_user(refreshed.access_token)
 
 
@@ -176,7 +182,9 @@ def wait_for_mail_token(email, subject):
 def test_live_api_mail_queue_sessions_and_projects(pg_engine):
     email = f"{uuid.uuid4().hex}@example.com"
     with httpx.Client(base_url="http://127.0.0.1:8000/api/v1", timeout=10) as api:
-        assert api.post("/auth/register", json={"email": email, "password": "test-password-long"}).status_code == 201
+        assert api.post("/auth/register", json={
+            "email": email, "password": "test-password-long", "confirm_password": "test-password-long",
+        }).status_code == 201
         verify = wait_for_mail_token(email, "Verify your email")
         assert api.post("/auth/verify", json={"token": verify}).status_code == 200
         assert api.post("/auth/verify", json={"token": verify}).status_code == 400
@@ -193,7 +201,8 @@ def test_live_api_mail_queue_sessions_and_projects(pg_engine):
         requested = api.post("/auth/password/forgot", json={"email": email})
         assert missing.status_code == 200, missing.json().get("detail")
         assert requested.status_code == 200, requested.json().get("detail")
-        assert missing.json() == requested.json() == {"status": "request_accepted"}
+        assert missing.json() == requested.json()
+        assert requested.json()["status"] == "request_accepted"
         reset = wait_for_mail_token(email, "Reset your password")
         assert api.post("/auth/password/reset", json={"token": reset, "new_password": "new-test-password"}).status_code == 200
         assert api.get("/projects", headers=headers).status_code == 401

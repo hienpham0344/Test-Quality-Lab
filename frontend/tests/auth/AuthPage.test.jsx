@@ -76,6 +76,9 @@ describe('authentication forms', () => {
     await open('/signup')
     await submit({ email: 'test@example.com', password: 'example-password', confirmation: 'example-password' })
     expect(fetchMock.mock.calls[0][0]).toMatch(/\/auth\/register$/)
+    const payload = JSON.parse(fetchMock.mock.calls[0][1].body)
+    expect(payload.confirm_password).toBe(payload.password)
+    expect(payload.display_name).toBeNull()
     expect(container.querySelector('[role=status]').textContent).toContain('verification link')
   })
 

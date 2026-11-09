@@ -1,126 +1,149 @@
 import { APP_CONFIG } from '../config'
-const baseUrl = APP_CONFIG.apiUrl;
-export class AuthApiError extends Error {
-    status;
-    detail;
-    constructor(status, detail) {
-        super(detail || `Authentication request failed (${status})`);
-        this.status = status;
-        this.detail = detail;
-    }
+
+const baseUrl = APP_CONFIG.apiUrl
+
+/** Error returned by the API: {"detail": {"code", "message", "fields"}} (docs/api/contracts). */
+export class ApiError extends Error {
+  constructor(status, code = null, fields = {}, message = `Request failed (${status})`) {
+    super(message)
+    this.status = status
+    this.code = code
+    this.fields = fields
+    this.detail = message
+  }
 }
+
+export { ApiError as AuthApiError }
+
+async function readJson(response) {
+  try {
+    return await response.json()
+  } catch {
+    return null
+  }
+}
+
+async function request(path, { method = 'GET', body, accessToken, signal } = {}) {
+  const headers = {}
+  if (body !== undefined) headers['Content-Type'] = 'application/json'
+  if (accessToken) headers.Authorization = `Bearer ${accessToken}`
+  const response = await fetch(`${baseUrl}/api/v1${path}`, {
+    method,
+    headers,
+    signal,
+    cache: 'no-store',
+    body: body === undefined ? undefined : JSON.stringify(body),
+  })
+  const data = await readJson(response)
+  if (!response.ok) {
+    const detail = data?.detail ?? {}
+    throw new ApiError(response.status, detail.code ?? null, detail.fields ?? {}, typeof detail === 'string' ? detail : detail.message)
+  }
+  return data
+}
+
 export async function getHealth() {
-    const response = await fetch(`${baseUrl}/health`);
-    if (!response.ok)
-        throw new Error('API health check failed');
-    return (await response.json());
+  const response = await fetch(`${baseUrl}/health`)
+  if (!response.ok) throw new Error('API health check failed')
+  return response.json()
 }
-async function postAuth(path, payload) {
-    const response = await fetch(`${baseUrl}/api/v1/auth/${path}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-        cache: 'no-store',
-    });
-    if (!response.ok) {
-        let detail
-        try {
-            const data = await response.json()
-            if (typeof data?.detail === 'string') detail = data.detail
-        } catch {
-            // non-JSON response
-        }
-        throw new AuthApiError(response.status, detail);
-    }
-    return response;
+
+// --- UC-01 registration and email verification ---
+export function registerAccount({ email, password, confirmPassword, displayName }) {
+  return request('/auth/register', {
+    method: 'POST',
+    body: {
+      email,
+      password,
+      confirm_password: confirmPassword,
+      display_name: displayName || null,
+    },
+  })
 }
-export async function login(email, password) {
-    const response = await postAuth('login', { email, password })
-    const { access_token: accessToken } = await response.json()
-    if (typeof accessToken !== 'string' || !accessToken) throw new Error('Invalid sign-in response')
-    return { accessToken }
+
+export function register(email, password, confirmPassword, displayName) {
+  return registerAccount({ email, password, confirmPassword, displayName })
 }
-export function register(email, password) {
-    return postAuth('register', { email, password })
-}
+
 export function forgotPassword(email) {
-    return postAuth('password/forgot', { email })
+  return request('/auth/password/forgot', { method: 'POST', body: { email } })
 }
-export function requestVerification(email) {
-    return postAuth('verification/request', { email })
+
+export { requestVerificationEmail as requestVerification }
+
+export function requestVerificationEmail(email) {
+  return request('/auth/verification/request', { method: 'POST', body: { email } })
 }
-async function sessionRequest(path, accessToken, options = {}) {
-    const headers = {
-        Authorization: `Bearer ${accessToken}`,
-        ...(options.headers || {}),
-    }
-    const response = await fetch(`${baseUrl}/api/v1/${path}`, {
-        ...options,
-        headers,
-        cache: 'no-store',
-    })
-    if (!response.ok) {
-        let detail
-        try {
-            const data = await response.json()
-            if (typeof data?.detail === 'string') detail = data.detail
-        } catch {
-            // non-JSON response
-        }
-        throw new AuthApiError(response.status, detail)
-    }
-    return response
-}
-export async function listProjects(accessToken, signal) {
-    const response = await sessionRequest('projects', accessToken, { signal })
-    const projects = await response.json()
-    if (!Array.isArray(projects)) throw new Error('Invalid project list')
-    return projects
-}
-export async function getProject(accessToken, projectId, signal) {
-    const response = await sessionRequest(`projects/${projectId}`, accessToken, { signal })
-    return response.json()
-}
-export async function createProject(accessToken, { name, description }, signal) {
-    const response = await sessionRequest('projects', accessToken, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            name: typeof name === 'string' ? name.trim() : name,
-            description: typeof description === 'string' ? (description.trim() || null) : (description ?? null),
-        }),
-        signal,
-    })
-    return response.json()
-}
-export async function updateProject(accessToken, projectId, { name, description }, signal) {
-    const payload = {}
-    if (name !== undefined) {
-        payload.name = typeof name === 'string' ? name.trim() : name
-    }
-    if (description !== undefined) {
-        payload.description = typeof description === 'string' ? (description.trim() || null) : (description ?? null)
-    }
-    const response = await sessionRequest(`projects/${projectId}`, accessToken, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-        signal,
-    })
-    return response.json()
-}
-export async function getProjectHistory(accessToken, projectId, signal) {
-    const response = await sessionRequest(`projects/${projectId}/history`, accessToken, { signal })
-    const history = await response.json()
-    if (!Array.isArray(history)) throw new Error('Invalid project history')
-    return history
-}
-export function logout(accessToken) {
-    return sessionRequest('auth/logout', accessToken, { method: 'POST', signal: AbortSignal.timeout(10000) })
-}
+
 export function verifyEmail(token) {
-    return postAuth('verify', { token });
+  return request('/auth/verify', { method: 'POST', body: { token } })
 }
+
+// --- UC-02 sessions ---
+export function login(email, password) {
+  return request('/auth/login', { method: 'POST', body: { email, password } })
+}
+
+export function refreshSession(refreshToken) {
+  return request('/auth/refresh', { method: 'POST', body: { token: refreshToken } })
+}
+
+export function logout(accessToken) {
+  return request('/auth/logout', { method: 'POST', accessToken, signal: AbortSignal.timeout(10000) })
+}
+
+export function getCurrentUser(accessToken) {
+  return request('/auth/me', { accessToken })
+}
+
+// --- UC-12 password reset ---
 export function resetPassword(token, newPassword) {
-    return postAuth('password/reset', { token, new_password: newPassword });
+  return request('/auth/password/reset', {
+    method: 'POST',
+    body: { token, new_password: newPassword },
+  })
+}
+
+export async function listProjects(accessToken, signal) {
+  const data = await request('/projects', { accessToken, signal })
+  if (!Array.isArray(data)) throw new Error('Invalid project list')
+  return data
+}
+
+export function getProject(accessToken, projectId, signal) {
+  return request(`/projects/${projectId}`, { accessToken, signal })
+}
+
+export function createProject(accessToken, { name, description }, signal) {
+  return request('/projects', {
+    accessToken,
+    method: 'POST',
+    body: {
+      name: typeof name === 'string' ? name.trim() : name,
+      description: typeof description === 'string' ? (description.trim() || null) : (description ?? null),
+    },
+    signal,
+  })
+}
+
+export function updateProject(accessToken, projectId, { name, description }, signal) {
+  const payload = {}
+  if (name !== undefined) {
+    payload.name = typeof name === 'string' ? name.trim() : name
+  }
+  if (description !== undefined) {
+    payload.description = typeof description === 'string' ? (description.trim() || null) : (description ?? null)
+  }
+  return request(`/projects/${projectId}`, {
+    accessToken,
+    method: 'PATCH',
+    body: payload,
+    signal,
+  })
+}
+
+export async function getProjectHistory(accessToken, projectId, signal) {
+  const data = await request(`/projects/${projectId}/history`, { accessToken, signal })
+  if (!Array.isArray(data)) throw new Error('Invalid project history')
+  return data
 }

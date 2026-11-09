@@ -45,7 +45,10 @@ export function ResetPasswordPage() {
       setConfirmation('')
       setStatus('done')
     } catch (error) {
-      if (error instanceof AuthApiError && error.status === 400) setStatus('invalid')
+      if (error instanceof AuthApiError && error.code === 'AUTH_INVALID_INPUT' && error.fields.new_password) {
+        setPasswordError(error.fields.new_password)
+        setStatus('idle')
+      } else if (error instanceof AuthApiError && error.status === 400) setStatus('invalid')
       else if (error instanceof AuthApiError && error.status === 429) setStatus('limited')
       else setStatus('error')
     } finally {

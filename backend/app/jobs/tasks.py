@@ -3,7 +3,8 @@ import smtplib
 from app.infrastructure.database.session import SessionLocal
 from app.infrastructure.email.smtp import send_auth_link
 from app.infrastructure.queue.celery_app import celery_app
-from app.modules.auth.service import AuthService
+from app.modules.auth.link_service import AuthLinkService, LinkKind
+from app.modules.auth.session_service import SessionService
 
 
 @celery_app.task(name="system.ping")
@@ -15,7 +16,7 @@ def ping() -> dict[str, str]:
 @celery_app.task(name="auth.cleanup_expired")
 def cleanup_expired_auth() -> dict[str, int]:
     with SessionLocal() as db:
-        tokens, sessions = AuthService(db, lambda *_: None).cleanup_expired()
+        tokens, sessions = SessionService(db).cleanup_expired()
     return {"tokens": tokens, "sessions": sessions}
 
 
@@ -23,11 +24,11 @@ def cleanup_expired_auth() -> dict[str, int]:
 def request_auth_link(self, kind: str, email: str) -> None:
     try:
         with SessionLocal() as db:
-            service = AuthService(db, send_auth_link)
-            if kind == "verify":
-                service.request_verification(email)
-            elif kind == "reset":
-                service.request_password_reset(email)
+            links = AuthLinkService(db, send_auth_link)
+            if kind == LinkKind.VERIFY:
+                links.send_verification(email)
+            elif kind == LinkKind.RESET:
+                links.send_password_reset(email)
             else:
                 raise ValueError("Invalid email request kind")
     except (OSError, smtplib.SMTPException, ValueError):

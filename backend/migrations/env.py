@@ -5,6 +5,7 @@ from sqlalchemy import engine_from_config, pool
 
 from app.core.config import get_settings
 from app.infrastructure.database.base import Base
+from app.modules.audit.models import AuditEvent  # noqa: F401 — register metadata
 from app.modules.auth.models import AuthSession, AuthToken, User  # noqa: F401 — register metadata
 from app.modules.projects.models import Project, ProjectHistory  # noqa: F401 — register metadata
 from app.modules.sources.models import Source, SourceVersion  # noqa: F401 — register metadata

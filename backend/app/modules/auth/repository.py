@@ -40,14 +40,15 @@ class AuthRepository:
             query = query.with_for_update().execution_options(populate_existing=True)
         return self.db.scalar(query)
 
-    def revoke_user_sessions(self, user_id: uuid.UUID, when) -> None:
+    def revoke_user_sessions(self, user_id: uuid.UUID, when: datetime) -> None:
         self.db.execute(
             update(AuthSession)
             .where(AuthSession.user_id == user_id, AuthSession.revoked_at.is_(None))
             .values(revoked_at=when)
         )
 
-    def consume_user_tokens(self, user_id: uuid.UUID, kind: str, when) -> None:
+    def consume_user_tokens(self, user_id: uuid.UUID, kind: str, when: datetime) -> None:
+        """Mark every unused link of ``kind`` as used, so only a newer link can work."""
         self.db.execute(
             update(AuthToken)
             .where(AuthToken.user_id == user_id, AuthToken.kind == kind, AuthToken.used_at.is_(None))
