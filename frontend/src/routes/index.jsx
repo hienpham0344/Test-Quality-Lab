@@ -1,22 +1,33 @@
-import { Routes, Route } from 'react-router-dom'
+import { Navigate, Routes, Route } from 'react-router-dom'
 import { MainLayout } from '../components/layout'
+import { LoginLayout } from '../components/login/LoginLayout'
 import { HomePage } from '../features/home/HomePage'
-import { LoginPage } from '../features/auth/LoginPage'
-import { RegisterPage } from '../features/auth/RegisterPage'
-import { RequireAuth } from '../features/auth/RequireAuth'
+import { AuthPage } from '../features/auth/AuthPage'
+import { RequireSession } from '../components/auth/RequireSession'
 import { ResetPasswordPage } from '../features/auth/ResetPasswordPage'
 import { VerifyEmailPage } from '../features/auth/VerifyEmailPage'
 import { ProjectsPage } from '../features/projects/ProjectsPage'
+import { ProjectEditorPage } from '../features/projects/ProjectEditorPage'
 
-export default function AppRoutes() {
+export default function AppRoutes({ session, expired, logoutNotice, signingOut, onSignIn, onSignOut, onExpire }) {
   return (
     <Routes>
-      <Route element={<MainLayout />}>
+      <Route element={<MainLayout signedIn={Boolean(session)} signingOut={signingOut} onSignOut={onSignOut} />}>
         <Route path="/" element={<HomePage />} />
-        <Route path="/projects" element={<RequireAuth><ProjectsPage /></RequireAuth>} />
+        <Route element={<RequireSession session={session} expired={expired} logoutNotice={logoutNotice} signingOut={signingOut} />}>
+          <Route path="/projects" element={<ProjectsPage session={session} onExpire={onExpire} />} />
+          <Route path="/projects/new" element={<ProjectEditorPage session={session} onExpire={onExpire} mode="create" />} />
+          <Route path="/projects/:projectId" element={<ProjectEditorPage session={session} onExpire={onExpire} mode="edit" />} />
+        </Route>
       </Route>
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/register" element={<RegisterPage />} />
+      <Route element={<LoginLayout />}>
+        <Route path="/login" element={session
+          ? <Navigate to="/projects" replace />
+          : <AuthPage key="login" mode="login" onSignIn={onSignIn} />} />
+        <Route path="/signup" element={<AuthPage key="signup" mode="signup" />} />
+        <Route path="/forgot-password" element={<AuthPage key="forgot" mode="forgot" />} />
+      </Route>
+      <Route path="/resend-verification" element={<AuthPage key="resend" mode="resend" />} />
       <Route path="/verify-email" element={<VerifyEmailPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
     </Routes>

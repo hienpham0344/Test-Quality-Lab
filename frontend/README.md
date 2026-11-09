@@ -6,16 +6,18 @@ React with JavaScript / JSX, Vite, React Router, TanStack Query and Tailwind CSS
 
 - `src/main.jsx`: application bootstrap and providers.
 - `src/App.jsx` and `src/routes/`: application routes.
-- `src/features/`: feature pages, components and feature-specific logic.
+- `src/features/`: page components grouped by feature.
+- `src/components/<page>/`: components and assets used by a page, such as `login/` and `home/`.
+- `src/components/auth/`: layouts and guards shared by authentication pages.
 - `src/components/common/`: reusable UI components.
 - `src/components/layout/`: shared header, footer and route layout.
 - `src/services/api.js`: the only API client (one function per endpoint).
 - `src/hooks/`: shared hooks, including API health state.
 - `src/config/`: public application configuration. Never place secrets here.
 - `src/styles/`: global styles.
+- `tests/`: page and flow tests grouped by feature.
 
-Keep logic used by only one feature inside that feature. The `@/` alias resolves
-to `src/` in Vite and editor configuration.
+The `@/` alias resolves to `src/` in Vite and editor configuration.
 
 ## Checks
 
@@ -32,5 +34,4 @@ an ESLint parser dependency, not the application language.
 
 The home route uses `MainLayout`. Existing `/verify-email` and `/reset-password`
 routes retain their standalone screens and one-time fragment-token behavior.
-Login, signup, forgot-password, protected routes and session UX remain separate
-Sprint 1 work.
+Protected project routes under `/projects` and `/projects/:projectId` support owner-scoped project creation, listing, editing, loading/empty/error states, and revision history.

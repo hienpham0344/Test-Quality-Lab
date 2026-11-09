@@ -129,3 +129,22 @@ This dependency is part of lint tooling; the override does not change applicatio
 Project request models reject unknown fields. Issue #19's accepted scope is
 create/list/read/update plus metadata history and ownership checks; DELETE and
 experiment listing require their own specified behavior before implementation.
+
+## Python source API
+
+Apply Alembic revision `20261107_0003` before using source routes. Under
+`/api/v1/projects/{project_id}/sources`, authenticated owners can `POST` a new
+source, `GET` their sources, `POST /{source_id}/versions` to add a revision,
+`GET /{source_id}/versions` for version metadata, and
+`GET /{source_id}/versions/{revision}` for a specific revision's code.
+`POST` accepts `application/json` with `{"code": "..."}` for pasted text, or
+raw UTF-8 file bytes with `Content-Type: text/x-python` or
+`application/octet-stream`. The source limit is 1 MiB. Identical bytes keep
+the current revision. Each stored revision has a SHA-256 digest of its bytes.
+
+AST inspection lists top-level synchronous functions. It rejects invalid
+syntax, module-level behavior, decorators, async functions, unsupported imports,
+and common dynamic calls with a reason. The import allowlist is `math`, `cmath`,
+`decimal`, `fractions`, `itertools`, and `statistics`. These checks are for
+function selection and early feedback, **not** a security boundary. No route
+executes uploaded code; the sandbox remains disabled.

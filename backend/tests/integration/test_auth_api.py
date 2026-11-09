@@ -202,3 +202,22 @@ def test_reset_does_not_reveal_account_and_revokes_sessions(api):
         "/api/v1/auth/password/reset", json={"token": "invalid", "new_password": "long-password-123"}
     )
     assert invalid.status_code == 400
+
+
+def test_auth_link_tokens_cannot_cross_purpose_or_be_reused(api):
+    email = "user@example.com"
+    assert api.register(email).status_code == 201
+    verify_token = api.worker.latest("verify")
+    reset_path = "/api/v1/auth/password/reset"
+    assert api.client.post(
+        reset_path, json={"token": verify_token, "new_password": "new-password-123"}
+    ).status_code == 400
+    assert api.verify(verify_token).status_code == 200
+    assert api.verify(verify_token).status_code == 400
+
+    assert api.client.post("/api/v1/auth/password/forgot", json={"email": email}).status_code == 200
+    reset_token = api.worker.latest("reset")
+    assert api.verify(reset_token).status_code == 400
+    body = {"token": reset_token, "new_password": "new-password-123"}
+    assert api.client.post(reset_path, json=body).status_code == 200
+    assert api.client.post(reset_path, json=body).status_code == 400

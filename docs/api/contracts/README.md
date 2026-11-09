@@ -5,5 +5,5 @@ for frontend integration (see the coding rules, section 7.4).
 |---|---|---|
 | auth | [auth.md](auth.md) | `docs/api/postman/` folder `auth` |
 
-All errors use `{"detail": {"code", "message", "fields"}}`. Generate a client in a future
+Authentication errors use `{"detail": {"code", "message", "fields"}}`. Generate a client in a future
 feature PR; never hand-edit generated client code.

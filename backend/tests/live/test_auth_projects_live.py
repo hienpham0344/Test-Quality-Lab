@@ -9,10 +9,12 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from email import policy
 from email.parser import BytesParser
+from pathlib import Path
 from urllib.parse import urlparse
 
 import httpx
 import pytest
+from alembic.script import ScriptDirectory
 from redis import Redis
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
@@ -39,8 +41,10 @@ def pg_engine():
     assert url.host in {"localhost", "127.0.0.1"}
     assert url.database and url.database.endswith("_test")
     engine = create_engine(url, connect_args={"options": "-c lock_timeout=5000 -c statement_timeout=15000"})
+    migration_dir = Path(__file__).resolve().parents[2] / "migrations"
+    migration_head = ScriptDirectory(str(migration_dir)).get_current_head()
     with engine.connect() as connection:
-        assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "20261108_0003"
+        assert connection.scalar(text("SELECT version_num FROM alembic_version")) == migration_head
     yield engine
     engine.dispose()
 
