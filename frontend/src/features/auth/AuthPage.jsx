@@ -116,7 +116,7 @@ export function AuthPage({ mode, onSignIn }) {
       {isLogin && location.state?.loggedOut && <p role="status" className="text-sm text-emerald-200">You have signed out.</p>}
       {done ? (
         <div className="space-y-4">
-          <p role="status" className="text-sm leading-6 text-emerald-200">
+          <p role="status" className={`text-sm leading-6 text-emerald-200 ${usesLoginShell ? 'text-center' : ''}`}>
             {isSignup ? 'Check your inbox for a verification link before signing in.'
               : mode === 'forgot' ? 'If an eligible account exists, a password reset link will be sent.'
                 : 'If an eligible account exists, a verification link will be sent.'}
