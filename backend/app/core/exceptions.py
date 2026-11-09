@@ -12,6 +12,8 @@ class ErrorCode(StrEnum):
     AUTH_INVALID_INPUT = "AUTH_INVALID_INPUT"
     AUTH_DUPLICATE_EMAIL = "AUTH_DUPLICATE_EMAIL"
     INPUT_INVALID = "INPUT_INVALID"
+    CSV_SCHEMA = "CSV_SCHEMA"
+    CSV_ROW_INVALID = "CSV_ROW_INVALID"
     NOT_FOUND = "NOT_FOUND"
     ACCESS_DENIED = "ACCESS_DENIED"
     # Authentication codes needed by the UC-01/UC-02 sequence diagrams.
