@@ -19,6 +19,8 @@ HTTP_STATUS: dict[ErrorCode, int] = {
     ErrorCode.NOT_FOUND: 404,
     ErrorCode.AUTH_DUPLICATE_EMAIL: 409,
     ErrorCode.INPUT_INVALID: 422,
+    ErrorCode.CSV_SCHEMA: 422,
+    ErrorCode.CSV_ROW_INVALID: 422,
     ErrorCode.AUTH_RATE_LIMITED: 429,
     ErrorCode.SERVICE_UNAVAILABLE: 503,
 }
