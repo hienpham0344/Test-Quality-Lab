@@ -211,12 +211,27 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
         </>}
       </nav>
 
-      <header className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-5">
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-semibold tracking-tight text-white">
-            {mode === 'create' ? 'Create new project' : 'Edit project'}
-          </h1>
-          {project && <Badge variant="info">Revision {project.current_revision}</Badge>}
+      <header className="flex flex-wrap items-center justify-between gap-4">
+        <div className="min-w-0 space-y-2">
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl font-semibold tracking-tight text-white">
+              {mode === 'create' ? 'Create new project' : 'Edit project'}
+            </h1>
+            {project && <Badge variant="info">Revision {project.current_revision}</Badge>}
+          </div>
+          {project && (
+            <dl className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400">
+              {[
+                ['Created', project.created_at],
+                ['Last modified', project.updated_at],
+              ].filter(([, date]) => date).map(([label, date]) => (
+                <div key={label} className="flex flex-wrap gap-x-1.5">
+                  <dt>{label}</dt>
+                  <dd className="text-slate-200"><time dateTime={date}>{formatDate(date)}</time></dd>
+                </div>
+              ))}
+            </dl>
+          )}
         </div>
         {project && (
           <div className="flex flex-wrap items-center gap-3">
@@ -352,15 +367,6 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
                     <dd className="break-all font-mono text-xs text-slate-200">{project.id}</dd>
                   </div>
                 )}
-                {[
-                  ['Created', project.created_at],
-                  ['Last updated', project.updated_at],
-                ].filter(([, date]) => date).map(([label, date]) => (
-                  <div key={label} className="flex flex-wrap justify-between gap-x-3 gap-y-1 py-3">
-                    <dt className="text-slate-400">{label}</dt>
-                    <dd className="text-slate-200"><time dateTime={date}>{formatDate(date)}</time></dd>
-                  </div>
-                ))}
               </dl>
             </section>
 
