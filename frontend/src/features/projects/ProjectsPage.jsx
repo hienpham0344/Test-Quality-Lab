@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { AuthApiError, createProject, listProjects } from '../../services/api'
 import { ProjectCard } from '../../components/projects/ProjectCard'
@@ -9,7 +10,36 @@ export function ProjectsPage({ session, onExpire }) {
   const [createModalOpen, setCreateModalOpen] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
   const [createError, setCreateError] = useState(null)
-  const [searchQuery, setSearchQuery] = useState('')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [searchQuery, setSearchQuery] = useState(() => searchParams.get('q') || '')
+  const sort = ['updated', 'created', 'name'].includes(searchParams.get('sort')) ? searchParams.get('sort') : 'updated'
+  const page = Math.max(1, Number.parseInt(searchParams.get('page') || '1', 10) || 1)
+  const PAGE_SIZE = 8
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      const next = new URLSearchParams(searchParams)
+      if (searchQuery.trim()) next.set('q', searchQuery.trim())
+      else next.delete('q')
+      next.delete('page')
+      if (next.toString() !== searchParams.toString()) setSearchParams(next, { replace: true })
+    }, 300)
+    return () => clearTimeout(timeout)
+  }, [searchQuery, searchParams, setSearchParams])
+
+  function updateSort(value) {
+    const next = new URLSearchParams(searchParams)
+    if (value === 'updated') next.delete('sort')
+    else next.set('sort', value)
+    next.delete('page')
+    setSearchParams(next)
+  }
+  function updatePage(value) {
+    const next = new URLSearchParams(searchParams)
+    if (value <= 1) next.delete('page')
+    else next.set('page', String(value))
+    setSearchParams(next)
+  }
 
   const projects = useQuery({
     queryKey: ['private', 'projects'],
@@ -43,12 +73,19 @@ export function ProjectsPage({ session, onExpire }) {
   }
 
   const allProjects = projects.data || []
-  const filteredProjects = searchQuery.trim()
-    ? allProjects.filter((item) =>
-      item.name.toLowerCase().includes(searchQuery.toLowerCase().trim()) ||
-        (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase().trim())),
-    )
-    : allProjects
+  const filteredProjects = useMemo(() => {
+    const q = searchQuery.trim().toLocaleLowerCase()
+    return allProjects.filter((item) => !q ||
+      item.name.toLocaleLowerCase().includes(q) || (item.description || '').toLocaleLowerCase().includes(q))
+      .sort((a, b) => {
+        if (sort === 'name') return a.name.localeCompare(b.name)
+        const field = sort === 'created' ? 'created_at' : 'updated_at'
+        return (Date.parse(b[field]) || 0) - (Date.parse(a[field]) || 0)
+      })
+  }, [allProjects, searchQuery, sort])
+  const pageCount = Math.max(1, Math.ceil(filteredProjects.length / PAGE_SIZE))
+  const safePage = Math.min(page, pageCount)
+  const visibleProjects = filteredProjects.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
 
   return (
     <section className="mx-auto max-w-5xl space-y-6 px-6 py-10">
@@ -92,7 +129,7 @@ export function ProjectsPage({ session, onExpire }) {
       {projects.isSuccess && (
         projects.data.length ? (
           <div className="space-y-4">
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <label htmlFor="search-projects" className="sr-only">Search projects</label>
               <input
                 id="search-projects"
@@ -113,6 +150,12 @@ export function ProjectsPage({ session, onExpire }) {
               )}
             </div>
 
+            <label htmlFor="project-sort" className="text-sm text-slate-400">Sort by</label>
+            <select id="project-sort" value={sort} onChange={(event) => updateSort(event.target.value)} className="min-h-11 rounded-lg border border-slate-700 bg-slate-900 px-3 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+              <option value="updated">Recently updated</option>
+              <option value="created">Recently created</option>
+              <option value="name">Name A–Z</option>
+            </select>
             {filteredProjects.length === 0 ? (
               <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-8 text-center space-y-2">
                 <p className="text-slate-300">No projects match &ldquo;{searchQuery}&rdquo;.</p>
@@ -126,10 +169,19 @@ export function ProjectsPage({ session, onExpire }) {
               </div>
             ) : (
               <ul className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {filteredProjects.map((project) => (
+                {visibleProjects.map((project) => (
                   <ProjectCard key={project.id} project={project} />
                 ))}
               </ul>
+            )}
+            {filteredProjects.length > PAGE_SIZE && (
+              <nav aria-label="Project pages" className="flex items-center justify-between gap-3 text-sm text-slate-300">
+                <span>Page {safePage} of {pageCount} · {filteredProjects.length} projects</span>
+                <div className="flex gap-2">
+                  <button type="button" disabled={safePage === 1} onClick={() => updatePage(safePage - 1)} className="min-h-10 rounded-lg border border-slate-700 px-3 hover:bg-slate-800 disabled:opacity-40">Previous</button>
+                  <button type="button" disabled={safePage === pageCount} onClick={() => updatePage(safePage + 1)} className="min-h-10 rounded-lg border border-slate-700 px-3 hover:bg-slate-800 disabled:opacity-40">Next</button>
+                </div>
+              </nav>
             )}
           </div>
         ) : (
