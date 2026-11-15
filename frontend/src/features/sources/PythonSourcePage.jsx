@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { AuthApiError, createPythonSource } from '../../services/api'
 
@@ -16,14 +16,14 @@ export function PythonSourcePage({ session, onExpire }) {
   const bytes = new TextEncoder().encode(code).length
   const valid = bytes > 0 && bytes <= MAX_BYTES
 
-  useEffect(() => {
+  function updateCode(value, name = '') {
+    setCode(value)
+    setFileName(name)
     setVersion(null)
     setSelected([])
     setError('')
-    if (status !== 'idle') setStatus('idle')
-    // A code change invalidates the functions inspected on the server.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [code])
+    setStatus('idle')
+  }
 
   async function handleFile(event) {
     const file = event.target.files?.[0]
@@ -38,19 +38,21 @@ export function PythonSourcePage({ session, onExpire }) {
       event.target.value = ''
       return
     }
+    setStatus('reading')
     try {
-      setCode(await file.text())
-      setFileName(file.name)
-      setError('')
+      updateCode(await file.text(), file.name)
     } catch {
+      setStatus('idle')
       setError('Unable to read the selected file.')
     }
     event.target.value = ''
   }
 
+  const busy = status === 'reading' || status === 'saving'
+
   async function handleSubmit(event) {
     event.preventDefault()
-    if (!valid || status === 'saving') return
+    if (!valid || busy) return
     setStatus('saving')
     setError('')
     try {
@@ -91,16 +93,16 @@ export function PythonSourcePage({ session, onExpire }) {
           <label htmlFor="python-code" className="text-sm font-medium text-slate-200">Source code <span className="text-rose-400">*</span></label>
           <label className="cursor-pointer rounded-lg border border-slate-600 px-3 py-2 text-sm text-indigo-300 hover:bg-slate-800 focus-within:outline-2 focus-within:outline-indigo-300">
             Upload .py
-            <input type="file" accept=".py,text/x-python" onChange={handleFile} className="sr-only" aria-label="Upload Python file" />
+            <input type="file" accept=".py,text/x-python" onChange={handleFile} disabled={busy} className="sr-only" aria-label="Upload Python file" />
           </label>
         </div>
         {fileName && <p className="text-xs text-slate-400">Selected file: {fileName}</p>}
-        <textarea id="python-code" value={code} onChange={(event) => setCode(event.target.value)}
+        <textarea id="python-code" value={code} onChange={(event) => updateCode(event.target.value)} disabled={busy}
           spellCheck={false} rows={18} placeholder={'def add(a, b):\n    return a + b'}
           className="w-full resize-y rounded-lg border border-slate-700 bg-slate-950 p-4 font-mono text-sm leading-6 text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-xs text-slate-400">{bytes.toLocaleString()} / {MAX_BYTES.toLocaleString()} bytes (UTF-8)</p>
-          <button type="submit" disabled={!valid || status === 'saving'}
+          <button type="submit" disabled={!valid || busy}
             className="min-h-11 rounded-lg bg-indigo-600 px-5 text-sm font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-indigo-300">
             {status === 'saving' ? 'Validating…' : 'Validate and save source'}
           </button>

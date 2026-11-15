@@ -30,7 +30,11 @@ export function ProviderConfigurationPage() {
   function validate(event) {
     event.preventDefault()
     setTouched(true)
-    if (valid) setValidated(true)
+    if (!valid) return
+    setSecret('')
+    setShowSecret(false)
+    setTouched(false)
+    setValidated(true)
   }
 
   return (
@@ -90,7 +94,7 @@ export function ProviderConfigurationPage() {
           <button type="submit" className="min-h-11 rounded-lg bg-indigo-600 px-5 text-sm font-medium text-white hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-indigo-300">Validate fields</button>
         </div>
         {validated && <p role="status" className="rounded-lg border border-emerald-800 bg-emerald-950/30 p-3 text-sm text-emerald-300">
-          Fields passed local validation. Configuration has not been saved; secure provider API integration is pending.
+          Fields passed local validation. The key was cleared. Configuration was not saved.
         </p>}
       </form>
     </section>

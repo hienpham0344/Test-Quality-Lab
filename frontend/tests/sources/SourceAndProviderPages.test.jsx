@@ -64,6 +64,21 @@ describe('Python source (#27)', () => {
     await vi.waitFor(() => expect(container.textContent).toContain('add'))
     expect(JSON.parse(fetchMock.mock.calls[0][1].body).code).toContain('def add')
     expect(fetchMock.mock.calls[0][0]).toContain('/projects/project-1/sources')
+    const choice = container.querySelector('input[type=checkbox]')
+    await act(async () => choice.click())
+    expect(choice.checked).toBe(true)
+    await act(async () => typeInto(container.querySelector('#python-code'), '# Updated source'))
+    expect(container.querySelector('input[type=checkbox]')).toBeNull()
+  })
+
+  it('loads an uploaded Python file into the editor', async () => {
+    await renderScreen('sources/new')
+    const upload = container.querySelector('input[type=file]')
+    const code = 'def uploaded(): return 1'
+    Object.defineProperty(upload, 'files', { value: [{ name: 'sample.py', size: code.length, text: async () => code }] })
+    await act(async () => upload.dispatchEvent(new Event('change', { bubbles: true })))
+    expect(container.querySelector('#python-code').value).toBe(code)
+    expect(container.textContent).toContain('sample.py')
   })
 
   it('shows syntax validation feedback from API', async () => {
@@ -82,6 +97,24 @@ describe('AI provider configuration (#35)', () => {
     expect(container.querySelectorAll('[role=alert]').length).toBe(3)
     expect(fetchMock).not.toHaveBeenCalled()
     expect(container.textContent).toContain('Credential storage is not yet available')
+  })
+
+  it('clears a validated key without sending or storing it', async () => {
+    await renderScreen('ai-config')
+    const provider = container.querySelector('#ai-provider')
+    const key = container.querySelector('#ai-secret')
+    await act(async () => {
+      provider.value = 'openai'
+      provider.dispatchEvent(new Event('change', { bubbles: true }))
+      typeInto(container.querySelector('#ai-model'), 'test-model')
+      typeInto(key, 'example-test-key')
+    })
+    await act(async () => container.querySelector('form').requestSubmit())
+    expect(container.querySelector('[role=status]').textContent).toContain('The key was cleared.')
+    expect(key.value).toBe('')
+    expect(localStorage.length).toBe(0)
+    expect(sessionStorage.length).toBe(0)
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it('defaults key visibility to hidden', async () => {
