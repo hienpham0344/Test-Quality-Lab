@@ -115,10 +115,11 @@ describe('ProjectsDashboard', () => {
     expect(container.textContent).toContain('No description provided')
     expect(container.textContent).toContain('v1')
 
-    const editLinks = container.querySelectorAll('a[href^="/projects/"]')
+    const editLinks = [...container.querySelectorAll('a')].filter((link) => link.textContent.trim() === 'Edit project')
     expect(editLinks.length).toBe(2)
     expect(editLinks[0].getAttribute('href')).toBe('/projects/p-1')
     expect(editLinks[1].getAttribute('href')).toBe('/projects/p-2')
+    expect(container.querySelector('a[href="/projects/p-1/sources/new"]').textContent.trim()).toBe('Open source')
   })
 
   it('filters projects by search term and resets search', async () => {
@@ -174,7 +175,7 @@ describe('ProjectsDashboard', () => {
     await vi.waitFor(() => expect(container.textContent).toContain('Page 2 of 2'))
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 350)) })
     expect(container.querySelector('[aria-label="URL query"]').textContent).toBe('?page=2')
-    expect(container.textContent).toContain('Experiments: 0')
+    expect(container.querySelector('li dl dd').textContent).toBe('0')
     expect(container.textContent).toContain('Project 8')
   })
 

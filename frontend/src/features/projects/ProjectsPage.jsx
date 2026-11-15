@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Plus, RotateCcw, X } from 'lucide-react'
+import { ArrowDownWideNarrow, ChevronLeft, ChevronRight, FolderKanban, History, LayoutGrid, Plus, RotateCcw, Search, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -95,11 +95,17 @@ export function ProjectsPage({ session, onExpire }) {
   const safePage = Math.min(page, pageCount)
   const visibleProjects = filteredProjects.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
 
+  const summaries = [
+    { label: 'Total projects', value: allProjects.length, icon: FolderKanban },
+    { label: 'Projects with revisions', value: allProjects.filter((project) => project.current_revision > 1).length, icon: History },
+    { label: query ? 'Matching projects' : 'Projects on this page', value: query ? filteredProjects.length : visibleProjects.length, icon: query ? Search : LayoutGrid },
+  ]
+
   return (
     <section className="mx-auto max-w-7xl space-y-6 px-4 py-7 sm:px-8 lg:py-10">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-white">Projects</h1>
+          <h1 className="text-3xl font-semibold tracking-tight text-white">Projects</h1>
           <p className="text-sm text-slate-400 mt-1">
             Manage the projects you use to evaluate Python tests.
           </p>
@@ -147,15 +153,16 @@ export function ProjectsPage({ session, onExpire }) {
       )}
 
       {projects.isSuccess && (
-        <dl className="grid grid-cols-2 divide-x divide-slate-800 rounded-xl border border-slate-800 bg-slate-900">
-          <div className="space-y-1 px-4 py-3 sm:px-5">
-            <dt className="text-sm text-slate-400">Total projects</dt>
-            <dd className="text-2xl font-semibold tabular-nums text-white">{allProjects.length}</dd>
-          </div>
-          <div className="space-y-1 px-4 py-3 sm:px-5">
-            <dt className="text-sm text-slate-400">{query ? 'Matching projects' : 'Projects on this page'}</dt>
-            <dd className="text-2xl font-semibold tabular-nums text-white">{query ? filteredProjects.length : visibleProjects.length}</dd>
-          </div>
+        <dl className="grid gap-3 sm:grid-cols-3">
+          {summaries.map(({ label, value, icon: Icon }) => (
+            <div key={label} className="min-w-0 space-y-2 rounded-xl border border-slate-800 bg-slate-900 px-4 py-3 sm:px-5">
+              <div className="flex items-center justify-between gap-2">
+                <dt className="text-xs font-medium tracking-wide text-slate-400">{label}</dt>
+                <Icon size={17} strokeWidth={1.75} aria-hidden="true" className="shrink-0 text-sky-300" />
+              </div>
+              <dd className="text-2xl font-semibold tabular-nums text-white">{value}</dd>
+            </div>
+          ))}
         </dl>
       )}
 
@@ -165,14 +172,17 @@ export function ProjectsPage({ session, onExpire }) {
             <div className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-800 bg-slate-900/60 p-3">
               <div className="flex min-w-0 basis-full items-center gap-2 sm:flex-1">
                 <label htmlFor="search-projects" className="sr-only">Search projects</label>
-                <input
-                  id="search-projects"
-                  type="search"
-                  placeholder="Search by name or description"
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  className="min-h-11 min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm text-slate-100 placeholder:text-slate-400 focus-visible:outline-2 focus-visible:outline-indigo-300"
-                />
+                <div className="relative min-w-0 flex-1">
+                  <Search size={16} aria-hidden="true" className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-slate-400" />
+                  <input
+                    id="search-projects"
+                    type="search"
+                    placeholder="Search by name or description"
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    className="min-h-11 w-full rounded-lg border border-slate-700 bg-slate-950 pr-3 pl-9 text-sm text-slate-100 placeholder:text-slate-400 focus-visible:outline-2 focus-visible:outline-indigo-300"
+                  />
+                </div>
                 {searchQuery && (
                   <button type="button" onClick={() => setSearchQuery('')}
                     className="inline-flex min-h-11 rounded-lg px-2 text-sm text-slate-300 hover:text-white focus-visible:outline-2 focus-visible:outline-indigo-300 items-center gap-2">
@@ -181,7 +191,9 @@ export function ProjectsPage({ session, onExpire }) {
                   </button>
                 )}
               </div>
-              <label htmlFor="project-sort" className="text-sm text-slate-400">Sort by</label>
+              <label htmlFor="project-sort" className="inline-flex items-center gap-2 text-sm text-slate-400">
+                <ArrowDownWideNarrow size={16} aria-hidden="true" /> Sort by
+              </label>
               <select id="project-sort" value={sort} onChange={(event) => updateSort(event.target.value)}
                 className="min-h-11 rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm text-slate-100 focus-visible:outline-2 focus-visible:outline-indigo-300">
                 <option value="updated">Recently updated</option>
@@ -209,7 +221,7 @@ export function ProjectsPage({ session, onExpire }) {
               </ul>
             )}
             {filteredProjects.length > PAGE_SIZE && (
-              <nav aria-label="Project pages" className="flex items-center justify-between gap-3 text-sm text-slate-300">
+              <nav aria-label="Project pages" className="flex flex-wrap items-center justify-between gap-3 text-sm text-slate-300">
                 <span>Page {safePage} of {pageCount} · {filteredProjects.length} projects</span>
                 <div className="flex gap-2">
                   <button type="button" disabled={safePage === 1} onClick={() => updatePage(safePage - 1)} className="inline-flex min-h-10 rounded-lg border border-slate-700 px-3 hover:bg-slate-800 disabled:opacity-40 items-center gap-2"><ChevronLeft size={16} aria-hidden="true" className="shrink-0" /> Previous</button>
