@@ -219,8 +219,10 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
           )}
         </div>
         {project && (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-3">
             <Badge variant="info">Revision {project.current_revision}</Badge>
+            <Link to={`/projects/${projectId}/sources/new`} className="inline-flex min-h-10 items-center rounded-lg border border-slate-600 px-3 text-sm text-indigo-300 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-indigo-300">Python source</Link>
+            <Link to={`/projects/${projectId}/ai-config`} className="inline-flex min-h-10 items-center rounded-lg border border-slate-600 px-3 text-sm text-indigo-300 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-indigo-300">AI configuration</Link>
           </div>
         )}
       </div>
