@@ -147,3 +147,15 @@ export async function getProjectHistory(accessToken, projectId, signal) {
   if (!Array.isArray(data)) throw new Error('Invalid project history')
   return data
 }
+
+
+/** UC-04: Server validates Python syntax and returns available functions. Never execute uploaded code in the browser. */
+export function createPythonSource(accessToken, projectId, code, signal) {
+  return request(`/projects/${encodeURIComponent(projectId)}/sources`, {
+    method: 'POST', accessToken, body: { code }, signal,
+  })
+}
+
+export function listPythonSources(accessToken, projectId, signal) {
+  return request(`/projects/${encodeURIComponent(projectId)}/sources`, { accessToken, signal })
+}

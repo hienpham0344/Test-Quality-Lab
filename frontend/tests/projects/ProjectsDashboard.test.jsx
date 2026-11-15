@@ -2,7 +2,7 @@
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useLocation, useNavigate } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ProjectsPage } from '../../src/features/projects/ProjectsPage'
 
@@ -34,10 +34,17 @@ afterEach(async () => {
   vi.unstubAllGlobals()
 })
 
-async function renderPage() {
+function TestLocation() {
+  const { search } = useLocation()
+  const navigate = useNavigate()
+  return <><output aria-label="URL query">{search}</output><button onClick={() => navigate(-1)}>Back</button></>
+}
+
+async function renderPage(initialEntry = '/projects') {
   await act(async () => root.render(
     <QueryClientProvider client={client}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[initialEntry]}>
+        <TestLocation />
         <ProjectsPage session={session} onExpire={onExpire} />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -67,7 +74,7 @@ describe('ProjectsDashboard', () => {
     })
     await renderPage()
     await vi.waitFor(() => {
-      expect(container.textContent).toContain('You don’t have any projects yet.')
+      expect(container.textContent).toContain('No projects yet')
       expect(container.textContent).toContain('Create your first project')
     })
   })
@@ -108,10 +115,11 @@ describe('ProjectsDashboard', () => {
     expect(container.textContent).toContain('No description provided')
     expect(container.textContent).toContain('v1')
 
-    const editLinks = container.querySelectorAll('a[href^="/projects/"]')
+    const editLinks = [...container.querySelectorAll('a')].filter((link) => link.textContent.trim() === 'Edit project')
     expect(editLinks.length).toBe(2)
     expect(editLinks[0].getAttribute('href')).toBe('/projects/p-1')
     expect(editLinks[1].getAttribute('href')).toBe('/projects/p-2')
+    expect(container.querySelector('a[href="/projects/p-1/sources/new"]').textContent.trim()).toBe('Open source')
   })
 
   it('filters projects by search term and resets search', async () => {
@@ -135,20 +143,40 @@ describe('ProjectsDashboard', () => {
       setInputValue(searchInput, 'Beta')
     })
 
-    expect(container.textContent).not.toContain('Alpha Suite')
-    expect(container.textContent).toContain('Beta Runner')
+    await vi.waitFor(() => {
+      expect(container.querySelector('[aria-label="URL query"]').textContent).toBe('?q=Beta')
+      expect(container.textContent).not.toContain('Alpha Suite')
+      expect(container.textContent).toContain('Beta Runner')
+    })
 
     // Search with no results
     await act(async () => {
       setInputValue(searchInput, 'Nonexistent')
     })
-    expect(container.textContent).toContain('No projects match “Nonexistent”.')
+    await vi.waitFor(() => expect(container.textContent).toContain('No projects match'))
+    await act(async () => [...container.querySelectorAll('button')].find((button) => button.textContent === 'Back').click())
+    expect(searchInput.value).toBe('Beta')
+    expect(container.textContent).toContain('Beta Runner')
+    await act(async () => setInputValue(searchInput, 'Nonexistent'))
+    await vi.waitFor(() => expect(container.textContent).toContain('No projects match'))
 
     // Click reset
     const resetButton = [...container.querySelectorAll('button')].find((b) => b.textContent.includes('Reset search'))
     await act(async () => resetButton.click())
-    expect(container.textContent).toContain('Alpha Suite')
+    await vi.waitFor(() => expect(container.textContent).toContain('Alpha Suite'))
     expect(container.textContent).toContain('Beta Runner')
+  })
+
+  it('preserves the page from the URL after the search debounce interval', async () => {
+    fetchMock.mockResolvedValue({ ok: true, json: async () => Array.from({ length: 9 }, (_, index) => ({
+      id: String(index), name: `Project ${index}`, current_revision: 1, experiment_count: 0,
+    })) })
+    await renderPage('/projects?page=2')
+    await vi.waitFor(() => expect(container.textContent).toContain('Page 2 of 2'))
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 350)) })
+    expect(container.querySelector('[aria-label="URL query"]').textContent).toBe('?page=2')
+    expect(container.querySelector('li dl dd').textContent).toBe('0')
+    expect(container.textContent).toContain('Project 8')
   })
 
   it('shows error state and retries fetching', async () => {
@@ -202,7 +230,7 @@ describe('ProjectsDashboard', () => {
 
     await renderPage()
     await vi.waitFor(() => {
-      expect(container.textContent).toContain('You don’t have any projects yet.')
+      expect(container.textContent).toContain('No projects yet')
     })
 
     const openButton = [...container.querySelectorAll('button')].find((b) => b.textContent.includes('Create your first project'))
@@ -255,7 +283,7 @@ describe('ProjectsDashboard', () => {
       expect(container.textContent).toContain('Existing')
     })
 
-    const openButton = [...container.querySelectorAll('button')].find((b) => b.textContent.includes('+ New project'))
+    const openButton = [...container.querySelectorAll('button')].find((b) => b.textContent.includes('New project'))
     await act(async () => openButton.click())
 
     const nameInput = container.querySelector('#project-create-name')
