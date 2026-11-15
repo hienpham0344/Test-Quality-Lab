@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { PythonEditor } from '../../components/sources/PythonEditor'
 import { AuthApiError, createPythonSource } from '../../services/api'
 
 const MAX_BYTES = 1024 * 1024
@@ -97,9 +98,9 @@ export function PythonSourcePage({ session, onExpire }) {
           </label>
         </div>
         {fileName && <p className="text-xs text-slate-400">Selected file: {fileName}</p>}
-        <textarea id="python-code" value={code} onChange={(event) => updateCode(event.target.value)} disabled={busy}
+        <PythonEditor id="python-code" value={code} onChange={(event) => updateCode(event.target.value)} disabled={busy}
           spellCheck={false} rows={18} placeholder={'def add(a, b):\n    return a + b'}
-          className="h-72 w-full resize-y rounded-lg sm:h-auto border border-slate-700 bg-slate-950 p-4 font-mono text-sm leading-6 text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+        />
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-xs text-slate-400">{bytes.toLocaleString()} / {MAX_BYTES.toLocaleString()} bytes (UTF-8)</p>
           <button type="submit" disabled={!valid || busy}

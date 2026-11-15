@@ -47,6 +47,18 @@ afterEach(async () => {
 })
 
 describe('Python source (#27)', () => {
+  it('highlights Python tokens without changing the editable source', async () => {
+    await renderScreen('sources/new')
+    const editor = container.querySelector('#python-code')
+    const code = 'def greet():\n    return "<tag>" # comment'
+    await act(async () => typeInto(editor, code))
+    const preview = container.querySelector('pre[aria-hidden="true"]')
+    expect(preview.querySelector('.text-violet-300').textContent).toBe('def')
+    expect(preview.querySelector('.text-emerald-300').textContent).toBe('"<tag>"')
+    expect(preview.querySelector('tag')).toBeNull()
+    expect(editor.value).toBe(code)
+  })
+
   it('disables validation when code is empty', async () => {
     await renderScreen('sources/new')
     expect(container.querySelector('button[type=submit]').disabled).toBe(true)
