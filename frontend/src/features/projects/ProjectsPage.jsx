@@ -11,21 +11,28 @@ export function ProjectsPage({ session, onExpire }) {
   const [isCreating, setIsCreating] = useState(false)
   const [createError, setCreateError] = useState(null)
   const [searchParams, setSearchParams] = useSearchParams()
-  const [searchQuery, setSearchQuery] = useState(() => searchParams.get('q') || '')
+  const query = searchParams.get('q') || ''
+  const [previousQuery, setPreviousQuery] = useState(query)
+  const [searchQuery, setSearchQuery] = useState(query)
+  if (previousQuery !== query) {
+    setPreviousQuery(query)
+    setSearchQuery(query)
+  }
   const sort = ['updated', 'created', 'name'].includes(searchParams.get('sort')) ? searchParams.get('sort') : 'updated'
   const page = Math.max(1, Number.parseInt(searchParams.get('page') || '1', 10) || 1)
   const PAGE_SIZE = 8
 
   useEffect(() => {
+    if (searchQuery.trim() === query) return
     const timeout = setTimeout(() => {
       const next = new URLSearchParams(searchParams)
       if (searchQuery.trim()) next.set('q', searchQuery.trim())
       else next.delete('q')
       next.delete('page')
-      if (next.toString() !== searchParams.toString()) setSearchParams(next, { replace: true })
+      if (next.toString() !== searchParams.toString()) setSearchParams(next)
     }, 300)
     return () => clearTimeout(timeout)
-  }, [searchQuery, searchParams, setSearchParams])
+  }, [query, searchQuery, searchParams, setSearchParams])
 
   function updateSort(value) {
     const next = new URLSearchParams(searchParams)
@@ -74,7 +81,7 @@ export function ProjectsPage({ session, onExpire }) {
 
   const allProjects = projects.data || []
   const filteredProjects = useMemo(() => {
-    const q = searchQuery.trim().toLocaleLowerCase()
+    const q = query.toLocaleLowerCase()
     return allProjects.filter((item) => !q ||
       item.name.toLocaleLowerCase().includes(q) || (item.description || '').toLocaleLowerCase().includes(q))
       .sort((a, b) => {
@@ -82,7 +89,7 @@ export function ProjectsPage({ session, onExpire }) {
         const field = sort === 'created' ? 'created_at' : 'updated_at'
         return (Date.parse(b[field]) || 0) - (Date.parse(a[field]) || 0)
       })
-  }, [allProjects, searchQuery, sort])
+  }, [allProjects, query, sort])
   const pageCount = Math.max(1, Math.ceil(filteredProjects.length / PAGE_SIZE))
   const safePage = Math.min(page, pageCount)
   const visibleProjects = filteredProjects.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
@@ -110,7 +117,17 @@ export function ProjectsPage({ session, onExpire }) {
         )}
       </div>
 
-      {(projects.isPending || expired) && <p role="status">Checking access to your projects…</p>}
+      {(projects.isPending || expired) && <div role="status">
+        <span className="sr-only">Checking access to your projects…</span>
+        <div aria-hidden="true" className="grid gap-4 motion-safe:animate-pulse md:grid-cols-2">
+          {[1, 2].map((item) => (
+            <div key={item} className="space-y-4 rounded-xl border border-slate-700 bg-slate-900 p-5">
+              <div className="h-5 w-1/2 rounded bg-slate-700" />
+              <div className="h-4 w-3/4 rounded bg-slate-800" />
+            </div>
+          ))}
+        </div>
+      </div>}
 
       {projects.isError && !expired && (
         <div className="space-y-3">
@@ -158,7 +175,7 @@ export function ProjectsPage({ session, onExpire }) {
             </select>
             {filteredProjects.length === 0 ? (
               <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-8 text-center space-y-2">
-                <p className="text-slate-300">No projects match &ldquo;{searchQuery}&rdquo;.</p>
+                <p className="text-slate-300">No projects match &ldquo;{query}&rdquo;.</p>
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
@@ -185,7 +202,7 @@ export function ProjectsPage({ session, onExpire }) {
             )}
           </div>
         ) : (
-          <div className="rounded-2xl border border-dashed border-slate-750 bg-slate-900/40 p-12 text-center space-y-4">
+          <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/40 p-12 text-center space-y-4">
             <p className="text-slate-300">You don’t have any projects yet.</p>
             <p className="text-sm text-slate-400 max-w-md mx-auto">
               Get started by creating your first project to test and benchmark LLM prompt variations.

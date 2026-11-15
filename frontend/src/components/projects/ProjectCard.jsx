@@ -17,10 +17,11 @@ export function ProjectCard({ project }) {
         )}
       </div>
 
-      <div className="flex items-center justify-between border-t border-slate-800 pt-3 text-xs text-slate-400">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 border-t border-slate-800 pt-3 text-xs text-slate-400">
         <span title={project.updated_at}>
           Updated {formatDate(project.updated_at)}
         </span>
+        <span>Experiments: {project.experiment_count ?? 'N/A'}</span>
         <Link
           to={`/projects/${project.id}`}
           className="inline-flex min-h-8 items-center gap-1 font-medium text-indigo-400 hover:text-indigo-300 hover:underline focus-visible:outline-2 focus-visible:outline-indigo-300"
