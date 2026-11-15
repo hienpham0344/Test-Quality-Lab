@@ -209,7 +209,7 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
       {/* Screen Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-800 pb-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-white">
+          <h1 className="text-2xl font-semibold tracking-tight text-white">
             {mode === 'create' ? 'Create new project' : 'Edit project'}
           </h1>
           {project && (
@@ -228,7 +228,7 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
       </div>
 
       {/* Editor Form Card */}
-      <div className="rounded-2xl border border-slate-700 bg-slate-900 p-6 md:p-8 space-y-6">
+      <div className="rounded-2xl border border-slate-700 bg-slate-900 p-4 sm:p-6 space-y-6">
         <h2 className="text-xl font-semibold text-white">Project settings</h2>
 
         {saveStatus === 'saved' && (
@@ -335,7 +335,7 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
 
       {/* Revision History Card (for edit mode) */}
       {mode === 'edit' && (
-        <div className="rounded-2xl border border-slate-700 bg-slate-900 p-6 md:p-8 space-y-6">
+        <div className="rounded-2xl border border-slate-700 bg-slate-900 p-4 sm:p-6 space-y-6">
           <div className="flex items-center justify-between border-b border-slate-800 pb-4">
             <h2 className="text-xl font-semibold text-white">Revision history</h2>
             <span className="text-xs text-slate-400">

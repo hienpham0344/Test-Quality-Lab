@@ -82,12 +82,12 @@ describe('authentication forms', () => {
     expect(container.querySelector('[role=status]').textContent).toContain('verification link')
   })
 
-  it('signs in and shows the signed-in state on the home page', async () => {
+  it('signs in and opens the workspace overview', async () => {
     fetchMock.mockResolvedValue(Response.json({ access_token: 'test-access', refresh_token: 'test-refresh' }))
     await open('/login')
     await submit({ email: 'test@example.com', password: 'example-password' })
     expect(fetchMock.mock.calls[0][0]).toMatch(/\/auth\/login$/)
-    expect(container.textContent).toContain('Signed in')
+    expect(container.querySelector('h1').textContent).toBe('Overview')
   })
 
   it('shows generic feedback for rejected credentials', async () => {
@@ -134,6 +134,18 @@ describe('protected routing and session UX', () => {
     await act(async () => button.click())
   }
 
+  it('shows the workspace sidebar after sign-in and opens Projects from it', async () => {
+    mockSession()
+    await open('/login')
+    await submit(credentials)
+    expect(container.querySelector('h1').textContent).toBe('Overview')
+    const sidebar = container.querySelector('nav[aria-label="Workspace"]')
+    expect(sidebar.querySelector('[aria-current="page"]').textContent).toBe('Overview')
+    await act(async () => sidebar.querySelector('a[href="/projects"]').click())
+    await vi.waitFor(() => expect(container.textContent).toContain('Private workspace'))
+    expect(sidebar.querySelector('[aria-current="page"]').textContent).toBe('Projects')
+  })
+
   it('redirects guests without requesting projects', async () => {
     await open('/projects')
     expect(container.querySelector('h1').textContent).toBe('Sign in')
@@ -171,7 +183,7 @@ describe('protected routing and session UX', () => {
     await vi.waitFor(() => expect(container.textContent).toContain('Please try again'))
     unavailable = false
     await clickButton('Try again')
-    await vi.waitFor(() => expect(container.textContent).toContain('You don’t have any projects yet'))
+    await vi.waitFor(() => expect(container.textContent).toContain('No projects yet'))
   })
 
   it.each([

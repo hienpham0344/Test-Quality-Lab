@@ -4,7 +4,7 @@ import { formatDate } from '../../lib/format-date'
 
 export function ProjectCard({ project }) {
   return (
-    <li className="flex flex-col justify-between rounded-xl border border-slate-700/80 bg-slate-900 p-5 space-y-4 hover:border-slate-600 transition shadow-sm">
+    <li className="flex flex-col justify-between rounded-xl border border-slate-700/80 bg-slate-900 p-5 space-y-4 hover:border-slate-600 transition-colors">
       <div className="space-y-2">
         <div className="flex items-start justify-between gap-3">
           <h2 className="font-semibold text-lg text-white break-words">{project.name}</h2>
@@ -17,7 +17,7 @@ export function ProjectCard({ project }) {
         )}
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-x-3 border-t border-slate-800 pt-3 text-xs text-slate-400">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-slate-800 pt-3 text-xs text-slate-400">
         <span title={project.updated_at}>
           Updated {formatDate(project.updated_at)}
         </span>

@@ -74,7 +74,7 @@ describe('ProjectsDashboard', () => {
     })
     await renderPage()
     await vi.waitFor(() => {
-      expect(container.textContent).toContain('You don’t have any projects yet.')
+      expect(container.textContent).toContain('No projects yet')
       expect(container.textContent).toContain('Create your first project')
     })
   })
@@ -229,7 +229,7 @@ describe('ProjectsDashboard', () => {
 
     await renderPage()
     await vi.waitFor(() => {
-      expect(container.textContent).toContain('You don’t have any projects yet.')
+      expect(container.textContent).toContain('No projects yet')
     })
 
     const openButton = [...container.querySelectorAll('button')].find((b) => b.textContent.includes('Create your first project'))

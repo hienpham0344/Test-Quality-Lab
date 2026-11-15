@@ -77,7 +77,7 @@ export function PythonSourcePage({ session, onExpire }) {
   }
 
   return (
-    <section className="mx-auto max-w-5xl space-y-6 px-6 py-10">
+    <section className="mx-auto max-w-5xl space-y-6 px-4 py-7 sm:px-8 lg:py-10">
       <nav aria-label="Breadcrumb" className="text-sm text-slate-400">
         <Link to="/projects" className="text-indigo-400 hover:underline">Projects</Link>
         <span className="mx-2">/</span>
@@ -85,10 +85,10 @@ export function PythonSourcePage({ session, onExpire }) {
         <span className="mx-2">/</span>Python source
       </nav>
       <header>
-        <h1 className="text-3xl font-semibold tracking-tight text-white">Python source</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-white">Python source</h1>
         <p className="mt-2 text-sm text-slate-400">Paste or upload Python code. The server checks its syntax and returns selectable functions; code is never executed here.</p>
       </header>
-      <form onSubmit={handleSubmit} className="space-y-5 rounded-2xl border border-slate-700 bg-slate-900 p-6">
+      <form onSubmit={handleSubmit} className="space-y-5 rounded-2xl border border-slate-700 bg-slate-900 p-4 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <label htmlFor="python-code" className="text-sm font-medium text-slate-200">Source code <span className="text-rose-400">*</span></label>
           <label className="cursor-pointer rounded-lg border border-slate-600 px-3 py-2 text-sm text-indigo-300 hover:bg-slate-800 focus-within:outline-2 focus-within:outline-indigo-300">
@@ -99,7 +99,7 @@ export function PythonSourcePage({ session, onExpire }) {
         {fileName && <p className="text-xs text-slate-400">Selected file: {fileName}</p>}
         <textarea id="python-code" value={code} onChange={(event) => updateCode(event.target.value)} disabled={busy}
           spellCheck={false} rows={18} placeholder={'def add(a, b):\n    return a + b'}
-          className="w-full resize-y rounded-lg border border-slate-700 bg-slate-950 p-4 font-mono text-sm leading-6 text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+          className="h-72 w-full resize-y rounded-lg sm:h-auto border border-slate-700 bg-slate-950 p-4 font-mono text-sm leading-6 text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-xs text-slate-400">{bytes.toLocaleString()} / {MAX_BYTES.toLocaleString()} bytes (UTF-8)</p>
           <button type="submit" disabled={!valid || busy}
@@ -111,7 +111,7 @@ export function PythonSourcePage({ session, onExpire }) {
         {error && <p role="alert" className="rounded-lg border border-rose-800 bg-rose-950/40 p-3 text-sm text-rose-300">{error}</p>}
       </form>
       {version && (
-        <section className="space-y-4 rounded-2xl border border-slate-700 bg-slate-900 p-6" aria-label="Available Python functions">
+        <section className="space-y-4 rounded-2xl border border-slate-700 bg-slate-900 p-4 sm:p-6" aria-label="Available Python functions">
           <div>
             <h2 className="text-xl font-semibold text-white">Available functions</h2>
             <p role="status" className="mt-1 text-sm text-emerald-300">Source revision {version.revision} saved. Choose functions to use when configuring an experiment.</p>

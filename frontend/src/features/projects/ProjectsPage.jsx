@@ -95,12 +95,12 @@ export function ProjectsPage({ session, onExpire }) {
   const visibleProjects = filteredProjects.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
 
   return (
-    <section className="mx-auto max-w-5xl space-y-6 px-6 py-10">
+    <section className="mx-auto max-w-5xl space-y-6 px-4 py-7 sm:px-8 lg:py-10">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Projects</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-white">Projects</h1>
           <p className="text-sm text-slate-400 mt-1">
-            Create, configure and manage test evaluation suites
+            Manage the projects you use to evaluate Python tests.
           </p>
         </div>
         {projects.isSuccess && (
@@ -146,33 +146,32 @@ export function ProjectsPage({ session, onExpire }) {
       {projects.isSuccess && (
         projects.data.length ? (
           <div className="space-y-4">
-            <div className="flex flex-wrap items-center gap-3">
-              <label htmlFor="search-projects" className="sr-only">Search projects</label>
-              <input
-                id="search-projects"
-                type="search"
-                placeholder="Search projects by name or description…"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full sm:max-w-xs rounded-lg border border-slate-700 bg-slate-900 px-3.5 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="text-xs text-slate-400 hover:text-white"
-                >
-                  Clear
-                </button>
-              )}
+            <div className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-800 bg-slate-900/60 p-3">
+              <div className="flex min-w-0 basis-full items-center gap-2 sm:flex-1">
+                <label htmlFor="search-projects" className="sr-only">Search projects</label>
+                <input
+                  id="search-projects"
+                  type="search"
+                  placeholder="Search by name or description"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  className="min-h-11 min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm text-slate-100 placeholder:text-slate-400 focus-visible:outline-2 focus-visible:outline-indigo-300"
+                />
+                {searchQuery && (
+                  <button type="button" onClick={() => setSearchQuery('')}
+                    className="min-h-11 rounded-lg px-2 text-sm text-slate-300 hover:text-white focus-visible:outline-2 focus-visible:outline-indigo-300">
+                    Clear
+                  </button>
+                )}
+              </div>
+              <label htmlFor="project-sort" className="text-sm text-slate-400">Sort by</label>
+              <select id="project-sort" value={sort} onChange={(event) => updateSort(event.target.value)}
+                className="min-h-11 rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm text-slate-100 focus-visible:outline-2 focus-visible:outline-indigo-300">
+                <option value="updated">Recently updated</option>
+                <option value="created">Recently created</option>
+                <option value="name">Name A–Z</option>
+              </select>
             </div>
-
-            <label htmlFor="project-sort" className="text-sm text-slate-400">Sort by</label>
-            <select id="project-sort" value={sort} onChange={(event) => updateSort(event.target.value)} className="min-h-11 rounded-lg border border-slate-700 bg-slate-900 px-3 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500">
-              <option value="updated">Recently updated</option>
-              <option value="created">Recently created</option>
-              <option value="name">Name A–Z</option>
-            </select>
             {filteredProjects.length === 0 ? (
               <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-8 text-center space-y-2">
                 <p className="text-slate-300">No projects match &ldquo;{query}&rdquo;.</p>
@@ -203,7 +202,7 @@ export function ProjectsPage({ session, onExpire }) {
           </div>
         ) : (
           <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/40 p-12 text-center space-y-4">
-            <p className="text-slate-300">You don’t have any projects yet.</p>
+            <h2 className="font-semibold text-white">No projects yet</h2>
             <p className="text-sm text-slate-400 max-w-md mx-auto">
               Get started by creating your first project to test and benchmark LLM prompt variations.
             </p>
