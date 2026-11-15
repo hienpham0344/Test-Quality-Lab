@@ -96,7 +96,7 @@ export function ProjectsPage({ session, onExpire }) {
   const visibleProjects = filteredProjects.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
 
   return (
-    <section className="mx-auto max-w-5xl space-y-6 px-4 py-7 sm:px-8 lg:py-10">
+    <section className="mx-auto max-w-7xl space-y-6 px-4 py-7 sm:px-8 lg:py-10">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-white">Projects</h1>
@@ -144,6 +144,19 @@ export function ProjectsPage({ session, onExpire }) {
             Try again
           </button>
         </div>
+      )}
+
+      {projects.isSuccess && (
+        <dl className="grid grid-cols-2 divide-x divide-slate-800 rounded-xl border border-slate-800 bg-slate-900">
+          <div className="space-y-1 px-4 py-3 sm:px-5">
+            <dt className="text-sm text-slate-400">Total projects</dt>
+            <dd className="text-2xl font-semibold tabular-nums text-white">{allProjects.length}</dd>
+          </div>
+          <div className="space-y-1 px-4 py-3 sm:px-5">
+            <dt className="text-sm text-slate-400">{query ? 'Matching projects' : 'Projects on this page'}</dt>
+            <dd className="text-2xl font-semibold tabular-nums text-white">{query ? filteredProjects.length : visibleProjects.length}</dd>
+          </div>
+        </dl>
       )}
 
       {projects.isSuccess && (
