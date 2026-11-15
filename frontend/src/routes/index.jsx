@@ -30,7 +30,7 @@ export default function AppRoutes({ session, expired, logoutNotice, signingOut, 
         <Route path="/" element={session ? <Navigate to="/workspace" replace /> : <HomePage />} />
       </Route>
       <Route element={<RequireSession session={session} expired={expired} logoutNotice={logoutNotice} signingOut={signingOut} />}>
-        <Route element={<WorkspaceLayout signingOut={signingOut} onSignOut={onSignOut} />}>
+        <Route element={<WorkspaceLayout session={session} signingOut={signingOut} onSignOut={onSignOut} />}>
           <Route path="/workspace" element={<WorkspaceOverviewPage />} />
           <Route path="/projects" element={<ProjectsPage session={session} onExpire={onExpire} />} />
           <Route path="/projects/:projectId/sources/new" element={<PythonSourcePage session={session} onExpire={onExpire} />} />

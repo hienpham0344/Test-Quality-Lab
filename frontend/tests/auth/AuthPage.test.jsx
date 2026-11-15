@@ -124,6 +124,7 @@ describe('protected routing and session UX', () => {
     fetchMock.mockImplementation(async (url) => {
       if (url.endsWith('/auth/login')) return Response.json({ access_token: accessToken })
       if (url.endsWith('/projects')) return projects()
+      if (url.endsWith('/auth/me')) return Response.json({ display_name: 'Preview User', email: 'user@example.test' })
       if (url.endsWith('/auth/logout')) return new Response(null, { status: logoutStatus })
       throw new Error('Unexpected request')
     })
@@ -144,6 +145,20 @@ describe('protected routing and session UX', () => {
     await act(async () => sidebar.querySelector('a[href="/projects"]').click())
     await vi.waitFor(() => expect(container.textContent).toContain('Private workspace'))
     expect(sidebar.querySelector('[aria-current="page"]').textContent).toBe('Projects')
+  })
+
+  it('searches projects from the workspace header and loads account details on demand', async () => {
+    mockSession()
+    await open('/login')
+    await submit(credentials)
+    const search = container.querySelector('[role=search]')
+    search.elements.q.value = 'Private'
+    await act(async () => search.requestSubmit())
+    await vi.waitFor(() => expect(container.querySelector('#search-projects')?.value).toBe('Private'))
+    expect(fetchMock.mock.calls.some(([url]) => url.endsWith('/auth/me'))).toBe(false)
+
+    await act(async () => container.querySelector('[aria-label=Account]').click())
+    await vi.waitFor(() => expect(container.querySelector('#workspace-header-panel')?.textContent).toContain('user@example.test'))
   })
 
   it('redirects guests without requesting projects', async () => {

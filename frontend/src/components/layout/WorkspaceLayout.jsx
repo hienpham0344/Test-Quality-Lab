@@ -1,6 +1,7 @@
 import { Braces, FlaskConical, Folder, LayoutDashboard, LogOut, Settings2 } from 'lucide-react'
 import { NavLink, Outlet, useMatch } from 'react-router-dom'
 import { APP_CONFIG } from '../../config'
+import WorkspaceHeader from './WorkspaceHeader'
 
 const navStyle = 'flex min-h-11 items-center gap-2.5 rounded-lg px-3 text-sm font-medium focus-visible:outline-2 focus-visible:outline-indigo-300'
 const inactiveStyle = 'text-slate-400 hover:bg-slate-800/70 hover:text-white'
@@ -16,7 +17,7 @@ function WorkspaceLink({ to, end, icon: Icon, children }) {
   )
 }
 
-export default function WorkspaceLayout({ signingOut, onSignOut }) {
+export default function WorkspaceLayout({ session, signingOut, onSignOut }) {
   const projectMatch = useMatch('/projects/:projectId/*')
   const projectId = projectMatch?.params.projectId
   const projectPath = projectId && projectId !== 'new'
@@ -56,9 +57,12 @@ export default function WorkspaceLayout({ signingOut, onSignOut }) {
           </button>
         </div>
       </aside>
-      <main className="min-w-0">
-        <Outlet />
-      </main>
+      <div className="min-w-0">
+        <WorkspaceHeader session={session} signingOut={signingOut} onSignOut={onSignOut} />
+        <main>
+          <Outlet />
+        </main>
+      </div>
     </div>
   )
 }
