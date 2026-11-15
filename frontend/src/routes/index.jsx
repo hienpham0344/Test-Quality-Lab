@@ -8,6 +8,8 @@ import { ResetPasswordPage } from '../features/auth/ResetPasswordPage'
 import { VerifyEmailPage } from '../features/auth/VerifyEmailPage'
 import { ProjectsPage } from '../features/projects/ProjectsPage'
 import { ProjectEditorPage } from '../features/projects/ProjectEditorPage'
+import { PythonSourcePage } from '../features/sources/PythonSourcePage'
+import { ProviderConfigurationPage } from '../features/ai-config/ProviderConfigurationPage'
 
 export default function AppRoutes({ session, expired, logoutNotice, signingOut, onSignIn, onSignOut, onExpire }) {
   return (
@@ -16,6 +18,8 @@ export default function AppRoutes({ session, expired, logoutNotice, signingOut, 
         <Route path="/" element={<HomePage />} />
         <Route element={<RequireSession session={session} expired={expired} logoutNotice={logoutNotice} signingOut={signingOut} />}>
           <Route path="/projects" element={<ProjectsPage session={session} onExpire={onExpire} />} />
+          <Route path="/projects/:projectId/sources/new" element={<PythonSourcePage session={session} onExpire={onExpire} />} />
+          <Route path="/projects/:projectId/ai-config" element={<ProviderConfigurationPage />} />
           <Route path="/projects/new" element={<ProjectEditorPage session={session} onExpire={onExpire} mode="create" />} />
           <Route path="/projects/:projectId" element={<ProjectEditorPage session={session} onExpire={onExpire} mode="edit" />} />
         </Route>
