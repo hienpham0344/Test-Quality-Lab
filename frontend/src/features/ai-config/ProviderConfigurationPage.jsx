@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { Eye, EyeOff, ShieldCheck } from 'lucide-react'
+import { Check, Eraser, Eye, EyeOff } from 'lucide-react'
 
 const PROVIDERS = [
   { id: 'openai', label: 'OpenAI' },
@@ -49,10 +49,6 @@ export function ProviderConfigurationPage() {
         <h1 className="text-2xl font-semibold tracking-tight text-white">AI provider configuration</h1>
         <p className="mt-2 text-sm text-slate-400">Configure the provider, model and credential fields required for AI experiments.</p>
       </div>
-      <div className="flex gap-3 rounded-xl border border-amber-700/50 bg-amber-950/30 p-4 text-sm text-amber-200" role="note">
-        <ShieldCheck className="mt-0.5 shrink-0" size={20} />
-        <p>Credential storage is not yet available on the backend. This screen validates inputs locally only. No API key will be sent, saved, logged, or placed in a URL. Do not use a real secret until secure storage is available.</p>
-      </div>
       <form onSubmit={validate} className="space-y-6 rounded-2xl border border-slate-700 bg-slate-900 p-4 sm:p-6">
         <div className="space-y-2">
           <label htmlFor="ai-provider" className="text-sm font-medium text-slate-200">Provider <span className="text-rose-400">*</span></label>
@@ -90,8 +86,8 @@ export function ProviderConfigurationPage() {
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-800 pt-5">
           <button type="button" onClick={() => { setSecret(''); setValidated(false); setShowSecret(false) }}
-            className="min-h-11 rounded-lg border border-slate-600 px-4 text-sm text-slate-300 hover:bg-slate-800">Clear key</button>
-          <button type="submit" className="min-h-11 rounded-lg bg-indigo-600 px-5 text-sm font-medium text-white hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-indigo-300">Validate fields</button>
+            className="inline-flex min-h-11 rounded-lg border border-slate-600 px-4 text-sm text-slate-300 hover:bg-slate-800 items-center gap-2"><Eraser size={16} aria-hidden="true" className="shrink-0" /> Clear key</button>
+          <button type="submit" className="inline-flex min-h-11 rounded-lg bg-indigo-600 px-5 text-sm font-medium text-white hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-indigo-300 items-center gap-2"><Check size={16} aria-hidden="true" className="shrink-0" /> Validate fields</button>
         </div>
         {validated && <p role="status" className="rounded-lg border border-emerald-800 bg-emerald-950/30 p-3 text-sm text-emerald-300">
           Fields passed local validation. The key was cleared. Configuration was not saved.

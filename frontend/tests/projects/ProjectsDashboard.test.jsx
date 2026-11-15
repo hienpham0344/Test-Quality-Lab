@@ -282,7 +282,7 @@ describe('ProjectsDashboard', () => {
       expect(container.textContent).toContain('Existing')
     })
 
-    const openButton = [...container.querySelectorAll('button')].find((b) => b.textContent.includes('+ New project'))
+    const openButton = [...container.querySelectorAll('button')].find((b) => b.textContent.includes('New project'))
     await act(async () => openButton.click())
 
     const nameInput = container.querySelector('#project-create-name')

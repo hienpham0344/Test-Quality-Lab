@@ -108,7 +108,7 @@ describe('AI provider configuration (#35)', () => {
     await act(async () => container.querySelector('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })))
     expect(container.querySelectorAll('[role=alert]').length).toBe(3)
     expect(fetchMock).not.toHaveBeenCalled()
-    expect(container.textContent).toContain('Credential storage is not yet available')
+    expect(container.querySelector('[role=note]')).toBeNull()
   })
 
   it('clears a validated key without sending or storing it', async () => {

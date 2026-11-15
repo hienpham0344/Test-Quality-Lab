@@ -1,3 +1,4 @@
+import { RotateCcw } from 'lucide-react'
 import { Badge } from '../common'
 import { formatDate } from '../../lib/format-date'
 
@@ -14,8 +15,9 @@ export function ProjectHistoryList({ history = [], isLoading, isError, onRetry }
           <button
             type="button"
             onClick={onRetry}
-            className="text-xs font-medium text-indigo-400 hover:text-indigo-300 underline focus-visible:outline-2 focus-visible:outline-indigo-300"
+            className="inline-flex text-xs font-medium text-indigo-400 hover:text-indigo-300 underline focus-visible:outline-2 focus-visible:outline-indigo-300 items-center gap-2"
           >
+            <RotateCcw size={16} aria-hidden="true" className="shrink-0" />
             Try again
           </button>
         )}

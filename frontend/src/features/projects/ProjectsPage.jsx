@@ -1,3 +1,4 @@
+import { ChevronLeft, ChevronRight, Plus, RotateCcw, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -112,7 +113,8 @@ export function ProjectsPage({ session, onExpire }) {
             }}
             className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-indigo-300 shadow-sm transition"
           >
-            + New project
+            <Plus size={16} aria-hidden="true" className="shrink-0" />
+            New project
           </button>
         )}
       </div>
@@ -134,10 +136,11 @@ export function ProjectsPage({ session, onExpire }) {
           <p role="alert">We couldn’t load your projects. Please try again.</p>
           <button
             type="button"
-            className="min-h-11 cursor-pointer rounded-lg border border-slate-600 px-4 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-indigo-300"
+            className="inline-flex min-h-11 cursor-pointer rounded-lg border border-slate-600 px-4 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-indigo-300 items-center gap-2"
             disabled={projects.isFetching}
             onClick={() => { void projects.refetch() }}
           >
+            <RotateCcw size={16} aria-hidden="true" className="shrink-0" />
             Try again
           </button>
         </div>
@@ -159,7 +162,8 @@ export function ProjectsPage({ session, onExpire }) {
                 />
                 {searchQuery && (
                   <button type="button" onClick={() => setSearchQuery('')}
-                    className="min-h-11 rounded-lg px-2 text-sm text-slate-300 hover:text-white focus-visible:outline-2 focus-visible:outline-indigo-300">
+                    className="inline-flex min-h-11 rounded-lg px-2 text-sm text-slate-300 hover:text-white focus-visible:outline-2 focus-visible:outline-indigo-300 items-center gap-2">
+                    <X size={16} aria-hidden="true" className="shrink-0" />
                     Clear
                   </button>
                 )}
@@ -178,8 +182,9 @@ export function ProjectsPage({ session, onExpire }) {
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
-                  className="text-sm font-medium text-indigo-400 hover:underline"
+                  className="inline-flex text-sm font-medium text-indigo-400 hover:underline items-center gap-2"
                 >
+                  <RotateCcw size={16} aria-hidden="true" className="shrink-0" />
                   Reset search
                 </button>
               </div>
@@ -194,8 +199,8 @@ export function ProjectsPage({ session, onExpire }) {
               <nav aria-label="Project pages" className="flex items-center justify-between gap-3 text-sm text-slate-300">
                 <span>Page {safePage} of {pageCount} · {filteredProjects.length} projects</span>
                 <div className="flex gap-2">
-                  <button type="button" disabled={safePage === 1} onClick={() => updatePage(safePage - 1)} className="min-h-10 rounded-lg border border-slate-700 px-3 hover:bg-slate-800 disabled:opacity-40">Previous</button>
-                  <button type="button" disabled={safePage === pageCount} onClick={() => updatePage(safePage + 1)} className="min-h-10 rounded-lg border border-slate-700 px-3 hover:bg-slate-800 disabled:opacity-40">Next</button>
+                  <button type="button" disabled={safePage === 1} onClick={() => updatePage(safePage - 1)} className="inline-flex min-h-10 rounded-lg border border-slate-700 px-3 hover:bg-slate-800 disabled:opacity-40 items-center gap-2"><ChevronLeft size={16} aria-hidden="true" className="shrink-0" /> Previous</button>
+                  <button type="button" disabled={safePage === pageCount} onClick={() => updatePage(safePage + 1)} className="inline-flex min-h-10 rounded-lg border border-slate-700 px-3 hover:bg-slate-800 disabled:opacity-40 items-center gap-2"><ChevronRight size={16} aria-hidden="true" className="shrink-0" /> Next</button>
                 </div>
               </nav>
             )}
@@ -215,6 +220,7 @@ export function ProjectsPage({ session, onExpire }) {
                 }}
                 className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-indigo-600 px-5 text-sm font-medium text-white hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-indigo-300 shadow-sm transition"
               >
+                <Plus size={16} aria-hidden="true" className="shrink-0" />
                 Create your first project
               </button>
             </div>

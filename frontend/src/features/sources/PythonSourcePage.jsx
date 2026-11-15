@@ -1,3 +1,4 @@
+import { FileUp, FileCheck } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { PythonEditor } from '../../components/sources/PythonEditor'
@@ -92,7 +93,8 @@ export function PythonSourcePage({ session, onExpire }) {
       <form onSubmit={handleSubmit} className="space-y-5 rounded-2xl border border-slate-700 bg-slate-900 p-4 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <label htmlFor="python-code" className="text-sm font-medium text-slate-200">Source code <span className="text-rose-400">*</span></label>
-          <label className="cursor-pointer rounded-lg border border-slate-600 px-3 py-2 text-sm text-indigo-300 hover:bg-slate-800 focus-within:outline-2 focus-within:outline-indigo-300">
+          <label className="inline-flex cursor-pointer rounded-lg border border-slate-600 px-3 py-2 text-sm text-indigo-300 hover:bg-slate-800 focus-within:outline-2 focus-within:outline-indigo-300 items-center gap-2">
+            <FileUp size={16} aria-hidden="true" className="shrink-0" />
             Upload .py
             <input type="file" accept=".py,text/x-python" onChange={handleFile} disabled={busy} className="sr-only" aria-label="Upload Python file" />
           </label>
@@ -104,7 +106,8 @@ export function PythonSourcePage({ session, onExpire }) {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-xs text-slate-400">{bytes.toLocaleString()} / {MAX_BYTES.toLocaleString()} bytes (UTF-8)</p>
           <button type="submit" disabled={!valid || busy}
-            className="min-h-11 rounded-lg bg-indigo-600 px-5 text-sm font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-indigo-300">
+            className="inline-flex min-h-11 rounded-lg bg-indigo-600 px-5 text-sm font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-indigo-300 items-center gap-2">
+            <FileCheck size={16} aria-hidden="true" className="shrink-0" />
             {status === 'saving' ? 'Validating…' : 'Validate and save source'}
           </button>
         </div>

@@ -1,3 +1,4 @@
+import { ArrowLeft, Braces, Plus, RotateCcw, Save, Settings2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -180,9 +181,10 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
             <p role="alert" className="text-slate-300">We couldn’t load this project. Please try again.</p>
             <button
               type="button"
-              className="min-h-11 cursor-pointer rounded-lg border border-slate-600 px-4 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-indigo-300"
+              className="inline-flex min-h-11 cursor-pointer rounded-lg border border-slate-600 px-4 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-indigo-300 items-center gap-2"
               onClick={() => { void projectQuery.refetch() }}
             >
+              <RotateCcw size={16} aria-hidden="true" className="shrink-0" />
               Try again
             </button>
           </div>
@@ -221,8 +223,8 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
         {project && (
           <div className="flex flex-wrap items-center gap-3">
             <Badge variant="info">Revision {project.current_revision}</Badge>
-            <Link to={`/projects/${projectId}/sources/new`} className="inline-flex min-h-10 items-center rounded-lg border border-slate-600 px-3 text-sm text-indigo-300 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-indigo-300">Python source</Link>
-            <Link to={`/projects/${projectId}/ai-config`} className="inline-flex min-h-10 items-center rounded-lg border border-slate-600 px-3 text-sm text-indigo-300 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-indigo-300">AI configuration</Link>
+            <Link to={`/projects/${projectId}/sources/new`} className="inline-flex min-h-10 items-center rounded-lg border border-slate-600 px-3 text-sm text-indigo-300 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-indigo-300 gap-2"><Braces size={16} aria-hidden="true" className="shrink-0" /> Python source</Link>
+            <Link to={`/projects/${projectId}/ai-config`} className="inline-flex min-h-10 items-center rounded-lg border border-slate-600 px-3 text-sm text-indigo-300 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-indigo-300 gap-2"><Settings2 size={16} aria-hidden="true" className="shrink-0" /> AI configuration</Link>
           </div>
         )}
       </div>
@@ -306,23 +308,26 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
                 type="button"
                 onClick={handleReset}
                 disabled={!isChanged || saveStatus === 'saving'}
-                className="min-h-11 rounded-lg border border-slate-600 px-4 text-sm font-medium text-slate-300 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-indigo-300 disabled:opacity-40"
+                className="inline-flex min-h-11 rounded-lg border border-slate-600 px-4 text-sm font-medium text-slate-300 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-indigo-300 disabled:opacity-40 items-center gap-2"
               >
+                <RotateCcw size={16} aria-hidden="true" className="shrink-0" />
                 Reset
               </button>
             ) : (
               <Link
                 to="/projects"
-                className="inline-flex min-h-11 items-center rounded-lg border border-slate-600 px-4 text-sm font-medium text-slate-300 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-indigo-300"
+                className="inline-flex min-h-11 items-center rounded-lg border border-slate-600 px-4 text-sm font-medium text-slate-300 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-indigo-300 gap-2"
               >
+                <ArrowLeft size={16} aria-hidden="true" className="shrink-0" />
                 Cancel
               </Link>
             )}
             <button
               type="submit"
               disabled={!isValid || !isChanged || saveStatus === 'saving'}
-              className="min-h-11 rounded-lg bg-indigo-600 px-5 text-sm font-medium text-white hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-indigo-300 disabled:opacity-50"
+              className="inline-flex min-h-11 rounded-lg bg-indigo-600 px-5 text-sm font-medium text-white hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-indigo-300 disabled:opacity-50 items-center gap-2"
             >
+              {mode === 'create' ? <Plus size={16} aria-hidden="true" /> : <Save size={16} aria-hidden="true" />}
               {saveStatus === 'saving'
                 ? 'Saving changes…'
                 : mode === 'create'
