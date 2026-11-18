@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { CheckCircle, AlertCircle, UploadCloud, Loader2, Info } from 'lucide-react'
 import { transformRows } from './column-mapping'
 import { createDataset, AuthApiError } from '../../services/api'
@@ -15,14 +15,29 @@ export function MappingValidationCard({
 }) {
   const [submitting, setSubmitting] = useState(false)
   const [serverError, setServerError] = useState(null)
+  const [previewFilter, setPreviewFilter] = useState('all') // 'all' | 'valid' | 'errors'
+  const [showAllRows, setShowAllRows] = useState(false)
 
-  const { canonicalRows, previewRows, clientErrors, validCount, invalidCount } = transformRows(
+  const { canonicalRows, evaluatedRows = [], clientErrors, validCount, invalidCount } = transformRows(
     headers,
     rows,
     mapping
   )
 
   const hasFunctionMapping = Boolean(mapping.function_name)
+
+  const displayedRows = useMemo(() => {
+    let list = evaluatedRows
+    if (previewFilter === 'valid') {
+      list = list.filter((r) => r.isValid)
+    } else if (previewFilter === 'errors') {
+      list = list.filter((r) => !r.isValid)
+    }
+    if (!showAllRows) {
+      return list.slice(0, 10)
+    }
+    return list
+  }, [evaluatedRows, previewFilter, showAllRows])
 
   async function handleValidateAndSubmit() {
     if (!hasFunctionMapping || canonicalRows.length === 0 || submitting) return
@@ -52,7 +67,7 @@ export function MappingValidationCard({
         <div>
           <h2 className="text-xl font-semibold text-white">Step 4: Validate Mapping & Submit</h2>
           <p className="text-sm text-slate-400 mt-1">
-            Review canonical normalized row structure and client pre-validation checks before sending to the backend.
+            Review imported CSV rows, verify column mapping and line-level errors before sending to the backend.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -99,11 +114,69 @@ export function MappingValidationCard({
         </div>
       )}
 
-      {/* Canonical Preview Table */}
-      <div className="space-y-2">
-        <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-          Transformed Canonical Payload Preview (First {previewRows.length} rows)
-        </span>
+      {/* Canonical Preview Table & Filter Controls */}
+      <div className="space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Imported CSV Rows Preview
+            </span>
+            <span className="text-xs text-slate-500">
+              ({displayedRows.length} shown of {canonicalRows.length})
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* Filter buttons */}
+            <div className="flex items-center gap-1 rounded-lg bg-slate-950 p-1 border border-slate-800">
+              <button
+                type="button"
+                onClick={() => setPreviewFilter('all')}
+                className={`rounded px-2.5 py-1 text-xs font-medium transition ${
+                  previewFilter === 'all'
+                    ? 'bg-indigo-600 text-white'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                All ({canonicalRows.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setPreviewFilter('valid')}
+                className={`rounded px-2.5 py-1 text-xs font-medium transition ${
+                  previewFilter === 'valid'
+                    ? 'bg-emerald-600 text-white'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Valid ({validCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setPreviewFilter('errors')}
+                className={`rounded px-2.5 py-1 text-xs font-medium transition ${
+                  previewFilter === 'errors'
+                    ? 'bg-rose-600 text-white'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Errors ({invalidCount})
+              </button>
+            </div>
+
+            {/* Toggle show all */}
+            {canonicalRows.length > 10 && (
+              <button
+                type="button"
+                onClick={() => setShowAllRows(!showAllRows)}
+                className="rounded-lg border border-slate-700 px-2.5 py-1.5 text-xs text-slate-300 hover:bg-slate-800"
+              >
+                {showAllRows ? 'Show first 10' : 'Show all rows'}
+              </button>
+            )}
+          </div>
+        </div>
+
         <div className="overflow-x-auto rounded-xl border border-slate-800 bg-slate-950">
           <table className="w-full text-left text-xs text-slate-300">
             <thead className="border-b border-slate-800 bg-slate-900/80 font-mono text-slate-400">
@@ -111,36 +184,73 @@ export function MappingValidationCard({
                 <th className="px-3 py-2.5 w-12 text-slate-500">Row #</th>
                 <th className="px-3 py-2.5">task_id</th>
                 <th className="px-3 py-2.5">function_name</th>
+                <th className="px-3 py-2.5">Mapping Status</th>
+                <th className="px-3 py-2.5">Mapping Errors / Issues</th>
                 <th className="px-3 py-2.5">expected_output</th>
                 <th className="px-3 py-2.5">python_source</th>
                 <th className="px-3 py-2.5">difficulty</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60 font-mono">
-              {previewRows.map((row) => (
-                <tr key={row.row_number} className="hover:bg-slate-900/40">
-                  <td className="px-3 py-2 text-slate-500">{row.row_number}</td>
-                  <td className="px-3 py-2 whitespace-nowrap text-indigo-300">
-                    {row.task_id || <span className="text-slate-600">—</span>}
-                  </td>
-                  <td className="px-3 py-2 whitespace-nowrap font-semibold text-slate-200">
-                    {row.function_name}
-                  </td>
-                  <td className="px-3 py-2 max-w-xs truncate text-emerald-300" title={row.expected_output}>
-                    {row.expected_output || <span className="text-slate-600">—</span>}
-                  </td>
-                  <td className="px-3 py-2 max-w-xs truncate text-slate-400" title={row.python_source}>
-                    {row.python_source ? (
-                      <span className="text-slate-300">code ({row.python_source.length} chars)</span>
-                    ) : (
-                      <span className="text-slate-600">—</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2 whitespace-nowrap text-slate-400">
-                    {row.difficulty || <span className="text-slate-600">—</span>}
+              {displayedRows.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="p-6 text-center text-slate-500 font-sans">
+                    No rows match current filter &quot;{previewFilter}&quot;.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                displayedRows.map((row) => {
+                  const hasError = !row.isValid
+
+                  return (
+                    <tr
+                      key={row.row_number}
+                      className={`hover:bg-slate-900/40 transition ${
+                        hasError ? 'bg-rose-950/20' : ''
+                      }`}
+                    >
+                      <td className="px-3 py-2 text-slate-500">{row.row_number}</td>
+                      <td className="px-3 py-2 whitespace-nowrap text-indigo-300">
+                        {row.task_id || <span className="text-slate-600">—</span>}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap font-semibold text-slate-200">
+                        {row.function_name || <span className="text-rose-400 italic">missing</span>}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        {row.isValid ? (
+                          <Badge variant="success">Valid</Badge>
+                        ) : (
+                          <Badge variant="warning">Mapping Error</Badge>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 max-w-xs text-xs">
+                        {hasError ? (
+                          <span className="text-rose-300 font-sans text-[11px]">
+                            {row.errors.join('; ')}
+                          </span>
+                        ) : (
+                          <span className="text-emerald-400/80 font-sans text-[11px]">
+                            Ready for upload
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 max-w-xs truncate text-emerald-300" title={row.expected_output}>
+                        {row.expected_output || <span className="text-slate-600">—</span>}
+                      </td>
+                      <td className="px-3 py-2 max-w-xs truncate text-slate-400" title={row.python_source}>
+                        {row.python_source ? (
+                          <span className="text-slate-300">code ({row.python_source.length} chars)</span>
+                        ) : (
+                          <span className="text-slate-600">—</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap text-slate-400">
+                        {row.difficulty || <span className="text-slate-600">—</span>}
+                      </td>
+                    </tr>
+                  )
+                })
+              )}
             </tbody>
           </table>
         </div>

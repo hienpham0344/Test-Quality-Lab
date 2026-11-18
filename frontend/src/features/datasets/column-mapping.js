@@ -233,6 +233,7 @@ export function transformRows(headers = [], rows = [], mapping = {}) {
   }
 
   const canonicalRows = []
+  const evaluatedRows = []
   const clientErrors = []
   const seenTaskIds = new Set()
 
@@ -301,6 +302,12 @@ export function transformRows(headers = [], rows = [], mapping = {}) {
     if (difficulty) canonicalItem.difficulty = difficulty
 
     canonicalRows.push(canonicalItem)
+
+    evaluatedRows.push({
+      ...canonicalItem,
+      isValid: rowErrors.length === 0,
+      errors: rowErrors,
+    })
   })
 
   const previewRows = canonicalRows.slice(0, 5)
@@ -309,6 +316,7 @@ export function transformRows(headers = [], rows = [], mapping = {}) {
 
   return {
     canonicalRows,
+    evaluatedRows,
     previewRows,
     clientErrors,
     validCount,

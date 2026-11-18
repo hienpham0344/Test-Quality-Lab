@@ -23,6 +23,7 @@ export function DatasetResultsView({
   onDatasetUpdated,
 }) {
   const [filter, setFilter] = useState('all') // 'all' | 'valid' | 'invalid' | 'preview_only'
+  const [searchTerm, setSearchTerm] = useState('')
   const [selectedRows, setSelectedRows] = useState(dataset.selected_rows || [])
   const [savingSelection, setSavingSelection] = useState(false)
   const [selectionMessage, setSelectionMessage] = useState(null)
@@ -51,9 +52,21 @@ export function DatasetResultsView({
   }, [rows])
 
   const filteredRows = useMemo(() => {
-    if (filter === 'all') return rows
-    return rows.filter((r) => r.status === filter)
-  }, [rows, filter])
+    let list = rows
+    if (filter !== 'all') {
+      list = list.filter((r) => r.status === filter)
+    }
+    if (searchTerm.trim()) {
+      const q = searchTerm.trim().toLowerCase()
+      list = list.filter(
+        (r) =>
+          String(r.row_number).includes(q) ||
+          (r.function_name && r.function_name.toLowerCase().includes(q)) ||
+          (r.task_id && r.task_id.toLowerCase().includes(q))
+      )
+    }
+    return list
+  }, [rows, filter, searchTerm])
 
   const validRowNumbers = useMemo(() => {
     return rows.filter((r) => r.status === 'valid').map((r) => r.row_number)
@@ -103,7 +116,11 @@ export function DatasetResultsView({
         onExpire?.(session)
         return
       }
-      setSelectionError(err.detail || err.message || 'Failed to save selection snapshot.')
+      const msg =
+        typeof err.detail === 'object' && err.detail?.message
+          ? err.detail.message
+          : err.detail || err.message || 'Failed to save selection snapshot.'
+      setSelectionError(msg)
     } finally {
       setSavingSelection(false)
     }
@@ -289,53 +306,78 @@ export function DatasetResultsView({
 
       {/* Row Selection & Inspection Table Card */}
       <div className="rounded-2xl border border-slate-700 bg-slate-900 p-6 md:p-8 space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-800 pb-4">
-          {/* Filters */}
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setFilter('all')}
-              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-                filter === 'all'
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-              }`}
-            >
-              All ({stats.total})
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilter('valid')}
-              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-                filter === 'valid'
-                  ? 'bg-emerald-600 text-white'
-                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-              }`}
-            >
-              Valid ({stats.valid})
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilter('preview_only')}
-              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-                filter === 'preview_only'
-                  ? 'bg-amber-600 text-white'
-                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-              }`}
-            >
-              Preview Only ({stats.previewOnly})
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilter('invalid')}
-              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-                filter === 'invalid'
-                  ? 'bg-rose-600 text-white'
-                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-              }`}
-            >
-              Invalid ({stats.invalid})
-            </button>
+        {/* Acceptance & Policy Guidance Banner */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-xl border border-indigo-900/50 bg-indigo-950/20 px-4 py-2.5 text-xs text-indigo-300">
+          <p>
+            <strong className="font-semibold text-indigo-200">Selection Policy:</strong> Valid rows are selectable for execution snapshots. Invalid and preview-only rows are explained below and disabled from selection.
+          </p>
+          <div className="flex items-center gap-2 text-indigo-200 shrink-0 font-mono">
+            <span>Selected:</span>
+            <Badge variant={selectedRows.length > 0 ? 'success' : 'neutral'}>
+              {selectedRows.length} of {stats.valid} valid
+            </Badge>
+          </div>
+        </div>
+
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 border-b border-slate-800 pb-4">
+          {/* Filters & Search */}
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-1.5 rounded-lg bg-slate-950 p-1 border border-slate-800">
+              <button
+                type="button"
+                onClick={() => setFilter('all')}
+                className={`rounded px-3 py-1.5 text-xs font-medium transition ${
+                  filter === 'all'
+                    ? 'bg-indigo-600 text-white'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                All ({stats.total})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilter('valid')}
+                className={`rounded px-3 py-1.5 text-xs font-medium transition ${
+                  filter === 'valid'
+                    ? 'bg-emerald-600 text-white'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Valid ({stats.valid})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilter('preview_only')}
+                className={`rounded px-3 py-1.5 text-xs font-medium transition ${
+                  filter === 'preview_only'
+                    ? 'bg-amber-600 text-white'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Preview Only ({stats.previewOnly})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilter('invalid')}
+                className={`rounded px-3 py-1.5 text-xs font-medium transition ${
+                  filter === 'invalid'
+                    ? 'bg-rose-600 text-white'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Invalid ({stats.invalid})
+              </button>
+            </div>
+
+            {/* Quick search */}
+            <input
+              type="text"
+              aria-label="Filter rows by keyword"
+              placeholder="Filter by function or task ID…"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 w-52"
+            />
           </div>
 
           {/* Selection Action Controls */}
@@ -401,29 +443,36 @@ export function DatasetResultsView({
               {filteredRows.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="p-8 text-center text-slate-500 font-sans">
-                    No rows match current filter &quot;{filter}&quot;.
+                    No rows match current filter &quot;{filter}&quot;{searchTerm ? ` and search "${searchTerm}"` : ''}.
                   </td>
                 </tr>
               ) : (
                 filteredRows.map((row) => {
                   const isSelectable = row.status === 'valid'
                   const isSelected = selectedRows.includes(row.row_number)
+                  const disabledTitle =
+                    row.status === 'invalid'
+                      ? `Row ${row.row_number} is invalid and cannot be selected: ${row.reasons?.join('; ') || 'Validation error'}`
+                      : row.status === 'preview_only'
+                      ? `Row ${row.row_number} is preview only: Link reference Python source before selecting.`
+                      : null
 
                   return (
                     <tr
                       key={row.row_number}
                       className={`hover:bg-slate-900/40 transition ${
                         isSelected ? 'bg-indigo-950/20' : ''
-                      }`}
+                      } ${row.status === 'invalid' ? 'bg-rose-950/10' : ''}`}
                     >
                       <td className="px-3 py-2 text-center">
                         <input
                           type="checkbox"
                           aria-label={`Select row ${row.row_number}`}
+                          title={isSelectable ? `Select row ${row.row_number}` : disabledTitle}
                           checked={isSelected}
                           disabled={!isSelectable}
                           onChange={() => handleToggleRow(row.row_number)}
-                          className="rounded border-slate-700 bg-slate-900 text-indigo-600 focus:ring-indigo-500 disabled:opacity-30 cursor-pointer"
+                          className="rounded border-slate-700 bg-slate-900 text-indigo-600 focus:ring-indigo-500 disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
                         />
                       </td>
                       <td className="px-3 py-2 text-slate-500 font-mono">{row.row_number}</td>
@@ -446,16 +495,26 @@ export function DatasetResultsView({
                                 key={i}
                                 className={
                                   row.status === 'invalid'
-                                    ? 'text-rose-300'
-                                    : 'text-amber-300/90'
+                                    ? 'text-rose-300 font-sans'
+                                    : 'text-amber-300/90 font-sans'
                                 }
                               >
                                 {reason}
                               </li>
                             ))}
                           </ul>
+                        ) : row.status === 'invalid' ? (
+                          <span className="text-rose-300 font-sans text-[11px]">
+                            Invalid: Row failed validation criteria
+                          </span>
+                        ) : row.status === 'preview_only' ? (
+                          <span className="text-amber-300/90 font-sans text-[11px]">
+                            Preview only: Reference source required for execution
+                          </span>
                         ) : (
-                          <span className="text-slate-600">—</span>
+                          <span className="text-emerald-400/80 font-sans text-[11px]">
+                            Valid test case ready for selection
+                          </span>
                         )}
                       </td>
                       <td className="px-3 py-2 max-w-xs truncate text-emerald-300">
