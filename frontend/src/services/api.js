@@ -147,3 +147,46 @@ export async function getProjectHistory(accessToken, projectId, signal) {
   if (!Array.isArray(data)) throw new Error('Invalid project history')
   return data
 }
+
+// --- UC-05 Datasets & CSV input ---
+export function createDataset(accessToken, projectId, { rows }, signal) {
+  return request(`/projects/${projectId}/datasets`, {
+    accessToken,
+    method: 'POST',
+    body: { rows },
+    signal,
+  })
+}
+
+export async function listDatasets(accessToken, projectId, signal) {
+  const data = await request(`/projects/${projectId}/datasets`, { accessToken, signal })
+  if (!Array.isArray(data)) throw new Error('Invalid dataset list')
+  return data
+}
+
+export function getDataset(accessToken, projectId, datasetId, signal) {
+  return request(`/projects/${projectId}/datasets/${datasetId}`, { accessToken, signal })
+}
+
+export function getDatasetVersion(accessToken, projectId, datasetId, revision, signal) {
+  return request(`/projects/${projectId}/datasets/${datasetId}/versions/${revision}`, { accessToken, signal })
+}
+
+export function selectDatasetRows(accessToken, projectId, datasetId, rowNumbers, signal) {
+  return request(`/projects/${projectId}/datasets/${datasetId}/selection`, {
+    accessToken,
+    method: 'POST',
+    body: { row_numbers: rowNumbers },
+    signal,
+  })
+}
+
+export function linkDatasetReference(accessToken, projectId, datasetId, sourceId, revision, signal) {
+  return request(`/projects/${projectId}/datasets/${datasetId}/reference`, {
+    accessToken,
+    method: 'POST',
+    body: { source_id: sourceId, revision },
+    signal,
+  })
+}
+
