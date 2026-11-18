@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   AuthApiError,
@@ -10,12 +10,31 @@ import {
 } from '../../services/api'
 import { Badge } from '../../components/common'
 import { ProjectHistoryList } from '../../components/projects/ProjectHistoryList'
+import { DatasetsManager } from '../datasets'
 import { formatDate } from '../../lib/format-date'
 
 export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
   const { projectId } = useParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+
+  const currentTab = searchParams.get('tab') === 'datasets' ? 'datasets' : 'settings'
+  const [activeTab, setActiveTab] = useState(currentTab)
+
+  useEffect(() => {
+    const tabFromUrl = searchParams.get('tab') === 'datasets' ? 'datasets' : 'settings'
+    setActiveTab(tabFromUrl)
+  }, [searchParams])
+
+  function handleTabChange(tab) {
+    setActiveTab(tab)
+    if (tab === 'datasets') {
+      setSearchParams({ tab: 'datasets' })
+    } else {
+      setSearchParams({})
+    }
+  }
 
   // Form state
   const [name, setName] = useState('')
@@ -225,129 +244,171 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
         )}
       </div>
 
-      {/* Editor Form Card */}
-      <div className="rounded-2xl border border-slate-700 bg-slate-900 p-6 md:p-8 space-y-6">
-        <h2 className="text-xl font-semibold text-white">Project settings</h2>
-
-        {saveStatus === 'saved' && (
-          <p role="status" className="rounded-lg border border-emerald-800/80 bg-emerald-950/50 p-3 text-sm text-emerald-300">
-            Project updated successfully.
-          </p>
-        )}
-
-        {saveStatus === 'error' && (
-          <p role="alert" className="rounded-lg border border-rose-800/80 bg-rose-950/50 p-3 text-sm text-rose-300">
-            {saveErrorMessage || 'Failed to save project.'}
-          </p>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div className="space-y-1.5">
-            <div className="flex justify-between items-center">
-              <label htmlFor="edit-project-name" className="text-sm font-medium text-slate-200">
-                Project name <span className="text-rose-400">*</span>
-              </label>
-              <span className="text-xs text-slate-400">
-                {trimmedName.length} / 120
-              </span>
-            </div>
-            <input
-              id="edit-project-name"
-              name="name"
-              type="text"
-              required
-              maxLength={120}
-              placeholder="e.g. LLM Python Test Evaluator"
-              value={name}
-              onChange={(e) => {
-                setName(e.target.value)
-                setNameTouched(true)
-                if (saveStatus !== 'idle') setSaveStatus('idle')
-              }}
-              className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-            />
-            {nameError && (
-              <p role="alert" className="text-xs text-rose-400">{nameError}</p>
-            )}
-          </div>
-
-          <div className="space-y-1.5">
-            <div className="flex justify-between items-center">
-              <label htmlFor="edit-project-description" className="text-sm font-medium text-slate-200">
-                Description <span className="text-xs text-slate-400">(optional)</span>
-              </label>
-              <span className="text-xs text-slate-400">
-                {description.length} / 2000
-              </span>
-            </div>
-            <textarea
-              id="edit-project-description"
-              name="description"
-              rows={4}
-              maxLength={2000}
-              placeholder="Describe the scope, datasets, or evaluation objectives..."
-              value={description}
-              onChange={(e) => {
-                setDescription(e.target.value)
-                if (saveStatus !== 'idle') setSaveStatus('idle')
-              }}
-              className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-            />
-            {descriptionError && (
-              <p role="alert" className="text-xs text-rose-400">{descriptionError}</p>
-            )}
-          </div>
-
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
-            {mode === 'edit' ? (
-              <button
-                type="button"
-                onClick={handleReset}
-                disabled={!isChanged || saveStatus === 'saving'}
-                className="min-h-11 rounded-lg border border-slate-600 px-4 text-sm font-medium text-slate-300 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-indigo-300 disabled:opacity-40"
-              >
-                Reset
-              </button>
-            ) : (
-              <Link
-                to="/projects"
-                className="inline-flex min-h-11 items-center rounded-lg border border-slate-600 px-4 text-sm font-medium text-slate-300 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-indigo-300"
-              >
-                Cancel
-              </Link>
-            )}
-            <button
-              type="submit"
-              disabled={!isValid || !isChanged || saveStatus === 'saving'}
-              className="min-h-11 rounded-lg bg-indigo-600 px-5 text-sm font-medium text-white hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-indigo-300 disabled:opacity-50"
-            >
-              {saveStatus === 'saving'
-                ? 'Saving changes…'
-                : mode === 'create'
-                  ? 'Create project'
-                  : 'Save changes'}
-            </button>
-          </div>
-        </form>
-      </div>
-
-      {/* Revision History Card (for edit mode) */}
+      {/* Mode navigation tabs for edit mode */}
       {mode === 'edit' && (
-        <div className="rounded-2xl border border-slate-700 bg-slate-900 p-6 md:p-8 space-y-6">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-            <h2 className="text-xl font-semibold text-white">Revision history</h2>
-            <span className="text-xs text-slate-400">
-              Immutable metadata audit log
-            </span>
+        <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
+          <button
+            type="button"
+            onClick={() => handleTabChange('settings')}
+            className={`min-h-10 px-4 py-2 text-sm font-medium rounded-lg transition cursor-pointer ${
+              activeTab === 'settings'
+                ? 'bg-slate-800 text-white border border-slate-700 shadow-sm'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+            }`}
+          >
+            Project settings
+          </button>
+          <button
+            type="button"
+            onClick={() => handleTabChange('datasets')}
+            className={`min-h-10 px-4 py-2 text-sm font-medium rounded-lg transition cursor-pointer ${
+              activeTab === 'datasets'
+                ? 'bg-slate-800 text-white border border-slate-700 shadow-sm'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+            }`}
+          >
+            Datasets (CSV)
+          </button>
+        </div>
+      )}
+
+      {/* Tab: Datasets & CSV Import */}
+      {mode === 'edit' && activeTab === 'datasets' && (
+        <DatasetsManager
+          session={session}
+          projectId={projectId}
+          onExpire={onExpire}
+        />
+      )}
+
+      {/* Tab: Settings & Revision History (or create mode) */}
+      {(mode === 'create' || activeTab === 'settings') && (
+        <>
+          {/* Editor Form Card */}
+          <div className="rounded-2xl border border-slate-700 bg-slate-900 p-6 md:p-8 space-y-6">
+            <h2 className="text-xl font-semibold text-white">Project settings</h2>
+
+            {saveStatus === 'saved' && (
+              <p role="status" className="rounded-lg border border-emerald-800/80 bg-emerald-950/50 p-3 text-sm text-emerald-300">
+                Project updated successfully.
+              </p>
+            )}
+
+            {saveStatus === 'error' && (
+              <p role="alert" className="rounded-lg border border-rose-800/80 bg-rose-950/50 p-3 text-sm text-rose-300">
+                {saveErrorMessage || 'Failed to save project.'}
+              </p>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div className="space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <label htmlFor="edit-project-name" className="text-sm font-medium text-slate-200">
+                    Project name <span className="text-rose-400">*</span>
+                  </label>
+                  <span className="text-xs text-slate-400">
+                    {trimmedName.length} / 120
+                  </span>
+                </div>
+                <input
+                  id="edit-project-name"
+                  name="name"
+                  type="text"
+                  required
+                  maxLength={120}
+                  placeholder="e.g. LLM Python Test Evaluator"
+                  value={name}
+                  onChange={(e) => {
+                    setName(e.target.value)
+                    setNameTouched(true)
+                    if (saveStatus !== 'idle') setSaveStatus('idle')
+                  }}
+                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+                {nameError && (
+                  <p role="alert" className="text-xs text-rose-400">{nameError}</p>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <label htmlFor="edit-project-description" className="text-sm font-medium text-slate-200">
+                    Description <span className="text-xs text-slate-400">(optional)</span>
+                  </label>
+                  <span className="text-xs text-slate-400">
+                    {description.length} / 2000
+                  </span>
+                </div>
+                <textarea
+                  id="edit-project-description"
+                  name="description"
+                  rows={4}
+                  maxLength={2000}
+                  placeholder="Describe the scope, datasets, or evaluation objectives..."
+                  value={description}
+                  onChange={(e) => {
+                    setDescription(e.target.value)
+                    if (saveStatus !== 'idle') setSaveStatus('idle')
+                  }}
+                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+                {descriptionError && (
+                  <p role="alert" className="text-xs text-rose-400">{descriptionError}</p>
+                )}
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
+                {mode === 'edit' ? (
+                  <button
+                    type="button"
+                    onClick={handleReset}
+                    disabled={!isChanged || saveStatus === 'saving'}
+                    className="min-h-11 rounded-lg border border-slate-600 px-4 text-sm font-medium text-slate-300 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-indigo-300 disabled:opacity-40"
+                  >
+                    Reset
+                  </button>
+                ) : (
+                  <Link
+                    to="/projects"
+                    className="inline-flex min-h-11 items-center rounded-lg border border-slate-600 px-4 text-sm font-medium text-slate-300 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-indigo-300"
+                  >
+                    Cancel
+                  </Link>
+                )}
+                <button
+                  type="submit"
+                  disabled={!isValid || !isChanged || saveStatus === 'saving'}
+                  className="min-h-11 rounded-lg bg-indigo-600 px-5 text-sm font-medium text-white hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-indigo-300 disabled:opacity-50"
+                >
+                  {saveStatus === 'saving'
+                    ? 'Saving changes…'
+                    : mode === 'create'
+                      ? 'Create project'
+                      : 'Save changes'}
+                </button>
+              </div>
+            </form>
           </div>
 
-          <ProjectHistoryList
-            history={historyQuery.data}
-            isLoading={historyQuery.isPending}
-            isError={historyQuery.isError}
-            onRetry={() => { void historyQuery.refetch() }}
-          />
-        </div>
+          {/* Revision History Card (for edit mode) */}
+          {mode === 'edit' && (
+            <div className="rounded-2xl border border-slate-700 bg-slate-900 p-6 md:p-8 space-y-6">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+                <h2 className="text-xl font-semibold text-white">Revision history</h2>
+                <span className="text-xs text-slate-400">
+                  Immutable metadata audit log
+                </span>
+              </div>
+
+              <ProjectHistoryList
+                history={historyQuery.data}
+                isLoading={historyQuery.isPending}
+                isError={historyQuery.isError}
+                onRetry={() => { void historyQuery.refetch() }}
+              />
+            </div>
+          )}
+        </>
       )}
     </section>
   )
