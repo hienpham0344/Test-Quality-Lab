@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { ArrowLeft, ArrowRight, Eye, EyeOff, LockKeyhole, Mail, ShieldCheck } from 'lucide-react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { AuthApiError, forgotPassword, login, register, requestVerification } from '../../services/api'
 import { AuthField, AuthLayout, authButton, authLink } from '../../components/auth/AuthLayout'
 import { AuthPanel } from '../../components/login/LoginLayout'
@@ -32,7 +32,6 @@ export function AuthPage({ mode, onSignIn }) {
   const isForgot = mode === 'forgot'
   const usesLoginShell = isLogin || isSignup || isForgot
   const Layout = usesLoginShell ? AuthPanel : AuthLayout
-  const navigate = useNavigate()
   const location = useLocation()
   const busy = useRef(false)
   const [errors, setErrors] = useState({})
@@ -75,11 +74,6 @@ export function AuthPage({ mode, onSignIn }) {
         const accessToken = result?.access_token
         if (typeof accessToken !== 'string' || !accessToken) throw new Error('Invalid sign-in response')
         onSignIn({ accessToken })
-        const target = location.state?.returnTo
-        const destination = target?.pathname === '/projects'
-          ? { pathname: '/projects', search: target.search?.startsWith('?') ? target.search : '' }
-          : '/'
-        navigate(destination, { replace: true })
       } else {
         form.reset()
         setDone(true)
@@ -111,7 +105,7 @@ export function AuthPage({ mode, onSignIn }) {
     <Layout title={screen.title} description={screen.description} centered={usesLoginShell}
       badge={isForgot ? 'Account recovery' : isSignup ? 'Account registration' : isLogin ? 'Account sign-in' : undefined}>
       {isLogin && location.state?.expired && <p role="status" className="text-sm text-amber-200">Your session expired. Sign in again to continue.</p>}
-      {isLogin && location.state?.returnTo && !location.state.expired && <p role="status" className="text-sm text-indigo-200">Sign in to open your projects.</p>}
+      {isLogin && location.state?.returnTo && !location.state.expired && <p role="status" className="text-sm text-indigo-200">Sign in to open your workspace.</p>}
       {isLogin && location.state?.logoutUnconfirmed && <p role="alert" className="text-sm text-amber-200">You signed out of this tab, but the server could not confirm sign-out.</p>}
       {isLogin && location.state?.loggedOut && <p role="status" className="text-sm text-emerald-200">You have signed out.</p>}
       {done ? (

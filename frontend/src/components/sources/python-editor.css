@@ -1,0 +1,20 @@
+.python-editor-highlighted {
+  color: transparent;
+  caret-color: var(--color-slate-100);
+}
+
+.python-editor-highlighted::selection {
+  color: var(--color-slate-100);
+  background: var(--color-indigo-700);
+}
+
+@media (forced-colors: active) {
+  .python-editor-preview {
+    display: none;
+  }
+
+  .python-editor-highlighted {
+    color: CanvasText;
+    caret-color: auto;
+  }
+}
