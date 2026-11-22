@@ -65,7 +65,9 @@ const server = http.createServer(async (req, res) => {
   // Auth: Login
   if (path === '/api/v1/auth/login' && req.method === 'POST') {
     sendJson(res, 200, {
+      access_token: 'mock-access-token-123',
       accessToken: 'mock-access-token-123',
+      refresh_token: 'mock-refresh-token-123',
       refreshToken: 'mock-refresh-token-123',
       token_type: 'bearer',
     })
