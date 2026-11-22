@@ -190,3 +190,17 @@ export function linkDatasetReference(accessToken, projectId, datasetId, sourceId
   })
 }
 
+// --- UC-04 Sources & Python input ---
+/** UC-04: Server validates Python syntax and returns available functions. Never execute uploaded code in the browser. */
+export function createPythonSource(accessToken, projectId, code, signal) {
+  return request(`/projects/${encodeURIComponent(projectId)}/sources`, {
+    method: 'POST',
+    accessToken,
+    body: { code },
+    signal,
+  })
+}
+
+export function listPythonSources(accessToken, projectId, signal) {
+  return request(`/projects/${encodeURIComponent(projectId)}/sources`, { accessToken, signal })
+}

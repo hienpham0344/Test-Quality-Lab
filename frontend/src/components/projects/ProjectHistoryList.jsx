@@ -1,3 +1,4 @@
+import { RotateCcw } from 'lucide-react'
 import { Badge } from '../common'
 import { formatDate } from '../../lib/format-date'
 
@@ -14,8 +15,9 @@ export function ProjectHistoryList({ history = [], isLoading, isError, onRetry }
           <button
             type="button"
             onClick={onRetry}
-            className="text-xs font-medium text-indigo-400 hover:text-indigo-300 underline focus-visible:outline-2 focus-visible:outline-indigo-300"
+            className="inline-flex text-xs font-medium text-indigo-400 hover:text-indigo-300 underline focus-visible:outline-2 focus-visible:outline-indigo-300 items-center gap-2"
           >
+            <RotateCcw size={16} aria-hidden="true" className="shrink-0" />
             Try again
           </button>
         )}
@@ -30,15 +32,15 @@ export function ProjectHistoryList({ history = [], isLoading, isError, onRetry }
   const sorted = [...history].sort((a, b) => b.revision - a.revision)
 
   return (
-    <ol className="relative border-l border-slate-700 ml-3 space-y-6">
+    <ol className="ml-1.5 space-y-5 border-l border-slate-700">
       {sorted.map((item, index) => (
-        <li key={item.revision} className="ml-5">
-          <div className="absolute -left-1.5 mt-1.5 h-3 w-3 rounded-full border border-slate-800 bg-indigo-500" />
-          <div className="flex items-center gap-2">
+        <li key={item.revision} className="relative min-w-0 pl-4">
+          <span aria-hidden="true" className={'absolute -left-[5px] top-1.5 size-2.5 rounded-full border-2 border-slate-900 ' + (index === 0 ? 'bg-indigo-300' : 'bg-slate-400')} />
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <Badge variant={index === 0 ? 'info' : 'neutral'}>
               Revision {item.revision}
             </Badge>
-            <time className="text-xs text-slate-400">
+            <time dateTime={item.changed_at} className="text-xs text-slate-400">
               {formatDate(item.changed_at)}
             </time>
           </div>
