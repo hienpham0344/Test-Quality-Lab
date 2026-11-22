@@ -212,6 +212,7 @@ export function validateMapping(mapping = {}, headers = []) {
  * @param {Record<string, string | null>} mapping
  * @returns {{
  *   canonicalRows: object[],
+ *   evaluatedRows: object[],
  *   previewRows: object[],
  *   clientErrors: Array<{ row_number: number, message: string }>,
  *   validCount: number,
