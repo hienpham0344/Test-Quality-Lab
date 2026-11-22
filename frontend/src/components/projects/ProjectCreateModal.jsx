@@ -1,3 +1,4 @@
+import { ArrowLeft, Plus, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 export function ProjectCreateModal({ isOpen, onClose, onCreate, isCreating, error }) {
@@ -67,7 +68,7 @@ export function ProjectCreateModal({ isOpen, onClose, onCreate, isCreating, erro
             className="text-slate-400 hover:text-white min-h-8 min-w-8 inline-flex items-center justify-center rounded-lg hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-indigo-300"
             aria-label="Close dialog"
           >
-            ✕
+            <X size={16} aria-hidden="true" className="shrink-0" />
           </button>
         </div>
 
@@ -136,15 +137,17 @@ export function ProjectCreateModal({ isOpen, onClose, onCreate, isCreating, erro
               type="button"
               onClick={onClose}
               disabled={isCreating}
-              className="min-h-11 rounded-lg border border-slate-600 px-4 text-sm font-medium text-slate-300 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-indigo-300 disabled:opacity-50"
+              className="inline-flex min-h-11 rounded-lg border border-slate-600 px-4 text-sm font-medium text-slate-300 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-indigo-300 disabled:opacity-50 items-center gap-2"
             >
+              <ArrowLeft size={16} aria-hidden="true" className="shrink-0" />
               Cancel
             </button>
             <button
               type="submit"
               disabled={!isValid || isCreating}
-              className="min-h-11 rounded-lg bg-indigo-600 px-5 text-sm font-medium text-white hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-indigo-300 disabled:opacity-50"
+              className="inline-flex min-h-11 rounded-lg bg-indigo-600 px-5 text-sm font-medium text-white hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-indigo-300 disabled:opacity-50 items-center gap-2"
             >
+              <Plus size={16} aria-hidden="true" className="shrink-0" />
               {isCreating ? 'Creating…' : 'Create project'}
             </button>
           </div>

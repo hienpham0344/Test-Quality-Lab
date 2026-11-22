@@ -1,5 +1,7 @@
-import { Navigate, Routes, Route } from 'react-router-dom'
+import { Navigate, Routes, Route, matchPath, useLocation } from 'react-router-dom'
 import { MainLayout } from '../components/layout'
+import WorkspaceLayout from '../components/layout/WorkspaceLayout'
+import { WorkspaceOverviewPage } from '../features/workspace/WorkspaceOverviewPage'
 import { LoginLayout } from '../components/login/LoginLayout'
 import { HomePage } from '../features/home/HomePage'
 import { AuthPage } from '../features/auth/AuthPage'
@@ -8,21 +10,38 @@ import { ResetPasswordPage } from '../features/auth/ResetPasswordPage'
 import { VerifyEmailPage } from '../features/auth/VerifyEmailPage'
 import { ProjectsPage } from '../features/projects/ProjectsPage'
 import { ProjectEditorPage } from '../features/projects/ProjectEditorPage'
+import { PythonSourcePage } from '../features/sources/PythonSourcePage'
+import { ProviderConfigurationPage } from '../features/ai-config/ProviderConfigurationPage'
+
+const workspacePaths = ['/workspace', '/projects', '/projects/:id', '/projects/:id/sources/new', '/projects/:id/ai-config']
+
+function WorkspaceRedirect() {
+  const target = useLocation().state?.returnTo
+  const canReturn = typeof target?.pathname === 'string' && workspacePaths.some((path) => matchPath(path, target.pathname))
+  const search = typeof target?.search === 'string' && target.search.startsWith('?') ? target.search : ''
+
+  return <Navigate replace to={canReturn ? { pathname: target.pathname, search } : '/workspace'} />
+}
 
 export default function AppRoutes({ session, expired, logoutNotice, signingOut, onSignIn, onSignOut, onExpire }) {
   return (
     <Routes>
       <Route element={<MainLayout signedIn={Boolean(session)} signingOut={signingOut} onSignOut={onSignOut} />}>
-        <Route path="/" element={<HomePage />} />
-        <Route element={<RequireSession session={session} expired={expired} logoutNotice={logoutNotice} signingOut={signingOut} />}>
+        <Route path="/" element={session ? <Navigate to="/workspace" replace /> : <HomePage />} />
+      </Route>
+      <Route element={<RequireSession session={session} expired={expired} logoutNotice={logoutNotice} signingOut={signingOut} />}>
+        <Route element={<WorkspaceLayout session={session} signingOut={signingOut} onSignOut={onSignOut} />}>
+          <Route path="/workspace" element={<WorkspaceOverviewPage />} />
           <Route path="/projects" element={<ProjectsPage session={session} onExpire={onExpire} />} />
+          <Route path="/projects/:projectId/sources/new" element={<PythonSourcePage session={session} onExpire={onExpire} />} />
+          <Route path="/projects/:projectId/ai-config" element={<ProviderConfigurationPage />} />
           <Route path="/projects/new" element={<ProjectEditorPage session={session} onExpire={onExpire} mode="create" />} />
           <Route path="/projects/:projectId" element={<ProjectEditorPage session={session} onExpire={onExpire} mode="edit" />} />
         </Route>
       </Route>
       <Route element={<LoginLayout />}>
         <Route path="/login" element={session
-          ? <Navigate to="/projects" replace />
+          ? <WorkspaceRedirect />
           : <AuthPage key="login" mode="login" onSignIn={onSignIn} />} />
         <Route path="/signup" element={<AuthPage key="signup" mode="signup" />} />
         <Route path="/forgot-password" element={<AuthPage key="forgot" mode="forgot" />} />
