@@ -1,10 +1,16 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   ApiError,
+  createDataset,
   createProject,
+  getDataset,
+  getDatasetVersion,
   getProject,
   getProjectHistory,
+  linkDatasetReference,
+  listDatasets,
   listProjects,
+  selectDatasetRows,
   updateProject,
   getCurrentUser,
   getHealth,
@@ -187,6 +193,100 @@ describe('project API calls', () => {
         await expect(createProject(accessToken, { name: '' })).rejects.toMatchObject({
             status: 422,
             detail: 'Project name must contain 1 to 120 characters',
+        });
+    });
+
+    describe('dataset API endpoints', () => {
+        const projectId = 'proj-123';
+        const datasetId = 'ds-456';
+
+        it('creates a dataset with normalized rows', async () => {
+            const rows = [{ row_number: 2, function_name: 'add', task_id: 'P01' }];
+            const mockResponse = { dataset_id: datasetId, revision: 1, rows };
+            const fetchMock = vi.fn().mockResolvedValue({
+                ok: true,
+                json: async () => mockResponse,
+            });
+            vi.stubGlobal('fetch', fetchMock);
+
+            const result = await createDataset(accessToken, projectId, { rows });
+            expect(result).toEqual(mockResponse);
+            const [url, options] = fetchMock.mock.calls[0];
+            expect(url).toMatch(/\/api\/v1\/projects\/proj-123\/datasets$/);
+            expect(options.method).toBe('POST');
+            expect(JSON.parse(options.body)).toEqual({ rows });
+            expect(options.headers.Authorization).toBe(`Bearer ${accessToken}`);
+        });
+
+        it('lists datasets for a project', async () => {
+            const mockDatasets = [{ id: datasetId, project_id: projectId, current_revision: 1 }];
+            const fetchMock = vi.fn().mockResolvedValue({
+                ok: true,
+                json: async () => mockDatasets,
+            });
+            vi.stubGlobal('fetch', fetchMock);
+
+            const result = await listDatasets(accessToken, projectId);
+            expect(result).toEqual(mockDatasets);
+            expect(fetchMock.mock.calls[0][0]).toMatch(/\/api\/v1\/projects\/proj-123\/datasets$/);
+        });
+
+        it('gets a dataset preview by id', async () => {
+            const mockVersion = { dataset_id: datasetId, revision: 1, rows: [] };
+            const fetchMock = vi.fn().mockResolvedValue({
+                ok: true,
+                json: async () => mockVersion,
+            });
+            vi.stubGlobal('fetch', fetchMock);
+
+            const result = await getDataset(accessToken, projectId, datasetId);
+            expect(result).toEqual(mockVersion);
+            expect(fetchMock.mock.calls[0][0]).toMatch(/\/api\/v1\/projects\/proj-123\/datasets\/ds-456$/);
+        });
+
+        it('gets a specific dataset revision', async () => {
+            const mockVersion = { dataset_id: datasetId, revision: 2, rows: [] };
+            const fetchMock = vi.fn().mockResolvedValue({
+                ok: true,
+                json: async () => mockVersion,
+            });
+            vi.stubGlobal('fetch', fetchMock);
+
+            const result = await getDatasetVersion(accessToken, projectId, datasetId, 2);
+            expect(result).toEqual(mockVersion);
+            expect(fetchMock.mock.calls[0][0]).toMatch(/\/api\/v1\/projects\/proj-123\/datasets\/ds-456\/versions\/2$/);
+        });
+
+        it('submits row selection snapshot', async () => {
+            const mockSelected = { dataset_id: datasetId, revision: 2, selected_rows: [2, 3] };
+            const fetchMock = vi.fn().mockResolvedValue({
+                ok: true,
+                json: async () => mockSelected,
+            });
+            vi.stubGlobal('fetch', fetchMock);
+
+            const result = await selectDatasetRows(accessToken, projectId, datasetId, [2, 3]);
+            expect(result).toEqual(mockSelected);
+            const [url, options] = fetchMock.mock.calls[0];
+            expect(url).toMatch(/\/api\/v1\/projects\/proj-123\/datasets\/ds-456\/selection$/);
+            expect(options.method).toBe('POST');
+            expect(JSON.parse(options.body)).toEqual({ row_numbers: [2, 3] });
+        });
+
+        it('links a reference source version to a dataset', async () => {
+            const mockLinked = { dataset_id: datasetId, revision: 3, reference_source_id: 'src-789' };
+            const fetchMock = vi.fn().mockResolvedValue({
+                ok: true,
+                json: async () => mockLinked,
+            });
+            vi.stubGlobal('fetch', fetchMock);
+
+            const result = await linkDatasetReference(accessToken, projectId, datasetId, 'src-789', 1);
+            expect(result).toEqual(mockLinked);
+            const [url, options] = fetchMock.mock.calls[0];
+            expect(url).toMatch(/\/api\/v1\/projects\/proj-123\/datasets\/ds-456\/reference$/);
+            expect(options.method).toBe('POST');
+            expect(JSON.parse(options.body)).toEqual({ source_id: 'src-789', revision: 1 });
         });
     });
 });
