@@ -1,164 +1,192 @@
-import { Braces, FileCheck, FileCode, FileUp, X } from 'lucide-react'
-import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { FileCheck, FileCode, FileUp } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { useParams } from 'react-router-dom'
+import { ProjectBackLink } from '../../components/projects/ProjectBackLink'
 import { PythonEditor } from '../../components/sources/PythonEditor'
-import { AuthApiError, createPythonSource } from '../../services/api'
+import { AuthApiError, createPythonSource, getPythonSource, listPythonSources } from '../../services/api'
+import { UploadedFiles, useUploadedFiles } from './UploadedFiles'
 
 const MAX_BYTES = 1024 * 1024
+const editorPanel = 'min-w-0 rounded-xl border border-slate-800 bg-slate-900'
+const action = 'inline-flex min-h-10 items-center gap-2 rounded-lg px-3 text-sm focus-visible:outline-2 focus-visible:outline-indigo-300 disabled:opacity-50'
 
-export function PythonSourcePage({ session, onExpire }) {
-  const { projectId } = useParams()
-  const [code, setCode] = useState('')
-  const [fileName, setFileName] = useState('')
-  const [status, setStatus] = useState('idle')
+function PythonUploadPanel({ session, onExpire, projectId }) {
+  const [draft, setDraft] = useState('')
+  const [queue, setQueue] = useState([])
+  const [active, setActive] = useState(null)
+  const [opened, setOpened] = useState(null)
+  const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
-  const [version, setVersion] = useState(null)
-  const [selected, setSelected] = useState([])
-
+  const [notice, setNotice] = useState('')
+  const nextFileId = useRef(0)
+  const registry = useUploadedFiles(listPythonSources, session, projectId, onExpire)
+  const item = queue.find(({ id }) => id === active)
+  const code = opened?.code ?? item?.code ?? draft
   const bytes = new TextEncoder().encode(code).length
-  const valid = bytes > 0 && bytes <= MAX_BYTES
 
-  function updateCode(value, name = '') {
-    setCode(value)
-    setFileName(name)
-    setVersion(null)
-    setSelected([])
+  function selectDraft(id) {
+    setActive(id)
+    setOpened(null)
     setError('')
-    setStatus('idle')
+    setNotice('')
   }
 
-  async function handleFile(event) {
-    const file = event.target.files?.[0]
-    if (!file) return
-    if (!file.name.toLowerCase().endsWith('.py')) {
-      setError('Choose a Python .py file.')
-      event.target.value = ''
-      return
-    }
-    if (file.size > MAX_BYTES) {
-      setError('Python source must be 1 MB or smaller.')
-      event.target.value = ''
-      return
-    }
-    setStatus('reading')
-    try {
-      updateCode(await file.text(), file.name)
-    } catch {
-      setStatus('idle')
-      setError('Unable to read the selected file.')
-    }
+  function updateCode(value) {
+    if (item) setQueue((current) => current.map((entry) => entry.id === item.id ? { ...entry, code: value, error: '' } : entry))
+    else setDraft(value)
+    setError('')
+    setNotice('')
+  }
+
+  async function handleFiles(event) {
+    const files = Array.from(event.target.files)
     event.target.value = ''
+    if (!files.length || busy) return
+    setBusy('Reading files…')
+    setNotice('')
+    const entries = []
+    const errors = []
+    for (const file of files) {
+      try {
+        if (!file.name.toLowerCase().endsWith('.py')) throw new Error('Choose a .py file')
+        if (file.size > MAX_BYTES) throw new Error('Exceeds 1 MB')
+        entries.push({ id: ++nextFileId.current, name: file.name, code: await file.text(), error: '' })
+      } catch (err) {
+        errors.push(`${file.name}: ${err.message}`)
+      }
+    }
+    if (entries.length) {
+      setQueue((current) => [...current, ...entries])
+      selectDraft(entries[0].id)
+    }
+    setError(errors.join(' · '))
+    setBusy('')
   }
-
-  const busy = status === 'reading' || status === 'saving'
 
   async function handleSubmit(event) {
     event.preventDefault()
-    if (!valid || busy) return
-    setStatus('saving')
-    setVersion(null)
-    setSelected([])
+    if (busy || opened || (!item && (!bytes || bytes > MAX_BYTES))) return
+    setBusy('Validating…')
     setError('')
+    setNotice('')
+    const batch = item ? queue : [{ id: null, code: draft }]
+    const savedIds = new Set()
+    let firstFailed = null
     try {
-      const result = await createPythonSource(session.accessToken, projectId, code)
-      setVersion(result)
-      setStatus('saved')
-    } catch (err) {
-      if (err instanceof AuthApiError && err.status === 401) {
-        onExpire(session)
-        return
+      for (const entry of batch) {
+        try {
+          if (!entry.code.trim()) throw new Error('Python source is empty.')
+          if (new TextEncoder().encode(entry.code).length > MAX_BYTES) throw new Error('Source exceeds the 1 MB limit.')
+          const result = await createPythonSource(session.accessToken, projectId, entry.code)
+          registry.addFile({ id: result.source_id, filename: entry.name, current_revision: result.revision })
+          savedIds.add(entry.id)
+        } catch (err) {
+          if (err instanceof AuthApiError && err.status === 401) {
+            onExpire(session)
+            break
+          }
+          if (entry.id) {
+            firstFailed ??= entry.id
+            setQueue((current) => current.map((queued) => queued.id === entry.id ? { ...queued, error: err.message } : queued))
+          } else setError(err.message)
+        }
       }
-      setError(err.detail || err.message || 'Unable to validate the source.')
-      setStatus('error')
+    } finally {
+      setQueue((current) => current.filter(({ id }) => !savedIds.has(id)))
+      if (item) setActive(firstFailed)
+      if (savedIds.has(null)) setDraft('')
+      if (savedIds.size) setNotice(`${savedIds.size} ${savedIds.size === 1 ? 'source saved' : 'sources saved'}.`)
+      setBusy('')
     }
   }
 
-  function toggleFunction(name) {
-    setSelected((current) => current.includes(name)
-      ? current.filter((item) => item !== name)
-      : [...current, name])
+  async function openFile(file) {
+    setBusy('Loading source…')
+    setError('')
+    setNotice('')
+    try {
+      const result = await getPythonSource(session.accessToken, projectId, file)
+      setOpened({ ...file, code: result.code })
+    } catch (err) {
+      if (err instanceof AuthApiError && err.status === 401) onExpire(session)
+      else setError(err.message)
+    } finally {
+      setBusy('')
+    }
   }
 
   return (
-    <section className="mx-auto max-w-7xl space-y-6 px-4 py-7 sm:px-8 lg:py-10">
-      <nav aria-label="Breadcrumb" className="text-sm text-slate-400">
-        <Link to="/projects" className="text-indigo-400 hover:underline">Projects</Link>
-        <span className="mx-2">/</span>
-        <Link to={`/projects/${projectId}`} className="text-indigo-400 hover:underline">Project</Link>
-        <span className="mx-2">/</span>Python source
-      </nav>
-      <header className="border-b border-slate-800 pb-5">
-        <h1 className="text-2xl font-semibold tracking-tight text-white">Python source</h1>
-        <p className="mt-2 text-sm text-slate-400">Paste or upload Python code. The server checks its syntax and returns selectable functions; code is never executed here.</p>
-      </header>
-      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-        <form onSubmit={handleSubmit} className="min-w-0 rounded-xl border border-slate-800 bg-slate-900">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 px-4 py-3 sm:px-5">
-            <label htmlFor="python-code" className="flex min-w-0 items-center gap-2 text-sm font-semibold text-white">
-              <FileCode size={17} aria-hidden="true" className="shrink-0 text-indigo-300" />
-              <span className="break-all">{fileName || 'Source code'}</span>
-            </label>
-            <div className="flex flex-wrap gap-2">
-              <label className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border border-slate-700 px-3 text-sm text-slate-200 hover:bg-slate-800 focus-within:outline-2 focus-within:outline-indigo-300">
-                <FileUp size={16} aria-hidden="true" /> Upload .py
-                <input type="file" accept=".py,text/x-python" onChange={handleFile} disabled={busy} className="sr-only" aria-label="Upload Python file" />
-              </label>
-              <button type="button" disabled={!code || busy} onClick={() => updateCode('')}
-                className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-700 px-3 text-sm text-slate-200 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-indigo-300 disabled:opacity-50">
-                <X size={16} aria-hidden="true" /> Clear
-              </button>
-            </div>
-          </div>
-          <div className="space-y-4 p-4 sm:p-5">
-            {fileName && <p className="sr-only">Selected file: {fileName}</p>}
-            <PythonEditor id="python-code" value={code} onChange={(event) => updateCode(event.target.value, fileName)} disabled={busy}
-              spellCheck={false} rows={18} placeholder={'def add(a, b):\n    return a + b'} />
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-xs tabular-nums text-slate-400">{bytes.toLocaleString()} / {MAX_BYTES.toLocaleString()} bytes (UTF-8)</p>
-              <button type="submit" disabled={!valid || busy}
-                className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-indigo-300 disabled:cursor-not-allowed disabled:opacity-50">
-                <FileCheck size={16} aria-hidden="true" />
-                {status === 'reading' ? 'Reading file…' : status === 'saving' ? 'Validating…' : 'Validate and save source'}
-              </button>
-            </div>
-            {bytes > MAX_BYTES && <p role="alert" className="text-sm text-rose-400">Source exceeds the 1 MB limit.</p>}
-            {error && <p role="alert" className="rounded-lg border border-rose-800 bg-rose-950/40 p-3 text-sm text-rose-300">{error}</p>}
-          </div>
-        </form>
-
-        <section aria-labelledby="source-functions-title" className="min-w-0 rounded-xl border border-slate-800 bg-slate-900">
-          <h2 id="source-functions-title" className="flex items-center gap-2.5 border-b border-slate-800 px-4 py-4 text-base font-semibold text-white sm:px-5">
-            <Braces size={17} aria-hidden="true" className="text-indigo-300" /> Available functions
-          </h2>
-          <div className="space-y-4 p-4 sm:p-5">
-            {version ? (
-              <>
-                <p role="status" className="text-sm text-emerald-300">Source revision {version.revision} saved.</p>
-                {version.functions?.length ? (
-                  <>
-                    <ul className="divide-y divide-slate-800 rounded-lg border border-slate-800 bg-slate-950">
-                      {version.functions.map((fn) => (
-                        <li key={fn.name}>
-                          <label className="flex min-h-11 cursor-pointer items-center gap-3 px-3 py-2 hover:bg-slate-800/60">
-                            <input type="checkbox" checked={selected.includes(fn.name)} onChange={() => toggleFunction(fn.name)} className="accent-indigo-500" />
-                            <span className="min-w-0 flex-1 break-all font-mono text-sm text-slate-200">{fn.name}</span>
-                            <span className="shrink-0 text-xs text-slate-400">Line {fn.line}</span>
-                          </label>
-                        </li>
-                      ))}
-                    </ul>
-                    <p className="text-xs text-slate-400">{selected.length} of {version.functions.length} selected in this editor.</p>
-                  </>
-                ) : <p className="text-sm text-slate-400">No valid top-level functions were found in this source.</p>}
-              </>
-            ) : (
-              <p className="text-sm leading-6 text-slate-400">
-                {status === 'saving' ? 'Waiting for the server to inspect the source.' : 'Validate and save the source to see its detected functions.'}
-              </p>
+    <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+      <form onSubmit={handleSubmit} className={editorPanel}>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 px-4 py-3 sm:px-5">
+          <label htmlFor="python-code" className="flex min-w-0 items-center gap-2 text-sm font-semibold text-white">
+            <FileCode size={17} aria-hidden="true" className="shrink-0 text-indigo-300" />
+            <span className="break-all">{opened?.filename || item?.name || 'Source code'}</span>
+          </label>
+          <label className={`${action} cursor-pointer border border-slate-700 text-slate-200 hover:bg-slate-800 focus-within:outline-2 focus-within:outline-indigo-300`}>
+            <FileUp size={16} aria-hidden="true" /> Choose .py files
+            <input type="file" multiple accept=".py,text/x-python" onChange={handleFiles} disabled={Boolean(busy)} className="sr-only" aria-label="Choose Python files" />
+          </label>
+        </div>
+        {(queue.length > 0 || opened) && (
+          <ul aria-label="Pending Python files" className="flex max-h-40 flex-wrap gap-2 overflow-y-auto border-b border-slate-800 px-4 py-3 sm:px-5">
+            <li><button type="button" disabled={Boolean(busy)} onClick={() => selectDraft(null)}
+              aria-pressed={!opened && !item} className={`${action} bg-slate-950 text-slate-300 aria-pressed:bg-indigo-950 aria-pressed:text-indigo-200`}>Paste code</button></li>
+            {queue.map((entry) => (
+              <li key={entry.id} className="min-w-0">
+                <button type="button" disabled={Boolean(busy)} onClick={() => selectDraft(entry.id)} aria-pressed={!opened && entry.id === active}
+                  className={`${action} break-all bg-slate-950 text-slate-300 aria-pressed:bg-indigo-950 aria-pressed:text-indigo-200`}>
+                  {entry.name}{entry.error && <span className="text-rose-300"> · Failed</span>}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="space-y-4 p-4 sm:p-5">
+          <PythonEditor id="python-code" value={code} onChange={(event) => updateCode(event.target.value)}
+            readOnly={Boolean(busy || opened)} spellCheck={false} rows={18} placeholder={'def add(a, b):\n    return a + b'} />
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs tabular-nums text-slate-400">{bytes.toLocaleString()} / {MAX_BYTES.toLocaleString()} bytes (UTF-8)</p>
+            {!opened && (
+              <div className="flex flex-wrap gap-2">
+                <button type="button" disabled={Boolean(busy) || (!item && !draft)} className={`${action} border border-slate-700 text-slate-200 hover:bg-slate-800`}
+                  onClick={() => {
+                    if (!item) updateCode('')
+                    else {
+                      const remaining = queue.filter(({ id }) => id !== item.id)
+                      setQueue(remaining)
+                      selectDraft(remaining[0]?.id ?? null)
+                    }
+                  }}>{item ? 'Remove file' : 'Clear'}</button>
+                <button type="submit" disabled={Boolean(busy) || (!item && (!bytes || bytes > MAX_BYTES))}
+                  className={`${action} bg-indigo-600 font-medium text-white hover:bg-indigo-500`}>
+                  <FileCheck size={16} aria-hidden="true" />
+                  {item ? `Validate and save ${queue.length} ${queue.length === 1 ? 'file' : 'files'}` : 'Validate and save source'}
+                </button>
+              </div>
             )}
           </div>
-        </section>
-      </div>
+          {busy && <p role="status" className="text-sm text-slate-300">{busy}</p>}
+          {notice && <p role="status" className="text-sm text-emerald-300">{notice}</p>}
+          {(error || item?.error || bytes > MAX_BYTES) && <p role="alert" className="break-words text-sm text-rose-300">{error || item?.error || 'Source exceeds the 1 MB limit.'}</p>}
+        </div>
+      </form>
+      <UploadedFiles registry={registry} onOpen={openFile} activeId={opened?.id} busy={Boolean(busy)} fallbackName="Untitled source" />
+    </div>
+  )
+}
+
+export function PythonSourcePage({ session, onExpire }) {
+  const { projectId } = useParams()
+  const title = 'Python source'
+
+  return (
+    <section className="mx-auto max-w-7xl space-y-6 px-4 py-7 sm:px-8 lg:py-10">
+      <ProjectBackLink projectId={projectId} />
+      <header>
+        <h1 className="text-2xl font-semibold tracking-tight text-white">{title}</h1>
+      </header>
+      <PythonUploadPanel key={projectId} session={session} onExpire={onExpire} projectId={projectId} />
     </section>
   )
 }

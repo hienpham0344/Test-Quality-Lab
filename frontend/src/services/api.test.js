@@ -3,14 +3,18 @@ import {
   ApiError,
   createDataset,
   createProject,
+  cancelExecution,
   getDataset,
   getDatasetVersion,
+  getExecution,
   getProject,
   getProjectHistory,
   linkDatasetReference,
   listDatasets,
+  listExecutions,
   listProjects,
   selectDatasetRows,
+  triggerExecution,
   updateProject,
   getCurrentUser,
   getHealth,
@@ -287,6 +291,82 @@ describe('project API calls', () => {
             expect(url).toMatch(/\/api\/v1\/projects\/proj-123\/datasets\/ds-456\/reference$/);
             expect(options.method).toBe('POST');
             expect(JSON.parse(options.body)).toEqual({ source_id: 'src-789', revision: 1 });
+        });
+    });
+
+    describe('executions API (UC-08)', () => {
+        const projectId = 'proj-123';
+        const accessToken = 'valid-token';
+        const executionId = 'exec-456';
+
+        it('lists executions for a project', async () => {
+            const mockExecutions = [{ id: executionId, status: 'RUNNING' }];
+            const fetchMock = vi.fn().mockResolvedValue({
+                ok: true,
+                json: async () => mockExecutions,
+            });
+            vi.stubGlobal('fetch', fetchMock);
+
+            const result = await listExecutions(accessToken, projectId);
+            expect(result).toEqual(mockExecutions);
+            expect(fetchMock.mock.calls[0][0]).toMatch(/\/api\/v1\/projects\/proj-123\/executions$/);
+        });
+
+        it('gets a single execution run by id', async () => {
+            const mockExec = { id: executionId, status: 'RUNNING', cases: [] };
+            const fetchMock = vi.fn().mockResolvedValue({
+                ok: true,
+                json: async () => mockExec,
+            });
+            vi.stubGlobal('fetch', fetchMock);
+
+            const result = await getExecution(accessToken, projectId, executionId);
+            expect(result).toEqual(mockExec);
+            expect(fetchMock.mock.calls[0][0]).toMatch(/\/api\/v1\/projects\/proj-123\/executions\/exec-456$/);
+        });
+
+        it('triggers an execution run', async () => {
+            const mockCreated = { id: executionId, status: 'QUEUED' };
+            const fetchMock = vi.fn().mockResolvedValue({
+                ok: true,
+                json: async () => mockCreated,
+            });
+            vi.stubGlobal('fetch', fetchMock);
+
+            const result = await triggerExecution(accessToken, projectId, {
+                datasetId: 'ds-1',
+                sourceId: 'src-1',
+                suiteName: 'Regression Suite',
+            });
+            expect(result).toEqual(mockCreated);
+            const [url, options] = fetchMock.mock.calls[0];
+            expect(url).toMatch(/\/api\/v1\/projects\/proj-123\/executions$/);
+            expect(options.method).toBe('POST');
+            expect(JSON.parse(options.body)).toEqual({
+                dataset_id: 'ds-1',
+                source_id: 'src-1',
+                suite_name: 'Regression Suite',
+            });
+        });
+
+        it('cancels an eligible execution run with reason', async () => {
+            const mockCancelled = { id: executionId, status: 'CANCELLED', cancel_reason: 'User cancelled' };
+            const fetchMock = vi.fn().mockResolvedValue({
+                ok: true,
+                json: async () => mockCancelled,
+            });
+            vi.stubGlobal('fetch', fetchMock);
+
+            const result = await cancelExecution(accessToken, projectId, executionId, {
+                reason: 'User cancelled',
+            });
+            expect(result).toEqual(mockCancelled);
+            const [url, options] = fetchMock.mock.calls[0];
+            expect(url).toMatch(/\/api\/v1\/projects\/proj-123\/executions\/exec-456\/cancel$/);
+            expect(options.method).toBe('POST');
+            expect(JSON.parse(options.body)).toEqual({
+                reason: 'User cancelled',
+            });
         });
     });
 });

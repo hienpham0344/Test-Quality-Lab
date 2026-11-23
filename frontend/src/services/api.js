@@ -204,3 +204,45 @@ export function createPythonSource(accessToken, projectId, code, signal) {
 export function listPythonSources(accessToken, projectId, signal) {
   return request(`/projects/${encodeURIComponent(projectId)}/sources`, { accessToken, signal })
 }
+
+export function getPythonSource(accessToken, projectId, source, signal) {
+  return request(`/projects/${encodeURIComponent(projectId)}/sources/${source.id}/versions/${source.current_revision}`, {
+    accessToken,
+    signal,
+  })
+}
+
+// --- UC-08 Execution status and cancellation (S5) ---
+export async function listExecutions(accessToken, projectId, signal) {
+  const data = await request(`/projects/${projectId}/executions`, { accessToken, signal })
+  if (!Array.isArray(data)) throw new Error('Invalid execution list')
+  return data
+}
+
+export function getExecution(accessToken, projectId, executionId, signal) {
+  return request(`/projects/${projectId}/executions/${executionId}`, { accessToken, signal })
+}
+
+export function triggerExecution(accessToken, projectId, { datasetId, sourceId, suiteName } = {}, signal) {
+  return request(`/projects/${projectId}/executions`, {
+    accessToken,
+    method: 'POST',
+    body: {
+      dataset_id: datasetId || null,
+      source_id: sourceId || null,
+      suite_name: suiteName || 'Test Suite Execution',
+    },
+    signal,
+  })
+}
+
+export function cancelExecution(accessToken, projectId, executionId, { reason } = {}, signal) {
+  return request(`/projects/${projectId}/executions/${executionId}/cancel`, {
+    accessToken,
+    method: 'POST',
+    body: {
+      reason: reason || 'Cancelled by user',
+    },
+    signal,
+  })
+}

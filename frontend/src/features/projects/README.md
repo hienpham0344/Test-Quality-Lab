@@ -6,7 +6,9 @@ Project management views and editor screens for Sprint 1 (FR-PRJ-001 / FR-PRJ-00
 
 - `/projects` (`ProjectsPage.jsx`):
   - Project dashboard displaying all owner-scoped projects.
-  - Interactive search bar to filter projects by title or description.
+  - Search by name or description, sorting, pagination, and Cards/Table selection share URL state.
+  - Total experiments uses counts reported by the API and labels incomplete or unavailable data.
+  - Project actions open settings or copy metadata into the create form. Delete is unavailable until the project API supports it.
   - "+ New project" action and "Create your first project" empty state CTA.
   - Handles loading (`Checking access to your projects…`), empty (`You don’t have any projects yet.`), and error states with manual retry.
   - Integrates `ProjectCreateModal` for inline project creation.
@@ -14,8 +16,9 @@ Project management views and editor screens for Sprint 1 (FR-PRJ-001 / FR-PRJ-00
 - `/projects/:projectId` (`ProjectEditorPage.jsx`):
   - Project editor screen for viewing and updating project metadata (FR-PRJ-002, Issue #90).
   - Displays project name, description, created/updated time, and current revision badge.
-  - Multi-tab layout supporting Overview, History (F5), Experiments (F6), and Datasets (CSV).
+  - Multi-tab layout supporting Overview, History (F5), Experiments (F6), Datasets (CSV), and Executions (UC-08).
   - In-place form validation matching F3: project name (1–120 characters, required) and description (up to 2000 characters) with live character counters.
+  - `?edit=description` focuses the description field from the registry.
   - Dirty checking: Save button is disabled until changes are made and inputs are valid; Cancel restores original values and resets dirty state.
   - Unsaved changes guard: warns before leaving with unsaved edits via beforeunload and accessible confirmation dialog when navigating or switching tabs.
   - Informative policy notice on screen: "Editing metadata does not change experiments already frozen (FR-PRJ-002)."
@@ -27,7 +30,7 @@ Project management views and editor screens for Sprint 1 (FR-PRJ-001 / FR-PRJ-00
 
 ## Shared Components (`src/components/projects/`)
 
-- `ProjectCard.jsx`: Dashboard project card showing title, revision badge (`v{revision}`), description, updated date, and edit link.
+- `ProjectCard.jsx`: Project card and table views with shared links, description action, and overflow menu.
 - `ProjectCreateModal.jsx`: Accessible modal dialog for creating a project with keyboard escape support and field validation.
 - `ProjectHistoryList.jsx`: Timeline of revisions showing revision numbers, snapshot name/description, and formatted timestamps.
 

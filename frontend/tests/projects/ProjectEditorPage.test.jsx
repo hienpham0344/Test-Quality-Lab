@@ -145,6 +145,9 @@ describe('ProjectEditorPage (FR-PRJ-002, Issue #90)', () => {
     await vi.waitFor(() => {
       expect(container.querySelector('h1').textContent).toBe('Edit project')
     })
+    const backLink = container.querySelector('a[href="/projects"]')
+    expect(backLink.textContent.trim()).toBe('Back to projects')
+    expect(backLink.getAttribute('href')).toBe('/projects')
 
     // Check name and description fields
     const nameInput = container.querySelector('#edit-project-name')
@@ -424,4 +427,28 @@ describe('ProjectEditorPage (FR-PRJ-002, Issue #90)', () => {
       description: 'Brand new',
     })
   })
+
+  it('switches to Executions (UC-08) tab and displays execution management UI', async () => {
+    fetchMock.mockImplementation(async (url) => {
+      if (url.includes('/api/v1/projects/p-1/executions')) {
+        return { ok: true, json: async () => [] }
+      }
+      if (url.includes('/api/v1/projects/p-1/history')) {
+        return { ok: true, json: async () => [] }
+      }
+      if (url.includes('/api/v1/projects/p-1')) {
+        return { ok: true, json: async () => mockProject }
+      }
+      return { ok: true, json: async () => [] }
+    })
+
+    await renderEditor('/projects/p-1?tab=executions', 'edit')
+
+    await vi.waitFor(() => {
+      expect(container.textContent).toContain('Sandbox Security Gate & Untrusted Execution Policy (UC-08)')
+      expect(container.textContent).toContain('Execution Runs')
+      expect(container.querySelector('[data-testid="trigger-new-run-btn"]')).not.toBeNull()
+    })
+  })
 })
+

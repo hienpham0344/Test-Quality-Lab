@@ -22,8 +22,10 @@ import {
   updateProject,
 } from '../../services/api'
 import { Badge } from '../../components/common'
+import { ProjectBackLink } from '../../components/projects/ProjectBackLink'
 import { ProjectHistoryList } from '../../components/projects/ProjectHistoryList'
 import { DatasetsManager } from '../datasets'
+import { ExecutionsManager } from '../executions'
 import { formatDate } from '../../lib/format-date'
 
 export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
@@ -35,7 +37,7 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
 
   const rawTab = searchParams.get('tab')
   const getNormalizedTab = (tab) => {
-    if (tab === 'history' || tab === 'experiments' || tab === 'datasets') return tab
+    if (tab === 'history' || tab === 'experiments' || tab === 'datasets' || tab === 'executions') return tab
     return 'overview'
   }
   const [activeTab, setActiveTab] = useState(() => getNormalizedTab(rawTab))
@@ -43,7 +45,6 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
   useEffect(() => {
     setActiveTab(getNormalizedTab(searchParams.get('tab')))
   }, [searchParams])
-
   // Form state
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -82,6 +83,13 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
   }, [expired, onExpire, session])
 
   const loadedProjectIdRef = useRef(null)
+  const descriptionInput = useRef(null)
+  const focusDescription = searchParams.get('edit') === 'description'
+  const projectLoaded = Boolean(projectQuery.data)
+
+  useEffect(() => {
+    if (projectLoaded && (activeTab === 'settings' || activeTab === 'overview') && focusDescription) descriptionInput.current?.focus()
+  }, [projectLoaded, projectId, activeTab, focusDescription])
 
   // Sync form when project first loads
   useEffect(() => {
@@ -145,7 +153,7 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
       return
     }
     setActiveTab(targetTab)
-    if (targetTab === 'overview') {
+    if (targetTab === 'overview' || targetTab === 'settings') {
       setSearchParams({})
     } else {
       setSearchParams({ tab: targetTab })
@@ -167,7 +175,7 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
     if (!pendingAction) return
     if (pendingAction.type === 'tab') {
       setActiveTab(pendingAction.tab)
-      if (pendingAction.tab === 'overview') {
+      if (pendingAction.tab === 'overview' || pendingAction.tab === 'settings') {
         setSearchParams({})
       } else {
         setSearchParams({ tab: pendingAction.tab })
@@ -310,25 +318,33 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
 
   return (
     <section className={'mx-auto space-y-6 px-4 py-7 sm:px-8 lg:py-10 ' + (project ? 'max-w-7xl' : 'max-w-3xl')}>
-      <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-sm text-slate-400">
-        <button
-          type="button"
-          onClick={() => handleGuardedNavigation('/projects')}
-          className="text-indigo-400 hover:text-indigo-300 hover:underline cursor-pointer bg-transparent border-0 p-0 text-sm font-normal"
-        >
-          Projects
-        </button>
-        <span aria-hidden="true">/</span>
-        <span className="min-w-0 truncate text-slate-200">
-          {mode === 'create' ? 'New project' : project?.name}
-        </span>
-        {project && (
-          <>
-            <span aria-hidden="true">/</span>
-            <span aria-current="page" className="shrink-0 text-slate-300">Project details</span>
-          </>
-        )}
-      </nav>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <ProjectBackLink onClick={(e) => {
+          if (isChanged && mode === 'edit') {
+            e.preventDefault()
+            handleGuardedNavigation('/projects')
+          }
+        }} />
+        <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-sm text-slate-400">
+          <button
+            type="button"
+            onClick={() => handleGuardedNavigation('/projects')}
+            className="text-indigo-400 hover:text-indigo-300 hover:underline cursor-pointer bg-transparent border-0 p-0 text-sm font-normal"
+          >
+            Projects
+          </button>
+          <span aria-hidden="true">/</span>
+          <span className="min-w-0 truncate text-slate-200">
+            {mode === 'create' ? 'New project' : project?.name}
+          </span>
+          {project && (
+            <>
+              <span aria-hidden="true">/</span>
+              <span aria-current="page" className="shrink-0 text-slate-300">Project details</span>
+            </>
+          )}
+        </nav>
+      </div>
 
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div className="min-w-0 space-y-2">
@@ -419,7 +435,27 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
           >
             Datasets (CSV)
           </button>
+          <button
+            type="button"
+            onClick={() => handleTabClick('executions')}
+            className={`min-h-10 px-4 py-2 text-sm font-medium rounded-lg transition cursor-pointer ${
+              activeTab === 'executions'
+                ? 'bg-slate-800 text-white border border-slate-700 shadow-sm'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+            }`}
+          >
+            Executions (UC-08)
+          </button>
         </div>
+      )}
+
+      {/* Tab: Executions & Sandbox Status */}
+      {mode === 'edit' && activeTab === 'executions' && (
+        <ExecutionsManager
+          session={session}
+          projectId={projectId}
+          onExpire={onExpire}
+        />
       )}
 
       {/* Tab: Datasets */}
@@ -545,6 +581,7 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
                   </div>
                   <textarea
                     id="edit-project-description"
+                    ref={descriptionInput}
                     name="description"
                     rows={6}
                     maxLength={2000}
