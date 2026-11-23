@@ -198,91 +198,112 @@ async function startViteAndCapture() {
     // 1. Sign in
     console.log('Navigating to login...');
     await send('Page.navigate', { url: 'http://127.0.0.1:5173/login' });
-    await delay(2000);
+    await delay(2500);
 
-    console.log('Signing in...');
-    await evaluate(`
-      const emailInput = document.querySelector('#email');
-      const passwordInput = document.querySelector('#password');
-      if (emailInput && passwordInput) {
-        emailInput.value = 'user@testlab.dev';
-        emailInput.dispatchEvent(new Event('input', { bubbles: true }));
-        passwordInput.value = 'Password123456!';
-        passwordInput.dispatchEvent(new Event('input', { bubbles: true }));
-        const form = document.querySelector('form');
-        form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-      }
-    `);
+    console.log('Signing in with prototype setters...');
+    await evaluate(`(() => {
+      const setVal = (el, val) => {
+        if (!el) return;
+        const setter = Object.getOwnPropertyDescriptor(
+          el.tagName === 'TEXTAREA' ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype,
+          'value'
+        ).set;
+        setter.call(el, val);
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      };
+      setVal(document.querySelector('input[name="email"]'), 'user@testlab.dev');
+      setVal(document.querySelector('input[name="password"]'), 'Password123456!');
+      const btn = document.querySelector('button[type="submit"]') || [...document.querySelectorAll('button')].find(b => b.textContent.includes('Sign in'));
+      if (btn) btn.click();
+    })()`);
+    await delay(2500);
+
+    console.log('Navigating client-side to /projects/p-1...');
+    await evaluate(`(() => {
+      window.history.pushState({}, '', '/projects/p-1');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    })()`);
     await delay(2000);
 
     // 2. Project Detail Overview
-    console.log('Navigating to Project Detail /projects/p-1 (Overview tab)...');
-    await send('Page.navigate', { url: 'http://127.0.0.1:5173/projects/p-1' });
-    await delay(2000);
+    console.log('Capturing project-detail-overview.png...');
     await takeScreenshot('project-detail-overview.png');
 
-    // 3. Edit mode with changes (Save enabled)
-    console.log('Editing name and description to activate Save button...');
-    await evaluate(`
-      const nameInput = document.querySelector('#edit-project-name');
-      const descInput = document.querySelector('#edit-project-description');
-      if (nameInput) {
-        nameInput.value = 'LLM Python Test Evaluator - Production Edition';
-        nameInput.dispatchEvent(new Event('input', { bubbles: true }));
-      }
-      if (descInput) {
-        descInput.value = 'Comprehensive evaluation suite testing models across L1 to L5 prompt variants with immutable revision history.';
-        descInput.dispatchEvent(new Event('input', { bubbles: true }));
-      }
-    `);
-    await delay(600);
-    await takeScreenshot('project-detail-edit-active.png');
-
-    // 4. Trigger Unsaved Changes warning guard
-    console.log('Triggering unsaved changes guard modal...');
-    await evaluate(`
-      const breadcrumbBtn = document.querySelector('nav[aria-label="Breadcrumb"] button');
-      if (breadcrumbBtn) breadcrumbBtn.click();
-    `);
-    await delay(600);
-    await takeScreenshot('project-detail-unsaved-warning.png');
-
-    // Close unsaved changes modal by clicking Keep editing
-    await evaluate(`
-      const keepBtn = [...document.querySelectorAll('button')].find(b => b.textContent === 'Keep editing');
-      if (keepBtn) keepBtn.click();
-    `);
-    await delay(500);
-
-    // Click Cancel button in form to restore clean state
-    await evaluate(`
-      const cancelBtn = [...document.querySelectorAll('button')].find(b => b.textContent.includes('Cancel'));
-      if (cancelBtn) cancelBtn.click();
-    `);
-    await delay(500);
-
-    // 5. History (F5) tab
+    // 3. History (F5) tab
     console.log('Switching to History (F5) tab...');
-    await evaluate(`
+    await evaluate(`(() => {
       const histTab = [...document.querySelectorAll('button')].find(b => b.textContent.includes('History (F5)'));
       if (histTab) histTab.click();
-    `);
-    await delay(800);
+    })()`);
+    await delay(1200);
+    console.log('Capturing project-detail-history-tab.png...');
     await takeScreenshot('project-detail-history-tab.png');
 
-    // 6. Experiments (F6) tab
+    // 4. Experiments (F6) tab
     console.log('Switching to Experiments (F6) tab...');
-    await evaluate(`
+    await evaluate(`(() => {
       const expTab = [...document.querySelectorAll('button')].find(b => b.textContent.includes('Experiments (F6)'));
       if (expTab) expTab.click();
-    `);
-    await delay(800);
+    })()`);
+    await delay(1200);
+    console.log('Capturing project-detail-experiments-tab.png...');
     await takeScreenshot('project-detail-experiments-tab.png');
 
+    // 5. Back to Overview tab for Edit mode
+    console.log('Switching back to Overview tab...');
+    await evaluate(`(() => {
+      const ovTab = [...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Overview');
+      if (ovTab) ovTab.click();
+    })()`);
+    await delay(1000);
+
+    // Edit mode with changes (Save enabled)
+    console.log('Editing name and description using prototype setters...');
+    await evaluate(`(() => {
+      const setVal = (el, val) => {
+        if (!el) return;
+        const setter = Object.getOwnPropertyDescriptor(
+          el.tagName === 'TEXTAREA' ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype,
+          'value'
+        ).set;
+        setter.call(el, val);
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      };
+      setVal(document.querySelector('#edit-project-name'), 'LLM Python Test Evaluator - Production Edition');
+      setVal(document.querySelector('#edit-project-description'), 'Comprehensive evaluation suite testing models across L1 to L5 prompt variants with immutable revision history.');
+    })()`);
+    await delay(1000);
+    console.log('Capturing project-detail-edit-active.png...');
+    await takeScreenshot('project-detail-edit-active.png');
+
+    // 6. Trigger Unsaved Changes warning guard
+    console.log('Triggering unsaved changes guard modal via History tab click...');
+    await evaluate(`(() => {
+      const histTab = [...document.querySelectorAll('button')].find(b => b.textContent.includes('History (F5)'));
+      if (histTab) histTab.click();
+    })()`);
+    await delay(1000);
+    console.log('Capturing project-detail-unsaved-warning.png...');
+    await takeScreenshot('project-detail-unsaved-warning.png');
+
+    // Discard unsaved changes modal
+    console.log('Discarding unsaved changes to restore clean state...');
+    await evaluate(`(() => {
+      const discardBtn = [...document.querySelectorAll('button')].find(b => b.textContent.includes('Discard changes'));
+      if (discardBtn) discardBtn.click();
+    })()`);
+    await delay(1000);
+
     // 7. 404 Project Not Found page
-    console.log('Navigating to missing project /projects/p-999 (404)...');
-    await send('Page.navigate', { url: 'http://127.0.0.1:5173/projects/p-999' });
+    console.log('Navigating client-side to missing project /projects/p-999 (404)...');
+    await evaluate(`(() => {
+      window.history.pushState({}, '', '/projects/p-999');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    })()`);
     await delay(2000);
+    console.log('Capturing project-detail-404-not-found.png...');
     await takeScreenshot('project-detail-404-not-found.png');
 
     console.log('All project detail screenshots captured successfully!');
