@@ -18,55 +18,18 @@ async function run() {
   console.log('Starting mock backend on port 8000...');
   const mockProcess = spawn('node', ['mock-backend.js'], {
     cwd: path.resolve(__dirname, '../frontend'),
-    stdio: 'pipe',
     shell: true,
   });
 
-  // Wait for mock backend to be ready
-  let mockReady = false;
-  for (let i = 0; i < 20; i++) {
-    try {
-      const resp = await fetch('http://127.0.0.1:8000/health');
-      if (resp.ok) {
-        mockReady = true;
-        break;
-      }
-    } catch { }
-    await delay(300);
-  }
-
-  if (!mockReady) {
-    console.error('Mock backend failed to start');
-    mockProcess.kill();
-    process.exit(1);
-  }
-  console.log('Mock backend is ready.');
+  await delay(1000);
 
   console.log('Starting Vite server on port 5173...');
   const viteProcess = spawn('npm.cmd', ['run', 'dev', '--', '--port', '5173', '--host', '127.0.0.1'], {
     cwd: path.resolve(__dirname, '../frontend'),
-    stdio: 'pipe',
     shell: true,
   });
 
-  let viteReady = false;
-  for (let i = 0; i < 30; i++) {
-    try {
-      const resp = await fetch('http://127.0.0.1:5173');
-      if (resp.ok) {
-        viteReady = true;
-        break;
-      }
-    } catch { }
-    await delay(500);
-  }
-
-  if (!viteReady) {
-    console.error('Vite failed to start');
-    cleanup([mockProcess, viteProcess]);
-    process.exit(1);
-  }
-  console.log('Vite is ready.');
+  await delay(2500);
 
   const tmpProfile = path.resolve(__dirname, '../.tmp_chrome_profile_exec');
   const chromeProcess = spawn(
@@ -78,8 +41,8 @@ async function run() {
       '--no-default-browser-check',
       '--remote-debugging-port=9222',
       `--user-data-dir=${tmpProfile}`,
-      '--window-size=1280,900',
-      'http://127.0.0.1:5173',
+      '--window-size=1280,950',
+      'http://127.0.0.1:5173/login',
     ],
     { stdio: 'ignore' }
   );
@@ -131,7 +94,8 @@ async function run() {
   }
 
   async function evaluate(code) {
-    return send('Runtime.evaluate', { expression: code, awaitPromise: true, returnByValue: true });
+    const res = await send('Runtime.evaluate', { expression: code, awaitPromise: true, returnByValue: true });
+    return res.result ? res.result.value : res;
   }
 
   async function takeScreenshot(fileName) {
@@ -143,65 +107,125 @@ async function run() {
   }
 
   try {
-    // 1. Sign in
-    console.log('Navigating to login...');
-    await send('Page.navigate', { url: 'http://127.0.0.1:5173/login' });
     await delay(2000);
 
-    console.log('Signing in...');
-    await evaluate(`
-      const emailInput = document.querySelector('#email');
-      const passwordInput = document.querySelector('#password');
-      if (emailInput && passwordInput) {
-        emailInput.value = 'user@testlab.dev';
-        emailInput.dispatchEvent(new Event('input', { bubbles: true }));
-        passwordInput.value = 'Password123456!';
-        passwordInput.dispatchEvent(new Event('input', { bubbles: true }));
-        const form = document.querySelector('form');
-        form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-      }
-    `);
+    // 1. Fill login form using prototype setters only
+    console.log('Filling login form and signing in...');
+    await evaluate(`(() => {
+      const setVal = (el, val) => {
+        if (!el) return;
+        const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+        setter.call(el, val);
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      };
+      setVal(document.querySelector('input[name="email"]'), 'tester@example.com');
+      setVal(document.querySelector('input[name="password"]'), 'Password123456!');
+    })()`);
+
+    const formCheck = await evaluate(`(() => {
+      const form = document.querySelector('form');
+      const data = new FormData(form);
+      return { email: data.get('email'), pwd: Boolean(data.get('password')) };
+    })()`);
+    console.log('FormData before submit:', formCheck);
+
+    // Click submit
+    console.log('Clicking sign in submit button...');
+    await evaluate(`(() => {
+      const btn = document.querySelector('button[type="submit"]') || [...document.querySelectorAll('button')].find(b => b.textContent.includes('Sign in'));
+      if (btn) btn.click();
+    })()`);
+
+    await delay(3000);
+
+    const afterLoginUrl = await evaluate('window.location.href');
+    console.log('URL after login:', afterLoginUrl);
+
+    // 2. Navigate to Projects
+    console.log('Navigating to Projects...');
+    await evaluate(`(() => {
+      const link = document.querySelector('a[href="/projects"]');
+      if (link) link.click();
+    })()`);
     await delay(2000);
 
-    // 2. Navigate to Executions tab
-    console.log('Navigating to Executions tab...');
-    await send('Page.navigate', { url: 'http://127.0.0.1:5173/projects/demo-project?tab=executions' });
+    // 3. Click demo-project
+    console.log('Clicking demo-project...');
+    await evaluate(`(() => {
+      const link = document.querySelector('a[href="/projects/demo-project"]');
+      if (link) link.click();
+    })()`);
     await delay(2500);
 
-    // 3. Capture 01-execution-status-overview.png
+    // 4. Click "Executions (UC-08)" tab
+    console.log('Clicking Executions (UC-08) tab...');
+    const tabClick = await evaluate(`(() => {
+      const tabBtn = [...document.querySelectorAll('button')].find(b => b.textContent.includes('Executions'));
+      if (tabBtn) {
+        tabBtn.click();
+        return 'clicked executions tab';
+      }
+      return 'executions tab not found';
+    })()`);
+    console.log('Tab click result:', tabClick);
+    await delay(2000);
+
+    const execStatus = await evaluate(`(() => {
+      return {
+        url: window.location.href,
+        hasSecurityNotice: Boolean(document.querySelector('#sandbox-notice-title')),
+        cardsCount: document.querySelectorAll('[data-testid^="execution-card-"]').length,
+        bodySnippet: document.body.innerText.slice(0, 300),
+      };
+    })()`);
+    console.log('Executions tab status:', execStatus);
+
+    // 5. Capture 01-execution-status-overview.png
     console.log('Capturing 01-execution-status-overview.png...');
     await takeScreenshot('01-execution-status-overview.png');
 
-    // 4. Open Cancel Execution Modal on running run
+    // 6. Click Cancel on exec-run-101
     console.log('Opening Cancel Execution Modal...');
-    await evaluate(`
+    const cancelModalResult = await evaluate(`(() => {
       const cancelBtn = document.querySelector('[data-testid="cancel-run-btn-exec-run-101"]');
-      if (cancelBtn) cancelBtn.click();
-    `);
-    await delay(1000);
+      if (cancelBtn) {
+        cancelBtn.click();
+        return 'clicked cancel button';
+      }
+      return 'cancel button not found';
+    })()`);
+    console.log('Cancel modal click:', cancelModalResult);
+    await delay(1200);
 
     console.log('Capturing 02-cancel-execution-modal.png...');
     await takeScreenshot('02-cancel-execution-modal.png');
 
     // Close cancel modal
-    await evaluate(`
+    console.log('Closing Cancel Modal...');
+    await evaluate(`(() => {
       const closeBtn = document.querySelector('[aria-label="Close dialog"]');
       if (closeBtn) closeBtn.click();
-    `);
-    await delay(800);
-
-    // 5. Open Inspection / Detail Modal on running run
-    console.log('Opening Inspection / Logs Modal...');
-    await evaluate(`
-      const inspectBtn = document.querySelector('[data-testid="inspect-run-btn-exec-run-101"]');
-      if (inspectBtn) inspectBtn.click();
-    `);
+    })()`);
     await delay(1000);
+
+    // 7. Click Inspect on exec-run-101
+    console.log('Opening Inspection / Logs Modal...');
+    const inspectModalResult = await evaluate(`(() => {
+      const inspectBtn = document.querySelector('[data-testid="inspect-run-btn-exec-run-101"]');
+      if (inspectBtn) {
+        inspectBtn.click();
+        return 'clicked inspect button';
+      }
+      return 'inspect button not found';
+    })()`);
+    console.log('Inspect modal click:', inspectModalResult);
+    await delay(1200);
 
     console.log('Capturing 03-execution-detail-and-logs.png...');
     await takeScreenshot('03-execution-detail-and-logs.png');
 
-    console.log('Screenshots completed successfully!');
+    console.log('All screenshots completed successfully!');
   } catch (err) {
     console.error('Error during capture:', err);
   } finally {
