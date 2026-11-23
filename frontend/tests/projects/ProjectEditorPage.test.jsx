@@ -115,6 +115,9 @@ describe('ProjectEditorPage', () => {
     await vi.waitFor(() => {
       expect(container.querySelector('h1').textContent).toBe('Edit project')
     })
+    const backLink = container.querySelector('a[href="/projects"]')
+    expect(backLink.textContent.trim()).toBe('Back to projects')
+    expect(backLink.getAttribute('href')).toBe('/projects')
 
     const nameInput = container.querySelector('#edit-project-name')
     const descInput = container.querySelector('#edit-project-description')

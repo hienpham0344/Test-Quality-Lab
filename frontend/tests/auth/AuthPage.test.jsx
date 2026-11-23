@@ -12,6 +12,7 @@ let fetchMock
 let client
 
 beforeEach(() => {
+  sessionStorage.clear()
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
   fetchMock = vi.fn()
   vi.stubGlobal('fetch', fetchMock)
@@ -147,14 +148,11 @@ describe('protected routing and session UX', () => {
     expect(sidebar.querySelector('[aria-current="page"]').textContent).toBe('Projects')
   })
 
-  it('searches projects from the workspace header and loads account details on demand', async () => {
+  it('keeps the workspace header free of project search and loads account details on demand', async () => {
     mockSession()
     await open('/login')
     await submit(credentials)
-    const search = container.querySelector('[role=search]')
-    search.elements.q.value = 'Private'
-    await act(async () => search.requestSubmit())
-    await vi.waitFor(() => expect(container.querySelector('#search-projects')?.value).toBe('Private'))
+    expect(container.querySelector('header [type=search]')).toBeNull()
     expect(fetchMock.mock.calls.some(([url]) => url.endsWith('/auth/me'))).toBe(false)
 
     await act(async () => container.querySelector('[aria-label=Account]').click())
@@ -176,6 +174,22 @@ describe('protected routing and session UX', () => {
       expect.objectContaining({ headers: { Authorization: 'Bearer ' + accessToken }, cache: 'no-store' }))
   })
 
+  it('restores the session and protected route after the app remounts', async () => {
+    mockSession()
+    await open('/projects')
+    await submit(credentials)
+    await act(async () => root.unmount())
+    client.clear()
+    root = createRoot(container)
+    fetchMock.mockClear()
+
+    await open('/projects?view=list')
+    await vi.waitFor(() => expect(container.textContent).toContain('Private workspace'))
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringMatching(/\/projects$/),
+      expect.objectContaining({ headers: { Authorization: 'Bearer ' + accessToken } }))
+    expect(fetchMock.mock.calls.some(([url]) => url.endsWith('/auth/login'))).toBe(false)
+  })
+
   it('clears private content and prompts for sign-in after session rejection', async () => {
     let rejected = false
     mockSession({ projects: () => rejected
@@ -188,6 +202,7 @@ describe('protected routing and session UX', () => {
     await act(async () => client.refetchQueries({ queryKey: ['private', 'projects'] }))
     await vi.waitFor(() => expect(container.textContent).toContain('Your session expired'))
     expect(container.textContent).not.toContain('Private workspace')
+    expect(sessionStorage.length).toBe(0)
   })
 
   it('keeps the session when the projects API is temporarily unavailable', async () => {
@@ -215,5 +230,6 @@ describe('protected routing and session UX', () => {
     expect(container.querySelector('h1').textContent).toBe('Sign in')
     expect(container.textContent).toContain(message)
     expect(container.textContent).not.toContain('Private workspace')
+    expect(sessionStorage.length).toBe(0)
   })
 })

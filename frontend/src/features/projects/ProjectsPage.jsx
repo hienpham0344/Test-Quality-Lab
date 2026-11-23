@@ -1,14 +1,15 @@
-import { ArrowDownWideNarrow, ChevronLeft, ChevronRight, FolderKanban, History, LayoutGrid, Plus, RotateCcw, Search, X } from 'lucide-react'
+import { ArrowDownWideNarrow, ChevronLeft, ChevronRight, FlaskConical, FolderKanban, History, LayoutGrid, Plus, RotateCcw, Search, Table2, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { AuthApiError, createProject, listProjects } from '../../services/api'
-import { ProjectCard } from '../../components/projects/ProjectCard'
+import { ProjectCard, ProjectTable } from '../../components/projects/ProjectCard'
 import { ProjectCreateModal } from '../../components/projects/ProjectCreateModal'
 
 export function ProjectsPage({ session, onExpire }) {
   const queryClient = useQueryClient()
   const [createModalOpen, setCreateModalOpen] = useState(false)
+  const [duplicate, setDuplicate] = useState(null)
   const [isCreating, setIsCreating] = useState(false)
   const [createError, setCreateError] = useState(null)
   const [searchParams, setSearchParams] = useSearchParams()
@@ -20,6 +21,7 @@ export function ProjectsPage({ session, onExpire }) {
     setSearchQuery(query)
   }
   const sort = ['updated', 'created', 'name'].includes(searchParams.get('sort')) ? searchParams.get('sort') : 'updated'
+  const tableView = searchParams.get('view') === 'table'
   const page = Math.max(1, Number.parseInt(searchParams.get('page') || '1', 10) || 1)
   const PAGE_SIZE = 8
 
@@ -49,6 +51,13 @@ export function ProjectsPage({ session, onExpire }) {
     setSearchParams(next)
   }
 
+  function updateView(table) {
+    const next = new URLSearchParams(searchParams)
+    if (table) next.set('view', 'table')
+    else next.delete('view')
+    setSearchParams(next)
+  }
+
   const projects = useQuery({
     queryKey: ['private', 'projects'],
     queryFn: ({ signal }) => listProjects(session.accessToken, signal),
@@ -61,6 +70,12 @@ export function ProjectsPage({ session, onExpire }) {
   useEffect(() => {
     if (expired) onExpire(session)
   }, [expired, onExpire, session])
+
+  function openCreateModal(project = null) {
+    setDuplicate(project)
+    setCreateError(null)
+    setCreateModalOpen(true)
+  }
 
   async function handleCreateProject({ name, description }) {
     setIsCreating(true)
@@ -94,11 +109,17 @@ export function ProjectsPage({ session, onExpire }) {
   const pageCount = Math.max(1, Math.ceil(filteredProjects.length / PAGE_SIZE))
   const safePage = Math.min(page, pageCount)
   const visibleProjects = filteredProjects.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
+  const reportedCounts = allProjects.map((project) => project.experiment_count)
+    .filter((count) => Number.isInteger(count) && count >= 0)
+  const recordedExperiments = reportedCounts.reduce((total, count) => total + count, 0)
+  const experimentTotal = reportedCounts.length === allProjects.length
+    ? recordedExperiments
+    : reportedCounts.length ? `${recordedExperiments.toLocaleString()} reported` : 'No data yet'
 
   const summaries = [
     { label: 'Total projects', value: allProjects.length, icon: FolderKanban },
     { label: 'Projects with revisions', value: allProjects.filter((project) => project.current_revision > 1).length, icon: History },
-    { label: query ? 'Matching projects' : 'Projects on this page', value: query ? filteredProjects.length : visibleProjects.length, icon: query ? Search : LayoutGrid },
+    { label: 'Total experiments', value: experimentTotal, icon: FlaskConical },
   ]
 
   return (
@@ -113,10 +134,7 @@ export function ProjectsPage({ session, onExpire }) {
         {projects.isSuccess && (
           <button
             type="button"
-            onClick={() => {
-              setCreateError(null)
-              setCreateModalOpen(true)
-            }}
+            onClick={() => openCreateModal()}
             className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-indigo-300 shadow-sm transition"
           >
             <Plus size={16} aria-hidden="true" className="shrink-0" />
@@ -160,7 +178,7 @@ export function ProjectsPage({ session, onExpire }) {
                 <dt className="text-xs font-medium tracking-wide text-slate-400">{label}</dt>
                 <Icon size={17} strokeWidth={1.75} aria-hidden="true" className="shrink-0 text-sky-300" />
               </div>
-              <dd className="text-2xl font-semibold tabular-nums text-white">{value}</dd>
+              <dd className={typeof value === 'number' ? 'text-2xl font-semibold tabular-nums text-white' : 'text-sm font-medium text-slate-300'}>{value}</dd>
             </div>
           ))}
         </dl>
@@ -200,6 +218,17 @@ export function ProjectsPage({ session, onExpire }) {
                 <option value="created">Recently created</option>
                 <option value="name">Name A–Z</option>
               </select>
+              <div role="group" aria-label="Project view" className="flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-950 p-1">
+                {[[false, 'Cards', LayoutGrid], [true, 'Table', Table2]].map(([table, label, Icon]) => (
+                  <button key={label} type="button" aria-label={label} aria-pressed={tableView === table} onClick={() => updateView(table)}
+                    className="group/view relative grid size-9 place-items-center rounded-md text-slate-300 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-indigo-300 aria-pressed:bg-slate-800 aria-pressed:text-indigo-200">
+                    <Icon size={17} aria-hidden="true" />
+                    <span aria-hidden="true" className="pointer-events-none invisible absolute top-full right-0 z-20 mt-2 rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-100 shadow-md group-hover/view:visible group-focus-visible/view:visible">
+                      {label}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
             {filteredProjects.length === 0 ? (
               <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-8 text-center space-y-2">
@@ -213,10 +242,12 @@ export function ProjectsPage({ session, onExpire }) {
                   Reset search
                 </button>
               </div>
+            ) : tableView ? (
+              <ProjectTable projects={visibleProjects} onDuplicate={openCreateModal} />
             ) : (
               <ul className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {visibleProjects.map((project) => (
-                  <ProjectCard key={project.id} project={project} />
+                  <ProjectCard key={project.id} project={project} onDuplicate={openCreateModal} />
                 ))}
               </ul>
             )}
@@ -239,10 +270,7 @@ export function ProjectsPage({ session, onExpire }) {
             <div>
               <button
                 type="button"
-                onClick={() => {
-                  setCreateError(null)
-                  setCreateModalOpen(true)
-                }}
+                onClick={() => openCreateModal()}
                 className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-indigo-600 px-5 text-sm font-medium text-white hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-indigo-300 shadow-sm transition"
               >
                 <Plus size={16} aria-hidden="true" className="shrink-0" />
@@ -255,6 +283,7 @@ export function ProjectsPage({ session, onExpire }) {
 
       <ProjectCreateModal
         isOpen={createModalOpen}
+        duplicate={duplicate}
         onClose={() => setCreateModalOpen(false)}
         onCreate={handleCreateProject}
         isCreating={isCreating}

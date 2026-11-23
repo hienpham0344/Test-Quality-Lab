@@ -205,6 +205,13 @@ export function listPythonSources(accessToken, projectId, signal) {
   return request(`/projects/${encodeURIComponent(projectId)}/sources`, { accessToken, signal })
 }
 
+export function getPythonSource(accessToken, projectId, source, signal) {
+  return request(`/projects/${encodeURIComponent(projectId)}/sources/${source.id}/versions/${source.current_revision}`, {
+    accessToken,
+    signal,
+  })
+}
+
 // --- UC-08 Execution status and cancellation (S5) ---
 export async function listExecutions(accessToken, projectId, signal) {
   const data = await request(`/projects/${projectId}/executions`, { accessToken, signal })

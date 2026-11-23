@@ -79,7 +79,7 @@ describe('ProjectsDashboard', () => {
     })
   })
 
-  it('renders list of projects with details, revisions, and edit links', async () => {
+  it('renders project cards with primary, secondary, and description links', async () => {
     const mockProjects = [
       {
         id: 'p-1',
@@ -112,14 +112,51 @@ describe('ProjectsDashboard', () => {
     expect(container.textContent).toContain('Testing prompt variation L1')
     expect(container.textContent).toContain('v3')
     expect(container.textContent).toContain('Benchmark Beta')
-    expect(container.textContent).toContain('No description provided')
+    expect(container.querySelector('a[href="/projects/p-2?edit=description"]').textContent.trim()).toBe('+ Add description')
+    expect(container.textContent).toContain('No run data')
+    expect(container.textContent).toContain('No data yet')
     expect(container.textContent).toContain('v1')
 
-    const editLinks = [...container.querySelectorAll('a')].filter((link) => link.textContent.trim() === 'Edit project')
-    expect(editLinks.length).toBe(2)
-    expect(editLinks[0].getAttribute('href')).toBe('/projects/p-1')
-    expect(editLinks[1].getAttribute('href')).toBe('/projects/p-2')
+    const openLinks = [...container.querySelectorAll('a')].filter((link) => link.textContent.trim() === 'Open project')
+    expect(openLinks.map((link) => link.getAttribute('href'))).toEqual(['/projects/p-1', '/projects/p-2'])
     expect(container.querySelector('a[href="/projects/p-1/sources/new"]').textContent.trim()).toBe('Open source')
+  })
+
+  it('preserves filters when switching to table view and duplicates project metadata', async () => {
+    const projects = [
+      { id: 'p-1', name: 'Evaluation Suite Alpha', description: 'Evaluation', current_revision: 1, experiment_count: 3 },
+      { id: 'p-2', name: 'Beta', current_revision: 1, experiment_count: 0 },
+    ]
+    fetchMock.mockImplementation(async (_url, request) => {
+      if (request.method === 'POST') {
+        const copy = { id: 'p-3', ...JSON.parse(request.body), current_revision: 1, experiment_count: 0 }
+        projects.push(copy)
+        return Response.json(copy, { status: 201 })
+      }
+      return Response.json(projects)
+    })
+    await renderPage('/projects?q=Evaluation&sort=name')
+    await vi.waitFor(() => expect(container.querySelector('li h2')?.textContent).toBe('Evaluation Suite Alpha'))
+    const tableButton = container.querySelector('[aria-label="Project view"] button[aria-label="Table"]')
+    await act(async () => tableButton.click())
+    expect(container.querySelector('[aria-label="URL query"]').textContent).toBe('?q=Evaluation&sort=name&view=table')
+    expect(container.querySelectorAll('tbody tr')).toHaveLength(1)
+    expect([...container.querySelectorAll('dl dt')].find((term) => term.textContent === 'Total experiments').parentElement.nextElementSibling.textContent).toBe('3')
+
+    const actions = container.querySelector('[aria-label="Actions for Evaluation Suite Alpha"]')
+    await act(async () => actions.click())
+    const editLink = [...container.querySelectorAll('tbody a')].find((link) => link.textContent === 'Edit settings')
+    expect(editLink.getAttribute('href')).toBe('/projects/p-1')
+    const duplicate = [...container.querySelectorAll('tbody button')].find((button) => button.textContent === 'Duplicate')
+    await act(async () => duplicate.click())
+    const dialog = container.querySelector('[role=dialog]')
+    expect(dialog.querySelector('input[name=name]').value).toBe('Evaluation Suite Alpha (copy)')
+    expect(dialog.querySelector('textarea').value).toBe('Evaluation')
+    await act(async () => dialog.querySelector('form').requestSubmit())
+    await vi.waitFor(() => expect(container.querySelectorAll('tbody tr')).toHaveLength(2))
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringMatching(/\/projects$/), expect.objectContaining({
+      method: 'POST', body: JSON.stringify({ name: 'Evaluation Suite Alpha (copy)', description: 'Evaluation' }),
+    }))
   })
 
   it('filters projects by search term and resets search', async () => {

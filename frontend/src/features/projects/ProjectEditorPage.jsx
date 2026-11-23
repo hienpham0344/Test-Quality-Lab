@@ -10,6 +10,7 @@ import {
   updateProject,
 } from '../../services/api'
 import { Badge } from '../../components/common'
+import { ProjectBackLink } from '../../components/projects/ProjectBackLink'
 import { ProjectHistoryList } from '../../components/projects/ProjectHistoryList'
 import { DatasetsManager } from '../datasets'
 import { ExecutionsManager } from '../executions'
@@ -74,6 +75,13 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
   }, [expired, onExpire, session])
 
   const loadedProjectIdRef = useRef(null)
+  const descriptionInput = useRef(null)
+  const focusDescription = searchParams.get('edit') === 'description'
+  const projectLoaded = Boolean(projectQuery.data)
+
+  useEffect(() => {
+    if (projectLoaded && activeTab === 'settings' && focusDescription) descriptionInput.current?.focus()
+  }, [projectLoaded, projectId, activeTab, focusDescription])
 
   // Sync form when project first loads
   useEffect(() => {
@@ -219,19 +227,7 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
 
   return (
     <section className={'mx-auto space-y-6 px-4 py-7 sm:px-8 lg:py-10 ' + (project ? 'max-w-7xl' : 'max-w-3xl')}>
-      <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-sm text-slate-400">
-        <Link to="/projects" className="text-indigo-400 hover:text-indigo-300 hover:underline">
-          Projects
-        </Link>
-        <span aria-hidden="true">/</span>
-        <span className="min-w-0 truncate text-slate-200">
-          {mode === 'create' ? 'New project' : project?.name}
-        </span>
-        {project && <>
-          <span aria-hidden="true">/</span>
-          <span aria-current="page" className="shrink-0 text-slate-300">Project details</span>
-        </>}
-      </nav>
+      <ProjectBackLink />
 
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div className="min-w-0 space-y-2">
@@ -381,6 +377,7 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
                   </div>
                   <textarea
                     id="edit-project-description"
+                    ref={descriptionInput}
                     name="description"
                     rows={6}
                     maxLength={2000}
