@@ -1,6 +1,6 @@
 import { ArrowLeft, Braces, History, Info, Plus, RotateCcw, Save, Settings2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   AuthApiError,
@@ -11,12 +11,31 @@ import {
 } from '../../services/api'
 import { Badge } from '../../components/common'
 import { ProjectHistoryList } from '../../components/projects/ProjectHistoryList'
+import { DatasetsManager } from '../datasets'
 import { formatDate } from '../../lib/format-date'
 
 export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
   const { projectId } = useParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+
+  const currentTab = searchParams.get('tab') === 'datasets' ? 'datasets' : 'settings'
+  const [activeTab, setActiveTab] = useState(currentTab)
+
+  useEffect(() => {
+    const tabFromUrl = searchParams.get('tab') === 'datasets' ? 'datasets' : 'settings'
+    setActiveTab(tabFromUrl)
+  }, [searchParams])
+
+  function handleTabChange(tab) {
+    setActiveTab(tab)
+    if (tab === 'datasets') {
+      setSearchParams({ tab: 'datasets' })
+    } else {
+      setSearchParams({})
+    }
+  }
 
   // Form state
   const [name, setName] = useState('')
@@ -241,151 +260,189 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
         )}
       </header>
 
-      <div className={project ? 'grid items-start gap-5 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]' : ''}>
-        <section aria-labelledby="project-settings-title" className="min-w-0 rounded-xl border border-slate-800 bg-slate-900">
-          <h2 id="project-settings-title" className="flex items-center gap-2.5 border-b border-slate-800 px-4 py-4 text-base font-semibold text-white sm:px-5">
-            <Settings2 size={17} aria-hidden="true" className="text-indigo-300" /> Project settings
-          </h2>
-          <div className="space-y-5 p-4 sm:p-5">
+      {/* Mode navigation tabs for edit mode */}
+      {mode === 'edit' && (
+        <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
+          <button
+            type="button"
+            onClick={() => handleTabChange('settings')}
+            className={`min-h-10 px-4 py-2 text-sm font-medium rounded-lg transition cursor-pointer ${
+              activeTab === 'settings'
+                ? 'bg-slate-800 text-white border border-slate-700 shadow-sm'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+            }`}
+          >
+            Project settings
+          </button>
+          <button
+            type="button"
+            onClick={() => handleTabChange('datasets')}
+            className={`min-h-10 px-4 py-2 text-sm font-medium rounded-lg transition cursor-pointer ${
+              activeTab === 'datasets'
+                ? 'bg-slate-800 text-white border border-slate-700 shadow-sm'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+            }`}
+          >
+            Datasets (CSV)
+          </button>
+        </div>
+      )}
 
-            {saveStatus === 'saved' && (
-              <p role="status" className="rounded-lg border border-emerald-800/80 bg-emerald-950/50 p-3 text-sm text-emerald-300">
-                Project updated successfully.
-              </p>
-            )}
+      {/* Tab: Datasets & CSV Import */}
+      {mode === 'edit' && activeTab === 'datasets' && (
+        <DatasetsManager
+          session={session}
+          projectId={projectId}
+          onExpire={onExpire}
+        />
+      )}
 
-            {saveStatus === 'error' && (
-              <p role="alert" className="rounded-lg border border-rose-800/80 bg-rose-950/50 p-3 text-sm text-rose-300">
-                {saveErrorMessage || 'Failed to save project.'}
-              </p>
-            )}
+      {/* Tab: Settings & Revision History (or create mode) */}
+      {(mode === 'create' || activeTab === 'settings') && (
+        <div className={project ? 'grid items-start gap-5 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]' : ''}>
+          <section aria-labelledby="project-settings-title" className="min-w-0 rounded-xl border border-slate-800 bg-slate-900">
+            <h2 id="project-settings-title" className="flex items-center gap-2.5 border-b border-slate-800 px-4 py-4 text-base font-semibold text-white sm:px-5">
+              <Settings2 size={17} aria-hidden="true" className="text-indigo-300" /> Project settings
+            </h2>
+            <div className="space-y-5 p-4 sm:p-5">
+              {saveStatus === 'saved' && (
+                <p role="status" className="rounded-lg border border-emerald-800/80 bg-emerald-950/50 p-3 text-sm text-emerald-300">
+                  Project updated successfully.
+                </p>
+              )}
 
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <div className="space-y-1.5">
-                <div className="flex justify-between items-center">
-                  <label htmlFor="edit-project-name" className="text-sm font-medium text-slate-200">
-                    Project name <span className="text-rose-400">*</span>
-                  </label>
-                  <span className="text-xs text-slate-400">
-                    {trimmedName.length} / 120
-                  </span>
-                </div>
-                <input
-                  id="edit-project-name"
-                  name="name"
-                  type="text"
-                  required
-                  maxLength={120}
-                  placeholder="e.g. LLM Python Test Evaluator"
-                  value={name}
-                  onChange={(e) => {
-                    setName(e.target.value)
-                    setNameTouched(true)
-                    if (saveStatus !== 'idle') setSaveStatus('idle')
-                  }}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                />
-                {nameError && (
-                  <p role="alert" className="text-xs text-rose-400">{nameError}</p>
-                )}
-              </div>
+              {saveStatus === 'error' && (
+                <p role="alert" className="rounded-lg border border-rose-800/80 bg-rose-950/50 p-3 text-sm text-rose-300">
+                  {saveErrorMessage || 'Failed to save project.'}
+                </p>
+              )}
 
-              <div className="space-y-1.5">
-                <div className="flex justify-between items-center">
-                  <label htmlFor="edit-project-description" className="text-sm font-medium text-slate-200">
-                    Description <span className="text-xs text-slate-400">(optional)</span>
-                  </label>
-                  <span className="text-xs text-slate-400">
-                    {description.length} / 2000
-                  </span>
-                </div>
-                <textarea
-                  id="edit-project-description"
-                  name="description"
-                  rows={6}
-                  maxLength={2000}
-                  placeholder="Describe the scope, datasets, or evaluation objectives..."
-                  value={description}
-                  onChange={(e) => {
-                    setDescription(e.target.value)
-                    if (saveStatus !== 'idle') setSaveStatus('idle')
-                  }}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                />
-                {descriptionError && (
-                  <p role="alert" className="text-xs text-rose-400">{descriptionError}</p>
-                )}
-              </div>
-
-              <div className="flex flex-wrap items-center justify-end gap-3 border-t border-slate-800 pt-4">
-                {mode === 'edit' ? (
-                  <button
-                    type="button"
-                    onClick={handleReset}
-                    disabled={!isChanged || saveStatus === 'saving'}
-                    className="inline-flex min-h-11 rounded-lg border border-slate-600 px-4 text-sm font-medium text-slate-300 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-indigo-300 disabled:opacity-40 items-center gap-2"
-                  >
-                    <RotateCcw size={16} aria-hidden="true" className="shrink-0" />
-                    Reset
-                  </button>
-                ) : (
-                  <Link
-                    to="/projects"
-                    className="inline-flex min-h-11 items-center rounded-lg border border-slate-600 px-4 text-sm font-medium text-slate-300 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-indigo-300 gap-2"
-                  >
-                    <ArrowLeft size={16} aria-hidden="true" className="shrink-0" />
-                    Cancel
-                  </Link>
-                )}
-                <button
-                  type="submit"
-                  disabled={!isValid || !isChanged || saveStatus === 'saving'}
-                  className="inline-flex min-h-11 rounded-lg bg-indigo-600 px-5 text-sm font-medium text-white hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-indigo-300 disabled:opacity-50 items-center gap-2"
-                >
-                  {mode === 'create' ? <Plus size={16} aria-hidden="true" /> : <Save size={16} aria-hidden="true" />}
-                  {saveStatus === 'saving'
-                    ? 'Saving changes…'
-                    : mode === 'create'
-                      ? 'Create project'
-                      : 'Save changes'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </section>
-
-        {project && (
-          <div className="min-w-0 space-y-5">
-            <section aria-labelledby="project-metadata-title" className="rounded-xl border border-slate-800 bg-slate-900">
-              <h2 id="project-metadata-title" className="flex items-center gap-2.5 border-b border-slate-800 px-4 py-4 text-base font-semibold text-white sm:px-5">
-                <Info size={17} aria-hidden="true" className="text-indigo-300" /> Project metadata
-              </h2>
-              <dl className="divide-y divide-slate-800 px-4 text-sm sm:px-5">
-                {project.id && (
-                  <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 py-3">
-                    <dt className="text-slate-400">Project ID</dt>
-                    <dd className="break-all font-mono text-xs text-slate-200">{project.id}</dd>
+              <form onSubmit={handleSubmit} className="space-y-5">
+                <div className="space-y-1.5">
+                  <div className="flex justify-between items-center">
+                    <label htmlFor="edit-project-name" className="text-sm font-medium text-slate-200">
+                      Project name <span className="text-rose-400">*</span>
+                    </label>
+                    <span className="text-xs text-slate-400">
+                      {trimmedName.length} / 120
+                    </span>
                   </div>
-                )}
-              </dl>
-            </section>
+                  <input
+                    id="edit-project-name"
+                    name="name"
+                    type="text"
+                    required
+                    maxLength={120}
+                    placeholder="e.g. LLM Python Test Evaluator"
+                    value={name}
+                    onChange={(e) => {
+                      setName(e.target.value)
+                      setNameTouched(true)
+                      if (saveStatus !== 'idle') setSaveStatus('idle')
+                    }}
+                    className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                  {nameError && (
+                    <p role="alert" className="text-xs text-rose-400">{nameError}</p>
+                  )}
+                </div>
 
-            <section aria-labelledby="revision-history-title" className="rounded-xl border border-slate-800 bg-slate-900">
-              <h2 id="revision-history-title" className="flex items-center gap-2.5 border-b border-slate-800 px-4 py-4 text-base font-semibold text-white sm:px-5">
-                <History size={17} aria-hidden="true" className="text-indigo-300" /> Revision history
-              </h2>
-              <div className="p-4 sm:p-5">
-                <ProjectHistoryList
-                  history={historyQuery.data}
-                  isLoading={historyQuery.isPending}
-                  isError={historyQuery.isError}
-                  onRetry={() => { void historyQuery.refetch() }}
-                />
-              </div>
-            </section>
-          </div>
-        )}
-      </div>
+                <div className="space-y-1.5">
+                  <div className="flex justify-between items-center">
+                    <label htmlFor="edit-project-description" className="text-sm font-medium text-slate-200">
+                      Description <span className="text-xs text-slate-400">(optional)</span>
+                    </label>
+                    <span className="text-xs text-slate-400">
+                      {description.length} / 2000
+                    </span>
+                  </div>
+                  <textarea
+                    id="edit-project-description"
+                    name="description"
+                    rows={6}
+                    maxLength={2000}
+                    placeholder="Describe the scope, datasets, or evaluation objectives..."
+                    value={description}
+                    onChange={(e) => {
+                      setDescription(e.target.value)
+                      if (saveStatus !== 'idle') setSaveStatus('idle')
+                    }}
+                    className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                  {descriptionError && (
+                    <p role="alert" className="text-xs text-rose-400">{descriptionError}</p>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap items-center justify-end gap-3 border-t border-slate-800 pt-4">
+                  {mode === 'edit' ? (
+                    <button
+                      type="button"
+                      onClick={handleReset}
+                      disabled={!isChanged || saveStatus === 'saving'}
+                      className="inline-flex min-h-11 rounded-lg border border-slate-600 px-4 text-sm font-medium text-slate-300 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-indigo-300 disabled:opacity-40 items-center gap-2"
+                    >
+                      <RotateCcw size={16} aria-hidden="true" className="shrink-0" />Reset
+                    </button>
+                  ) : (
+                    <Link
+                      to="/projects"
+                      className="inline-flex min-h-11 items-center rounded-lg border border-slate-600 px-4 text-sm font-medium text-slate-300 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-indigo-300 gap-2"
+                    >
+                      <ArrowLeft size={16} aria-hidden="true" className="shrink-0" />
+                      Cancel
+                    </Link>
+                  )}
+                  <button
+                    type="submit"
+                    disabled={!isValid || !isChanged || saveStatus === 'saving'}
+                    className="inline-flex min-h-11 rounded-lg bg-indigo-600 px-5 text-sm font-medium text-white hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-indigo-300 disabled:opacity-50 items-center gap-2"
+                  >
+                    {mode === 'create' ? <Plus size={16} aria-hidden="true" /> : <Save size={16} aria-hidden="true" />}
+                    {saveStatus === 'saving'
+                      ? 'Saving changes…'
+                      : mode === 'create'
+                        ? 'Create project'
+                        : 'Save changes'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </section>
+
+          {project && (
+            <div className="min-w-0 space-y-5">
+              <section aria-labelledby="project-metadata-title" className="rounded-xl border border-slate-800 bg-slate-900">
+                <h2 id="project-metadata-title" className="flex items-center gap-2.5 border-b border-slate-800 px-4 py-4 text-base font-semibold text-white sm:px-5">
+                  <Info size={17} aria-hidden="true" className="text-indigo-300" /> Project metadata
+                </h2>
+                <dl className="divide-y divide-slate-800 px-4 text-sm sm:px-5">
+                  {project.id && (
+                    <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 py-3">
+                      <dt className="text-slate-400">Project ID</dt>
+                      <dd className="break-all font-mono text-xs text-slate-200">{project.id}</dd>
+                    </div>
+                  )}
+                </dl>
+              </section>
+
+              <section aria-labelledby="revision-history-title" className="rounded-xl border border-slate-800 bg-slate-900">
+                <h2 id="revision-history-title" className="flex items-center gap-2.5 border-b border-slate-800 px-4 py-4 text-base font-semibold text-white sm:px-5">
+                  <History size={17} aria-hidden="true" className="text-indigo-300" /> Revision history
+                </h2>
+                <div className="p-4 sm:p-5">
+                  <ProjectHistoryList
+                    history={historyQuery.data}
+                    isLoading={historyQuery.isPending}
+                    isError={historyQuery.isError}
+                    onRetry={() => { void historyQuery.refetch() }}
+                  />
+                </div>
+              </section>
+            </div>
+          )}
+        </div>
+      )}
     </section>
   )
 }

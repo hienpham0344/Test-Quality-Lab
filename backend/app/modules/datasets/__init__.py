@@ -1,1 +1,1 @@
-"""CSV import, mapping, source provenance. Placeholder: not implemented."""
+"""CSV import, column mapping, row validation and immutable dataset snapshots."""

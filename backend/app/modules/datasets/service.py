@@ -12,13 +12,13 @@ import uuid
 from sqlalchemy.orm import Session
 
 from app.core.clock import utcnow
+from app.modules.datasets.constants import CANONICAL_FIELDS, MAX_ROWS
+from app.modules.datasets.csv_import import ParsedCsv, map_rows, parse_csv
 from app.modules.datasets.models import Dataset, DatasetVersion
 from app.modules.datasets.repository import DatasetRepository
 from app.modules.sources.policy import SourcePolicyError, inspect_python
 from app.modules.sources.repository import SourceRepository
 from app.modules.sources.service import MAX_SOURCE_BYTES
-
-MAX_ROWS = 10_000
 
 
 def _strict_json(value: str):
@@ -153,6 +153,21 @@ class DatasetService:
         self.repo = DatasetRepository(db)
         self.sources = SourceRepository(db)
 
+    def preview_csv(
+        self, owner_id: uuid.UUID, project_id: uuid.UUID, data: bytes,
+        delimiter: str | None = None,
+    ) -> ParsedCsv | None:
+        if not self.repo.owned_project_exists(owner_id, project_id):
+            return None
+        return parse_csv(data, delimiter)
+
+    def import_csv(
+        self, owner_id: uuid.UUID, project_id: uuid.UUID, data: bytes, mapping: dict,
+        delimiter: str | None = None,
+    ) -> DatasetVersion | None:
+        parsed = self.preview_csv(owner_id, project_id, data, delimiter)
+        return self.create(owner_id, project_id, map_rows(parsed, mapping)) if parsed else None
+
     def create(self, owner_id: uuid.UUID, project_id: uuid.UUID, rows: list[dict]) -> DatasetVersion | None:
         if not self.repo.owned_project_exists(owner_id, project_id):
             return None
@@ -161,7 +176,7 @@ class DatasetService:
         numbers = [row.get("row_number") for row in rows]
         if any(type(number) is not int or number < 2 for number in numbers) or len(numbers) != len(set(numbers)):
             raise ValueError("row_number must be a unique integer >= 2")
-        allowed = {"row_number", "task_id", "function_name", "python_source", "expected_output", "input_data", "description", "task_title", "difficulty"}
+        allowed = CANONICAL_FIELDS | {"row_number"}
         if any(set(row) - allowed for row in rows):
             raise ValueError("Unknown CSV row field")
         normalized = json.loads(json.dumps(rows, ensure_ascii=False, allow_nan=False))
