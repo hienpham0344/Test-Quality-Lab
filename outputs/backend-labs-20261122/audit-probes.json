@@ -1,0 +1,41 @@
+{
+  "executed_at": "2026-11-22T23:51:38.459013+07:00",
+  "environment": "TestClient, SQLite tạm, owner và Redis/DB readiness giả lập; không có dịch vụ thật.",
+  "probes": [
+    {
+      "id": "BB-AUD-01",
+      "finding": "BE-01",
+      "status": "Fail",
+      "title": "Thông tin hệ thống phản ánh backend hiện tại",
+      "procedure": "Gọi GET /api/v1/system/info; đối chiếu với các API đã triển khai.",
+      "expected": "Mô tả tính năng phù hợp với backend hiện tại.",
+      "observed": "HTTP 200; features=not-implemented."
+    },
+    {
+      "id": "BB-AUD-02",
+      "finding": "BE-02",
+      "status": "Fail",
+      "title": "Lỗi project tuân theo body lỗi chuẩn",
+      "procedure": "POST /api/v1/projects với name rỗng, owner giả lập hợp lệ.",
+      "expected": "detail là object có code, message và fields theo app/api/errors.py.",
+      "observed": "HTTP 422; detail có kiểu str."
+    },
+    {
+      "id": "BB-AUD-03",
+      "finding": "BE-04",
+      "status": "Fail",
+      "title": "JSON lồng chứa Unicode không hợp lệ được xử lý có cấu trúc",
+      "procedure": "POST dataset với expected_output là JSON chứa lone surrogate \\ud800.",
+      "expected": "Từ chối dữ liệu hoặc báo invalid theo dòng, không trả lỗi máy chủ.",
+      "observed": "HTTP 500; response=Internal Server Error."
+    }
+  ],
+  "readiness_inspection": {
+    "finding": "BE-03",
+    "returned": {
+      "status": "ready"
+    },
+    "redis_read_timeout_configured": false,
+    "real_hanging_redis_test": "NOT_RUN"
+  }
+}

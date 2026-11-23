@@ -1,0 +1,20 @@
+[
+  {
+    "file": "Lab1_Black_Box_Test_Cases.xlsx",
+    "sheets": 11,
+    "charts": 0,
+    "checks": "PASS"
+  },
+  {
+    "file": "Lab2_Unit_Test_Cases.xlsx",
+    "sheets": 31,
+    "charts": 2,
+    "checks": "PASS"
+  },
+  {
+    "file": "Lab3_Automation_Test_Report.xlsx",
+    "sheets": 4,
+    "charts": 0,
+    "checks": "PASS"
+  }
+]

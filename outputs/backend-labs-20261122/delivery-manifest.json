@@ -1,0 +1,17 @@
+[
+  {
+    "file": "Lab1_Black_Box_Test_Cases.xlsx",
+    "sha256": "0375babece57efc581919b5e7df820e7c07ed4dd628e2e3ff1137bc15d8e9500",
+    "bytes": 48879
+  },
+  {
+    "file": "Lab2_Unit_Test_Cases.xlsx",
+    "sha256": "92ebc2b175fff623247d3d3d9377363a9002248c86410375cf69de4cbee3a734",
+    "bytes": 230545
+  },
+  {
+    "file": "Lab3_Automation_Test_Report.xlsx",
+    "sha256": "23b2dc94aad61783f00a8ca8d95045781763e2b7e9735f779ab0b09f2073eb97",
+    "bytes": 46396
+  }
+]
