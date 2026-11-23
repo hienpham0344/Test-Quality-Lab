@@ -223,8 +223,28 @@ const server = http.createServer(async (req, res) => {
       return
     }
     const body = await readBody(req)
+    const rowNumbers = body.row_numbers || []
+    if (rowNumbers.length === 0) {
+      sendJson(res, 422, {
+        detail: { code: 'CSV_ROW_INVALID', message: 'Selection must be nonempty' },
+      })
+      return
+    }
+    const invalidRows = rowNumbers.filter((num) => {
+      const row = ds.rows.find((r) => r.row_number === num)
+      return !row || row.status !== 'valid'
+    })
+    if (invalidRows.length > 0) {
+      sendJson(res, 422, {
+        detail: {
+          code: 'CSV_ROW_INVALID',
+          message: `Rows cannot be selected: ${invalidRows.join(', ')}`,
+        },
+      })
+      return
+    }
     ds.revision += 1
-    ds.selected_rows = body.row_numbers || []
+    ds.selected_rows = rowNumbers
     sendJson(res, 200, ds)
     return
   }
