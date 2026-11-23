@@ -13,6 +13,215 @@ const PORT = 8000
 
 const store = {
   datasets: [],
+  executions: [
+    {
+      id: 'exec-run-101',
+      project_id: 'demo-project',
+      suite_name: 'Regression Suite - Prompt L1',
+      dataset_id: 'ds-sample-1',
+      dataset_name: 'HumanEval Python Benchmarks',
+      source_id: 'src-sample-1',
+      source_name: 'solution_v1.py',
+      status: 'RUNNING',
+      can_cancel: true,
+      created_at: new Date(Date.now() - 35000).toISOString(),
+      started_at: new Date(Date.now() - 30000).toISOString(),
+      completed_at: null,
+      cancelled_at: null,
+      cancel_reason: null,
+      total_cases: 20,
+      completed_cases: 12,
+      passed_cases: 10,
+      failed_cases: 2,
+      timeout_cases: 0,
+      metrics: {
+        coverage: 68.5,
+        mutation_score: 'N/A',
+        validity: 'PASSED',
+      },
+      sandbox_policy: {
+        untrusted_execution_enabled: false,
+        isolation_status: 'policy_simulation',
+        network: 'disabled',
+        root_fs: 'read_only',
+        timeout_seconds: 60,
+      },
+      logs: [
+        '[17:00:01] Sandbox initialized with policy: read-only rootfs, network disabled, timeout 60s.',
+        '[17:00:02] Loading dataset HumanEval Python Benchmarks (20 cases)...',
+        '[17:00:05] Case #1 (test_add): PASSED (12ms)',
+        '[17:00:08] Case #2 (test_multiply): PASSED (15ms)',
+        '[17:00:15] Case #3 (test_edge_cases): FAILED (AssertionError: 0 != 1)',
+        '[17:00:22] Case #4 (test_fibonacci): PASSED (28ms)',
+      ],
+      cases: [
+        { id: 'case-1', name: 'test_add', status: 'PASSED', duration_ms: 12, coverage: 100, mutation_score: 85.0 },
+        { id: 'case-2', name: 'test_multiply', status: 'PASSED', duration_ms: 15, coverage: 92.5, mutation_score: 90.0 },
+        { id: 'case-3', name: 'test_edge_cases', status: 'FAILED', duration_ms: 45, coverage: 0, mutation_score: 'FAILED', error: 'AssertionError: expected 1 got 0' },
+        { id: 'case-4', name: 'test_fibonacci', status: 'PASSED', duration_ms: 28, coverage: 80.0, mutation_score: 75.0 },
+      ],
+    },
+    {
+      id: 'exec-run-102',
+      project_id: 'demo-project',
+      suite_name: 'Sanity Suite - MBPP Subset',
+      dataset_id: 'ds-sample-2',
+      dataset_name: 'MBPP Sanitized',
+      source_id: 'src-sample-1',
+      source_name: 'solution_v1.py',
+      status: 'QUEUED',
+      can_cancel: true,
+      created_at: new Date(Date.now() - 10000).toISOString(),
+      started_at: null,
+      completed_at: null,
+      cancelled_at: null,
+      cancel_reason: null,
+      total_cases: 15,
+      completed_cases: 0,
+      passed_cases: 0,
+      failed_cases: 0,
+      timeout_cases: 0,
+      metrics: {
+        coverage: 'N/A',
+        mutation_score: 'N/A',
+        validity: 'N/A',
+      },
+      sandbox_policy: {
+        untrusted_execution_enabled: false,
+        isolation_status: 'policy_simulation',
+        network: 'disabled',
+        root_fs: 'read_only',
+        timeout_seconds: 60,
+      },
+      logs: ['[17:05:00] Run queued. Awaiting available sandbox executor container.'],
+      cases: [],
+    },
+    {
+      id: 'exec-run-103',
+      project_id: 'demo-project',
+      suite_name: 'Full Benchmark Suite - Baseline',
+      dataset_id: 'ds-sample-1',
+      dataset_name: 'HumanEval Python Benchmarks',
+      source_id: 'src-sample-1',
+      source_name: 'solution_v1.py',
+      status: 'COMPLETED',
+      can_cancel: false,
+      created_at: new Date(Date.now() - 3600000).toISOString(),
+      started_at: new Date(Date.now() - 3590000).toISOString(),
+      completed_at: new Date(Date.now() - 3540000).toISOString(),
+      cancelled_at: null,
+      cancel_reason: null,
+      total_cases: 10,
+      completed_cases: 10,
+      passed_cases: 9,
+      failed_cases: 1,
+      timeout_cases: 0,
+      metrics: {
+        coverage: 91.2,
+        mutation_score: 0,
+        validity: 'PASSED',
+      },
+      sandbox_policy: {
+        untrusted_execution_enabled: false,
+        isolation_status: 'policy_simulation',
+        network: 'disabled',
+        root_fs: 'read_only',
+        timeout_seconds: 60,
+      },
+      logs: [
+        '[16:00:00] Sandbox initialized.',
+        '[16:00:02] Running test suite...',
+        '[16:00:50] Execution completed successfully.',
+      ],
+      cases: [
+        { id: 'case-101', name: 'test_core_logic', status: 'PASSED', duration_ms: 18, coverage: 95.0, mutation_score: 0 },
+        { id: 'case-102', name: 'test_boundary', status: 'FAILED', duration_ms: 32, coverage: 0, mutation_score: 0, error: 'Value mismatch' },
+      ],
+    },
+    {
+      id: 'exec-run-104',
+      project_id: 'demo-project',
+      suite_name: 'Nightly Stress Suite',
+      dataset_id: 'ds-sample-2',
+      dataset_name: 'MBPP Sanitized',
+      source_id: 'src-sample-1',
+      source_name: 'solution_v1.py',
+      status: 'CANCELLED',
+      can_cancel: false,
+      created_at: new Date(Date.now() - 7200000).toISOString(),
+      started_at: new Date(Date.now() - 7190000).toISOString(),
+      completed_at: null,
+      cancelled_at: new Date(Date.now() - 7150000).toISOString(),
+      cancel_reason: 'User aborted: incorrect source version selected',
+      total_cases: 50,
+      completed_cases: 14,
+      passed_cases: 14,
+      failed_cases: 0,
+      timeout_cases: 0,
+      metrics: {
+        coverage: 'N/A',
+        mutation_score: 'N/A',
+        validity: 'N/A',
+      },
+      sandbox_policy: {
+        untrusted_execution_enabled: false,
+        isolation_status: 'policy_simulation',
+        network: 'disabled',
+        root_fs: 'read_only',
+        timeout_seconds: 60,
+      },
+      logs: [
+        '[15:00:00] Sandbox initialized.',
+        '[15:00:10] Execution started.',
+        '[15:00:40] Cancellation requested: User aborted: incorrect source version selected.',
+        '[15:00:41] Sandbox container terminated safely.',
+      ],
+      cases: [],
+    },
+    {
+      id: 'exec-run-105',
+      project_id: 'demo-project',
+      suite_name: 'Long Running Infinite Loop Test',
+      dataset_id: 'ds-sample-3',
+      dataset_name: 'Edge Cases',
+      source_id: 'src-sample-1',
+      source_name: 'solution_v1.py',
+      status: 'TIMEOUT',
+      can_cancel: false,
+      created_at: new Date(Date.now() - 10800000).toISOString(),
+      started_at: new Date(Date.now() - 10790000).toISOString(),
+      completed_at: new Date(Date.now() - 10730000).toISOString(),
+      cancelled_at: null,
+      cancel_reason: null,
+      total_cases: 5,
+      completed_cases: 1,
+      passed_cases: 1,
+      failed_cases: 0,
+      timeout_cases: 1,
+      metrics: {
+        coverage: 'TIMEOUT',
+        mutation_score: 'TIMEOUT',
+        validity: 'TIMEOUT',
+      },
+      sandbox_policy: {
+        untrusted_execution_enabled: false,
+        isolation_status: 'policy_simulation',
+        network: 'disabled',
+        root_fs: 'read_only',
+        timeout_seconds: 60,
+      },
+      logs: [
+        '[14:00:00] Sandbox initialized.',
+        '[14:00:05] Case #1 (test_quick): PASSED (8ms)',
+        '[14:00:06] Case #2 (test_infinite_loop): Running...',
+        '[14:01:06] ERROR: Sandbox hard limit 60s exceeded. Process SIGKILL sent.',
+      ],
+      cases: [
+        { id: 'case-201', name: 'test_quick', status: 'PASSED', duration_ms: 8, coverage: 100, mutation_score: 90 },
+        { id: 'case-202', name: 'test_infinite_loop', status: 'TIMEOUT', duration_ms: 60000, coverage: 'TIMEOUT', mutation_score: 'TIMEOUT', error: 'Exceeded sandbox timeout (60s)' },
+      ],
+    },
+  ],
 }
 
 function sendJson(res, statusCode, data) {
@@ -270,6 +479,102 @@ const server = http.createServer(async (req, res) => {
       }
     })
     sendJson(res, 200, ds)
+    return
+  }
+
+  // Executions: List
+  const execListMatch = path.match(/^\/api\/v1\/projects\/([^/]+)\/executions$/)
+  if (execListMatch && req.method === 'GET') {
+    const projId = execListMatch[1]
+    const list = store.executions.filter((e) => e.project_id === projId)
+    sendJson(res, 200, list)
+    return
+  }
+
+  // Executions: Trigger new execution
+  if (execListMatch && req.method === 'POST') {
+    const projId = execListMatch[1]
+    const body = await readBody(req)
+    const newExec = {
+      id: `exec-${crypto.randomUUID().slice(0, 8)}`,
+      project_id: projId,
+      suite_name: body.suite_name || 'Automated Suite Run',
+      dataset_id: body.dataset_id || null,
+      dataset_name: body.dataset_name || 'Standard Dataset',
+      source_id: body.source_id || null,
+      source_name: body.source_name || 'Active Source',
+      status: 'QUEUED',
+      can_cancel: true,
+      created_at: new Date().toISOString(),
+      started_at: null,
+      completed_at: null,
+      cancelled_at: null,
+      cancel_reason: null,
+      total_cases: 10,
+      completed_cases: 0,
+      passed_cases: 0,
+      failed_cases: 0,
+      timeout_cases: 0,
+      metrics: {
+        coverage: 'N/A',
+        mutation_score: 'N/A',
+        validity: 'N/A',
+      },
+      sandbox_policy: {
+        untrusted_execution_enabled: false,
+        isolation_status: 'policy_simulation',
+        network: 'disabled',
+        root_fs: 'read_only',
+        timeout_seconds: 60,
+      },
+      logs: ['[Just now] Run submitted. Waiting in sandbox execution queue.'],
+      cases: [],
+    }
+    store.executions.unshift(newExec)
+    sendJson(res, 201, newExec)
+    return
+  }
+
+  // Executions: Get single execution
+  const singleExecMatch = path.match(/^\/api\/v1\/projects\/([^/]+)\/executions\/([^/]+)$/)
+  if (singleExecMatch && req.method === 'GET') {
+    const projId = singleExecMatch[1]
+    const execId = singleExecMatch[2]
+    const exec = store.executions.find((e) => e.project_id === projId && e.id === execId)
+    if (!exec) {
+      sendJson(res, 404, { detail: { message: 'Execution run not found' } })
+      return
+    }
+    sendJson(res, 200, exec)
+    return
+  }
+
+  // Executions: Cancel run
+  const cancelExecMatch = path.match(/^\/api\/v1\/projects\/([^/]+)\/executions\/([^/]+)\/cancel$/)
+  if (cancelExecMatch && req.method === 'POST') {
+    const projId = cancelExecMatch[1]
+    const execId = cancelExecMatch[2]
+    const exec = store.executions.find((e) => e.project_id === projId && e.id === execId)
+    if (!exec) {
+      sendJson(res, 404, { detail: { message: 'Execution run not found' } })
+      return
+    }
+    if (!['QUEUED', 'RUNNING', 'PENDING'].includes(exec.status)) {
+      sendJson(res, 409, {
+        detail: {
+          code: 'EXECUTION_CANNOT_BE_CANCELLED',
+          message: `Execution run cannot be cancelled because it is already in state '${exec.status}'.`,
+        },
+      })
+      return
+    }
+    const body = await readBody(req)
+    exec.status = 'CANCELLED'
+    exec.can_cancel = false
+    exec.cancelled_at = new Date().toISOString()
+    exec.cancel_reason = body.reason || 'User requested cancellation'
+    exec.logs.push(`[${new Date().toISOString()}] Cancellation processed: ${exec.cancel_reason}`)
+    sendJson(res, 200, exec)
     return
   }
 

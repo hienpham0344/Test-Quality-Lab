@@ -13,6 +13,7 @@ import { Badge } from '../../components/common'
 import { ProjectBackLink } from '../../components/projects/ProjectBackLink'
 import { ProjectHistoryList } from '../../components/projects/ProjectHistoryList'
 import { DatasetsManager } from '../datasets'
+import { ExecutionsManager } from '../executions'
 import { formatDate } from '../../lib/format-date'
 
 export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
@@ -21,18 +22,20 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
-  const currentTab = searchParams.get('tab') === 'datasets' ? 'datasets' : 'settings'
+  const rawTab = searchParams.get('tab')
+  const currentTab = rawTab === 'datasets' || rawTab === 'executions' ? rawTab : 'settings'
   const [activeTab, setActiveTab] = useState(currentTab)
 
   useEffect(() => {
-    const tabFromUrl = searchParams.get('tab') === 'datasets' ? 'datasets' : 'settings'
+    const raw = searchParams.get('tab')
+    const tabFromUrl = raw === 'datasets' || raw === 'executions' ? raw : 'settings'
     setActiveTab(tabFromUrl)
   }, [searchParams])
 
   function handleTabChange(tab) {
     setActiveTab(tab)
-    if (tab === 'datasets') {
-      setSearchParams({ tab: 'datasets' })
+    if (tab === 'datasets' || tab === 'executions') {
+      setSearchParams({ tab })
     } else {
       setSearchParams({})
     }
@@ -281,7 +284,27 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
           >
             Datasets (CSV)
           </button>
+          <button
+            type="button"
+            onClick={() => handleTabChange('executions')}
+            className={`min-h-10 px-4 py-2 text-sm font-medium rounded-lg transition cursor-pointer ${
+              activeTab === 'executions'
+                ? 'bg-slate-800 text-white border border-slate-700 shadow-sm'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+            }`}
+          >
+            Executions (UC-08)
+          </button>
         </div>
+      )}
+
+      {/* Tab: Executions & Sandbox Status */}
+      {mode === 'edit' && activeTab === 'executions' && (
+        <ExecutionsManager
+          session={session}
+          projectId={projectId}
+          onExpire={onExpire}
+        />
       )}
 
       {/* Tab: Datasets & CSV Import */}
