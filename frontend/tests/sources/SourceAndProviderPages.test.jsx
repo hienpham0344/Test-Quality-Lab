@@ -32,8 +32,9 @@ function typeInto(input, value) {
 }
 
 beforeEach(() => {
+  localStorage.clear()
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
-  fetchMock = vi.fn()
+  fetchMock = vi.fn(async () => ({ ok: true, json: async () => [] }))
   vi.stubGlobal('fetch', fetchMock)
   container = document.body.appendChild(document.createElement('div'))
   root = createRoot(container)
@@ -65,36 +66,54 @@ describe('Python source (#27)', () => {
     expect(container.textContent).toContain('Python source')
   })
 
-  it('submits code and shows server-inspected functions', async () => {
-    fetchMock.mockResolvedValue({
+  it('saves pasted code and lists it as an uploaded source', async () => {
+    fetchMock.mockImplementation(async (_url, options) => ({
       ok: true,
-      json: async () => ({ revision: 1, functions: [{ name: 'add', line: 1 }] }),
-    })
+      json: async () => options.method === 'POST'
+        ? { source_id: 'source-1', revision: 1, functions: [{ name: 'add', line: 1 }] } : [],
+    }))
     await renderScreen('sources/new')
     await act(async () => typeInto(container.querySelector('#python-code'), 'def add(a, b): return a + b'))
     await act(async () => container.querySelector('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })))
-    await vi.waitFor(() => expect(container.textContent).toContain('add'))
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body).code).toContain('def add')
-    expect(fetchMock.mock.calls[0][0]).toContain('/projects/project-1/sources')
-    const choice = container.querySelector('input[type=checkbox]')
-    await act(async () => choice.click())
-    expect(choice.checked).toBe(true)
-    await act(async () => typeInto(container.querySelector('#python-code'), '# Updated source'))
-    expect(container.querySelector('input[type=checkbox]')).toBeNull()
+    const [url, options] = fetchMock.mock.calls.find(([, request]) => request.method === 'POST')
+    expect(JSON.parse(options.body).code).toContain('def add')
+    expect(url).toContain('/projects/project-1/sources')
+    expect(container.textContent).toContain('Untitled source source-1')
+    expect(container.textContent).not.toContain('Available functions')
   })
 
-  it('loads an uploaded Python file into the editor', async () => {
+  it('saves multiple Python files and retries only the failed file', async () => {
+    fetchMock.mockImplementation(async (_url, options) => {
+      if (options.method !== 'POST') return { ok: true, json: async () => [] }
+      const { code } = JSON.parse(options.body)
+      if (code === 'def broken(') {
+        return { ok: false, status: 422, json: async () => ({ detail: 'Syntax error' }) }
+      }
+      return { ok: true, json: async () => ({ source_id: code, revision: 1 }) }
+    })
     await renderScreen('sources/new')
     const upload = container.querySelector('input[type=file]')
     const code = 'def uploaded(): return 1'
-    Object.defineProperty(upload, 'files', { value: [{ name: 'sample.py', size: code.length, text: async () => code }] })
+    expect(upload.multiple).toBe(true)
+    Object.defineProperty(upload, 'files', { value: [
+      { name: 'sample.py', size: code.length, text: async () => code },
+      { name: 'broken.py', size: 11, text: async () => 'def broken(' },
+    ] })
     await act(async () => upload.dispatchEvent(new Event('change', { bubbles: true })))
     expect(container.querySelector('#python-code').value).toBe(code)
-    expect(container.textContent).toContain('sample.py')
+    await act(async () => container.querySelector('form').requestSubmit())
+    expect(container.querySelector('[aria-label="Uploaded files"]').textContent).toContain('sample.py')
+    expect(container.querySelector('[role=alert]').textContent).toContain('Syntax error')
+    await act(async () => typeInto(container.querySelector('#python-code'), 'def fixed(): pass'))
+    await act(async () => container.querySelector('form').requestSubmit())
+    expect(container.querySelector('[aria-label="Uploaded files"]').textContent).toContain('broken.py')
+    expect(fetchMock.mock.calls.filter(([, options]) => options.method === 'POST' && JSON.parse(options.body).code === code)).toHaveLength(1)
   })
 
   it('shows syntax validation feedback from API', async () => {
-    fetchMock.mockResolvedValue({ ok: false, status: 422, json: async () => ({ detail: 'Syntax error on line 1' }) })
+    fetchMock.mockImplementation(async (_url, options) => options.method === 'POST'
+      ? { ok: false, status: 422, json: async () => ({ detail: 'Syntax error on line 1' }) }
+      : { ok: true, json: async () => [] })
     await renderScreen('sources/new')
     await act(async () => typeInto(container.querySelector('#python-code'), 'def broken('))
     await act(async () => container.querySelector('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })))
