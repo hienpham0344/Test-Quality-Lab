@@ -1,6 +1,7 @@
 import { FileCheck, FileCode, FileUp } from 'lucide-react'
 import { useRef, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
+import { ProjectBreadcrumb } from '../../components/projects/ProjectBreadcrumb'
 import { PythonEditor } from '../../components/sources/PythonEditor'
 import { AuthApiError, createPythonSource, getPythonSource, listPythonSources } from '../../services/api'
 import { UploadedFiles, useUploadedFiles } from './UploadedFiles'
@@ -177,17 +178,11 @@ function PythonUploadPanel({ session, onExpire, projectId }) {
 
 export function PythonSourcePage({ session, onExpire }) {
   const { projectId } = useParams()
-  const projectPath = `/projects/${encodeURIComponent(projectId)}`
   const title = 'Python source'
 
   return (
     <section className="mx-auto max-w-7xl space-y-6 px-4 py-7 sm:px-8 lg:py-10">
-      <nav aria-label="Breadcrumb" className="text-sm text-slate-400">
-        <Link to="/projects" className="text-indigo-400 hover:underline">Projects</Link>
-        <span className="mx-2">/</span>
-        <Link to={projectPath} className="text-indigo-400 hover:underline">Project</Link>
-        <span className="mx-2">/</span>{title}
-      </nav>
+      <ProjectBreadcrumb projectId={projectId} session={session} onExpire={onExpire} currentPage={title} />
       <header>
         <h1 className="text-2xl font-semibold tracking-tight text-white">{title}</h1>
       </header>

@@ -7,8 +7,10 @@
 - `/reset-password` consumes the fragment token and submits the new password.
 
 Verification and reset clear the token from browser history before making a request.
-The sign-in access token lives in React state for the current page lifetime.
-The app does not persist or log it. Reloading requires signing in again.
+The sign-in access token is kept in React state and browser session storage
+so it can be restored on a reload in the same tab. The app stores only the
+access token and clears it on sign-out or when the API rejects the session
+with a 401.
 
 `/projects` requires a session and uses the owner-scoped project API. Signed-out
 visitors go to `/login` and return to the projects route after signing in.
