@@ -1,4 +1,16 @@
-import { ArrowLeft, Braces, History, Info, Plus, RotateCcw, Save, Settings2 } from 'lucide-react'
+import {
+  AlertTriangle,
+  ArrowLeft,
+  Braces,
+  FlaskConical,
+  History,
+  Info,
+  Plus,
+  RotateCcw,
+  Save,
+  Settings2,
+  X,
+} from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -15,27 +27,22 @@ import { DatasetsManager } from '../datasets'
 import { formatDate } from '../../lib/format-date'
 
 export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
-  const { projectId } = useParams()
+  const params = useParams()
+  const projectId = params.projectId || params.id
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
-  const currentTab = searchParams.get('tab') === 'datasets' ? 'datasets' : 'settings'
-  const [activeTab, setActiveTab] = useState(currentTab)
+  const rawTab = searchParams.get('tab')
+  const getNormalizedTab = (tab) => {
+    if (tab === 'history' || tab === 'experiments' || tab === 'datasets') return tab
+    return 'overview'
+  }
+  const [activeTab, setActiveTab] = useState(() => getNormalizedTab(rawTab))
 
   useEffect(() => {
-    const tabFromUrl = searchParams.get('tab') === 'datasets' ? 'datasets' : 'settings'
-    setActiveTab(tabFromUrl)
+    setActiveTab(getNormalizedTab(searchParams.get('tab')))
   }, [searchParams])
-
-  function handleTabChange(tab) {
-    setActiveTab(tab)
-    if (tab === 'datasets') {
-      setSearchParams({ tab: 'datasets' })
-    } else {
-      setSearchParams({})
-    }
-  }
 
   // Form state
   const [name, setName] = useState('')
@@ -43,6 +50,10 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
   const [nameTouched, setNameTouched] = useState(false)
   const [saveStatus, setSaveStatus] = useState('idle') // 'idle' | 'saving' | 'saved' | 'error'
   const [saveErrorMessage, setSaveErrorMessage] = useState(null)
+
+  // Unsaved changes guard state
+  const [showUnsavedModal, setShowUnsavedModal] = useState(false)
+  const [pendingAction, setPendingAction] = useState(null)
 
   // Queries for edit mode
   const projectQuery = useQuery({
@@ -86,7 +97,7 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
     }
   }, [projectQuery.data, mode, projectId])
 
-  // Validation
+  // Validation (same validation as F3: name 1-120 chars required, description <= 2000 chars optional)
   const trimmedName = name.trim()
   const nameError = nameTouched && (!trimmedName
     ? 'Project name is required (1 to 120 characters).'
@@ -99,9 +110,78 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
   const isValid = trimmedName.length >= 1 && trimmedName.length <= 120 && description.length <= 2000
 
   // Change detection for edit mode
+  const initialName = projectQuery.data?.name ?? ''
+  const initialDescription = projectQuery.data?.description ?? ''
   const isChanged = mode === 'edit' && projectQuery.data
-    ? trimmedName !== projectQuery.data.name || (description.trim() || null) !== (projectQuery.data.description || null)
+    ? trimmedName !== initialName || (description.trim() || null) !== (initialDescription.trim() || null)
     : true
+
+  // Warn before leaving with unsaved edits (browser tab close/reload)
+  useEffect(() => {
+    if (!isChanged || mode !== 'edit') return
+    const handleBeforeUnload = (event) => {
+      event.preventDefault()
+      event.returnValue = ''
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [isChanged, mode])
+
+  function handleCancel() {
+    if (projectQuery.data) {
+      setName(projectQuery.data.name)
+      setDescription(projectQuery.data.description || '')
+      setNameTouched(false)
+      setSaveStatus('idle')
+      setSaveErrorMessage(null)
+    }
+  }
+
+  function handleTabClick(targetTab) {
+    if (targetTab === activeTab) return
+    if (isChanged && mode === 'edit') {
+      setPendingAction({ type: 'tab', tab: targetTab })
+      setShowUnsavedModal(true)
+      return
+    }
+    setActiveTab(targetTab)
+    if (targetTab === 'overview') {
+      setSearchParams({})
+    } else {
+      setSearchParams({ tab: targetTab })
+    }
+  }
+
+  function handleGuardedNavigation(targetPath) {
+    if (isChanged && mode === 'edit') {
+      setPendingAction({ type: 'navigate', path: targetPath })
+      setShowUnsavedModal(true)
+      return
+    }
+    navigate(targetPath)
+  }
+
+  function confirmDiscardChanges() {
+    handleCancel()
+    setShowUnsavedModal(false)
+    if (!pendingAction) return
+    if (pendingAction.type === 'tab') {
+      setActiveTab(pendingAction.tab)
+      if (pendingAction.tab === 'overview') {
+        setSearchParams({})
+      } else {
+        setSearchParams({ tab: pendingAction.tab })
+      }
+    } else if (pendingAction.type === 'navigate') {
+      navigate(pendingAction.path)
+    }
+    setPendingAction(null)
+  }
+
+  function cancelDiscardChanges() {
+    setShowUnsavedModal(false)
+    setPendingAction(null)
+  }
 
   async function handleSubmit(event) {
     event.preventDefault()
@@ -129,7 +209,8 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
           return
         }
         setSaveStatus('error')
-        setSaveErrorMessage(error.detail || error.message || 'Failed to create project.')
+        const message = error.detail || error.message || 'Failed to create project.'
+        setSaveErrorMessage(typeof message === 'object' ? JSON.stringify(message) : String(message))
       }
     } else {
       try {
@@ -142,6 +223,9 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
           queryClient.invalidateQueries({ queryKey: ['private', 'projects'] }),
           queryClient.invalidateQueries({ queryKey: ['private', 'project-history', projectId] }),
         ])
+        setName(updated.name)
+        setDescription(updated.description || '')
+        setNameTouched(false)
         setSaveStatus('saved')
       } catch (error) {
         if (error instanceof AuthApiError && error.status === 401) {
@@ -149,18 +233,28 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
           return
         }
         setSaveStatus('error')
-        setSaveErrorMessage(error.detail || error.message || 'Failed to update project.')
+        let errorText = 'Failed to update project.'
+        if (error.fields && typeof error.fields === 'object' && Object.keys(error.fields).length > 0) {
+          errorText = Object.entries(error.fields)
+            .map(([k, v]) => `${k}: ${v}`)
+            .join('; ')
+        } else if (typeof error.detail === 'string' && !error.detail.startsWith('Request failed')) {
+          errorText = error.detail
+        } else if (error.message && !error.message.startsWith('Request failed')) {
+          errorText = error.message
+        } else if (Array.isArray(error.detail)) {
+          errorText = error.detail
+            .map((e) => (e.msg ? `${e.loc?.slice(-1)[0] || 'field'}: ${e.msg}` : JSON.stringify(e)))
+            .join('; ')
+        } else if (error.detail && typeof error.detail === 'object') {
+          errorText = Object.entries(error.detail).map(([k, v]) => `${k}: ${v}`).join('; ')
+        } else if (error.detail) {
+          errorText = error.detail
+        } else if (error.message) {
+          errorText = error.message
+        }
+        setSaveErrorMessage(errorText)
       }
-    }
-  }
-
-  function handleReset() {
-    if (projectQuery.data) {
-      setName(projectQuery.data.name)
-      setDescription(projectQuery.data.description || '')
-      setNameTouched(false)
-      setSaveStatus('idle')
-      setSaveErrorMessage(null)
     }
   }
 
@@ -217,17 +311,23 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
   return (
     <section className={'mx-auto space-y-6 px-4 py-7 sm:px-8 lg:py-10 ' + (project ? 'max-w-7xl' : 'max-w-3xl')}>
       <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-sm text-slate-400">
-        <Link to="/projects" className="text-indigo-400 hover:text-indigo-300 hover:underline">
+        <button
+          type="button"
+          onClick={() => handleGuardedNavigation('/projects')}
+          className="text-indigo-400 hover:text-indigo-300 hover:underline cursor-pointer bg-transparent border-0 p-0 text-sm font-normal"
+        >
           Projects
-        </Link>
+        </button>
         <span aria-hidden="true">/</span>
         <span className="min-w-0 truncate text-slate-200">
           {mode === 'create' ? 'New project' : project?.name}
         </span>
-        {project && <>
-          <span aria-hidden="true">/</span>
-          <span aria-current="page" className="shrink-0 text-slate-300">Project details</span>
-        </>}
+        {project && (
+          <>
+            <span aria-hidden="true">/</span>
+            <span aria-current="page" className="shrink-0 text-slate-300">Project details</span>
+          </>
+        )}
       </nav>
 
       <header className="flex flex-wrap items-center justify-between gap-4">
@@ -254,29 +354,63 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
         </div>
         {project && (
           <div className="flex flex-wrap items-center gap-3">
-            <Link to={`/projects/${projectId}/sources/new`} className="inline-flex min-h-10 items-center rounded-lg border border-slate-600 px-3 text-sm text-indigo-300 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-indigo-300 gap-2"><Braces size={16} aria-hidden="true" className="shrink-0" /> Python source</Link>
-            <Link to={`/projects/${projectId}/ai-config`} className="inline-flex min-h-10 items-center rounded-lg border border-slate-600 px-3 text-sm text-indigo-300 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-indigo-300 gap-2"><Settings2 size={16} aria-hidden="true" className="shrink-0" /> AI configuration</Link>
+            <button
+              type="button"
+              onClick={() => handleGuardedNavigation(`/projects/${projectId}/sources/new`)}
+              className="inline-flex min-h-10 items-center rounded-lg border border-slate-600 px-3 text-sm text-indigo-300 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-indigo-300 gap-2 cursor-pointer"
+            >
+              <Braces size={16} aria-hidden="true" className="shrink-0" /> Python source
+            </button>
+            <button
+              type="button"
+              onClick={() => handleGuardedNavigation(`/projects/${projectId}/ai-config`)}
+              className="inline-flex min-h-10 items-center rounded-lg border border-slate-600 px-3 text-sm text-indigo-300 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-indigo-300 gap-2 cursor-pointer"
+            >
+              <Settings2 size={16} aria-hidden="true" className="shrink-0" /> AI configuration
+            </button>
           </div>
         )}
       </header>
 
-      {/* Mode navigation tabs for edit mode */}
+      {/* Tabs: Overview / History (F5) / Experiments (F6) / Datasets */}
       {mode === 'edit' && (
-        <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
+        <div className="flex flex-wrap items-center gap-2 border-b border-slate-800 pb-2">
           <button
             type="button"
-            onClick={() => handleTabChange('settings')}
+            onClick={() => handleTabClick('overview')}
             className={`min-h-10 px-4 py-2 text-sm font-medium rounded-lg transition cursor-pointer ${
-              activeTab === 'settings'
+              activeTab === 'overview'
                 ? 'bg-slate-800 text-white border border-slate-700 shadow-sm'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
             }`}
           >
-            Project settings
+            Overview
           </button>
           <button
             type="button"
-            onClick={() => handleTabChange('datasets')}
+            onClick={() => handleTabClick('history')}
+            className={`min-h-10 px-4 py-2 text-sm font-medium rounded-lg transition cursor-pointer ${
+              activeTab === 'history'
+                ? 'bg-slate-800 text-white border border-slate-700 shadow-sm'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+            }`}
+          >
+            History (F5)
+          </button>
+          <button
+            type="button"
+            onClick={() => handleTabClick('experiments')}
+            className={`min-h-10 px-4 py-2 text-sm font-medium rounded-lg transition cursor-pointer ${
+              activeTab === 'experiments'
+                ? 'bg-slate-800 text-white border border-slate-700 shadow-sm'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+            }`}
+          >
+            Experiments (F6)
+          </button>
+          <button
+            type="button"
+            onClick={() => handleTabClick('datasets')}
             className={`min-h-10 px-4 py-2 text-sm font-medium rounded-lg transition cursor-pointer ${
               activeTab === 'datasets'
                 ? 'bg-slate-800 text-white border border-slate-700 shadow-sm'
@@ -288,7 +422,7 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
         </div>
       )}
 
-      {/* Tab: Datasets & CSV Import */}
+      {/* Tab: Datasets */}
       {mode === 'edit' && activeTab === 'datasets' && (
         <DatasetsManager
           session={session}
@@ -297,14 +431,67 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
         />
       )}
 
-      {/* Tab: Settings & Revision History (or create mode) */}
-      {(mode === 'create' || activeTab === 'settings') && (
+      {/* Tab: History (F5) */}
+      {mode === 'edit' && activeTab === 'history' && (
+        <section aria-labelledby="tab-history-title" className="rounded-xl border border-slate-800 bg-slate-900">
+          <h2 id="tab-history-title" className="flex items-center gap-2.5 border-b border-slate-800 px-4 py-4 text-base font-semibold text-white sm:px-5">
+            <History size={17} aria-hidden="true" className="text-indigo-300" /> Revision history (F5)
+          </h2>
+          <div className="p-4 sm:p-5">
+            <ProjectHistoryList
+              history={historyQuery.data}
+              isLoading={historyQuery.isPending}
+              isError={historyQuery.isError}
+              onRetry={() => { void historyQuery.refetch() }}
+            />
+          </div>
+        </section>
+      )}
+
+      {/* Tab: Experiments (F6) */}
+      {mode === 'edit' && activeTab === 'experiments' && (
+        <section aria-labelledby="tab-experiments-title" className="rounded-xl border border-slate-800 bg-slate-900">
+          <div className="flex items-center justify-between border-b border-slate-800 px-4 py-4 sm:px-5">
+            <h2 id="tab-experiments-title" className="flex items-center gap-2.5 text-base font-semibold text-white">
+              <FlaskConical size={17} aria-hidden="true" className="text-indigo-300" /> Experiments (F6)
+            </h2>
+            <Badge variant="neutral">Frozen per revision</Badge>
+          </div>
+          <div className="p-4 sm:p-5 space-y-4">
+            <div className="flex items-start gap-2.5 rounded-lg border border-slate-700/60 bg-slate-800/40 p-3 text-xs text-slate-300">
+              <Info size={16} aria-hidden="true" className="shrink-0 text-indigo-400 mt-0.5" />
+              <p>
+                Editing metadata does not change experiments already frozen (FR-PRJ-002).
+              </p>
+            </div>
+            <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-6 text-center space-y-2">
+              <FlaskConical size={28} aria-hidden="true" className="mx-auto text-slate-500" />
+              <p className="text-sm font-medium text-slate-300">No experiments recorded yet</p>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                Experiments conducted within this project are immutably tied to the active revision at creation time.
+              </p>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Tab: Overview (or Create mode) */}
+      {(mode === 'create' || activeTab === 'overview') && (
         <div className={project ? 'grid items-start gap-5 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]' : ''}>
           <section aria-labelledby="project-settings-title" className="min-w-0 rounded-xl border border-slate-800 bg-slate-900">
             <h2 id="project-settings-title" className="flex items-center gap-2.5 border-b border-slate-800 px-4 py-4 text-base font-semibold text-white sm:px-5">
-              <Settings2 size={17} aria-hidden="true" className="text-indigo-300" /> Project settings
+              <Settings2 size={17} aria-hidden="true" className="text-indigo-300" /> {mode === 'create' ? 'Project details' : 'Project settings'}
             </h2>
             <div className="space-y-5 p-4 sm:p-5">
+              {mode === 'edit' && (
+                <div className="flex items-start gap-2.5 rounded-lg border border-slate-700/60 bg-slate-800/40 p-3 text-xs text-slate-300">
+                  <Info size={16} aria-hidden="true" className="shrink-0 text-indigo-400 mt-0.5" />
+                  <p>
+                    Editing metadata does not change experiments already frozen (FR-PRJ-002).
+                  </p>
+                </div>
+              )}
+
               {saveStatus === 'saved' && (
                 <p role="status" className="rounded-lg border border-emerald-800/80 bg-emerald-950/50 p-3 text-sm text-emerald-300">
                   Project updated successfully.
@@ -378,11 +565,12 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
                   {mode === 'edit' ? (
                     <button
                       type="button"
-                      onClick={handleReset}
+                      onClick={handleCancel}
                       disabled={!isChanged || saveStatus === 'saving'}
-                      className="inline-flex min-h-11 rounded-lg border border-slate-600 px-4 text-sm font-medium text-slate-300 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-indigo-300 disabled:opacity-40 items-center gap-2"
+                      className="inline-flex min-h-11 rounded-lg border border-slate-600 px-4 text-sm font-medium text-slate-300 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-indigo-300 disabled:opacity-40 items-center gap-2 cursor-pointer"
                     >
-                      <RotateCcw size={16} aria-hidden="true" className="shrink-0" />Reset
+                      <RotateCcw size={16} aria-hidden="true" className="shrink-0" />
+                      Cancel
                     </button>
                   ) : (
                     <Link
@@ -396,7 +584,7 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
                   <button
                     type="submit"
                     disabled={!isValid || !isChanged || saveStatus === 'saving'}
-                    className="inline-flex min-h-11 rounded-lg bg-indigo-600 px-5 text-sm font-medium text-white hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-indigo-300 disabled:opacity-50 items-center gap-2"
+                    className="inline-flex min-h-11 rounded-lg bg-indigo-600 px-5 text-sm font-medium text-white hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-indigo-300 disabled:opacity-50 items-center gap-2 cursor-pointer"
                   >
                     {mode === 'create' ? <Plus size={16} aria-hidden="true" /> : <Save size={16} aria-hidden="true" />}
                     {saveStatus === 'saving'
@@ -423,13 +611,38 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
                       <dd className="break-all font-mono text-xs text-slate-200">{project.id}</dd>
                     </div>
                   )}
+                  <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 py-3">
+                    <dt className="text-slate-400">Current revision</dt>
+                    <dd className="font-semibold text-slate-200">Revision {project.current_revision}</dd>
+                  </div>
+                  {project.created_at && (
+                    <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 py-3">
+                      <dt className="text-slate-400">Created</dt>
+                      <dd className="text-slate-200"><time dateTime={project.created_at}>{formatDate(project.created_at)}</time></dd>
+                    </div>
+                  )}
+                  {project.updated_at && (
+                    <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 py-3">
+                      <dt className="text-slate-400">Last updated</dt>
+                      <dd className="text-slate-200"><time dateTime={project.updated_at}>{formatDate(project.updated_at)}</time></dd>
+                    </div>
+                  )}
                 </dl>
               </section>
 
               <section aria-labelledby="revision-history-title" className="rounded-xl border border-slate-800 bg-slate-900">
-                <h2 id="revision-history-title" className="flex items-center gap-2.5 border-b border-slate-800 px-4 py-4 text-base font-semibold text-white sm:px-5">
-                  <History size={17} aria-hidden="true" className="text-indigo-300" /> Revision history
-                </h2>
+                <div className="flex items-center justify-between border-b border-slate-800 px-4 py-4 sm:px-5">
+                  <h2 id="revision-history-title" className="flex items-center gap-2.5 text-base font-semibold text-white">
+                    <History size={17} aria-hidden="true" className="text-indigo-300" /> Revision history
+                  </h2>
+                  <button
+                    type="button"
+                    onClick={() => handleTabClick('history')}
+                    className="text-xs text-indigo-400 hover:text-indigo-300 underline cursor-pointer bg-transparent border-0 p-0"
+                  >
+                    View tab
+                  </button>
+                </div>
                 <div className="p-4 sm:p-5">
                   <ProjectHistoryList
                     history={historyQuery.data}
@@ -441,6 +654,56 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
               </section>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Unsaved changes confirmation dialog / guard */}
+      {showUnsavedModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="unsaved-modal-title"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm"
+        >
+          <div className="relative w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 p-6 space-y-5 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2 text-amber-400">
+                <AlertTriangle size={18} aria-hidden="true" />
+                <h3 id="unsaved-modal-title" className="text-lg font-semibold text-white">
+                  Unsaved changes
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={cancelDiscardChanges}
+                className="text-slate-400 hover:text-white rounded-lg p-1 hover:bg-slate-800 cursor-pointer"
+                aria-label="Close dialog"
+              >
+                <X size={16} aria-hidden="true" />
+              </button>
+            </div>
+
+            <p className="text-sm text-slate-300">
+              You have unsaved changes to this project. If you leave now, your changes will be discarded.
+            </p>
+
+            <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={cancelDiscardChanges}
+                className="rounded-lg border border-slate-600 px-4 py-2 text-sm font-medium text-slate-300 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-indigo-300 cursor-pointer"
+              >
+                Keep editing
+              </button>
+              <button
+                type="button"
+                onClick={confirmDiscardChanges}
+                className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-500 focus-visible:outline-2 focus-visible:outline-rose-300 cursor-pointer"
+              >
+                Discard changes
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </section>

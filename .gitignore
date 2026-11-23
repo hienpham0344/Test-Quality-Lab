@@ -21,3 +21,4 @@ test-results/
 .vscode/
 artifacts/
 *.log
+.tmp_*
