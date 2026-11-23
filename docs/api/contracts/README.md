@@ -4,7 +4,7 @@ for frontend integration (see the coding rules, section 7.4).
 | Module | Contract | Verification |
 |---|---|---|
 | auth | [auth.md](auth.md) | `docs/api/postman/` folder `auth` |
-| datasets | [datasets.md](datasets.md) | `backend/tests/integration/test_datasets_api.py` |
+| datasets (CSV preview/import, mapping, rows and selections) | [datasets.md](datasets.md) | `backend/tests/unit/test_csv_import.py`, `backend/tests/integration/test_datasets_api.py` |
 
 Authentication errors use `{"detail": {"code", "message", "fields"}}`. Generate a client in a future
 feature PR; never hand-edit generated client code.

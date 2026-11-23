@@ -29,9 +29,11 @@ docker compose exec backend alembic upgrade head
 
 The app includes email verification and password-reset screens, auth/session
 APIs, owner-scoped project metadata/history APIs, and owner-scoped Python source
-ingestion/versioning with static AST inspection. Full auth and project management
-screens, CSV imports, prompting, test generation, execution and evaluation remain
-pending. **Do not upload real secrets**; untrusted Python execution remains disabled.
+ingestion/versioning with static AST inspection. CSV APIs support UTF-8/BOM file
+preview/import, column mapping and immutable row selections; see
+`docs/api/contracts/datasets.md` for frontend integration. Prompting, test generation,
+execution and evaluation remain pending. **Do not upload real secrets**; untrusted
+Python execution remains disabled.
 
 ## Run tests
 
