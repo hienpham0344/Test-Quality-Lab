@@ -1,7 +1,7 @@
 import { ArrowLeft, Plus, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
-export function ProjectCreateModal({ isOpen, onClose, onCreate, isCreating, error }) {
+export function ProjectCreateModal({ isOpen, duplicate, onClose, onCreate, isCreating, error }) {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [touched, setTouched] = useState(false)
@@ -9,12 +9,12 @@ export function ProjectCreateModal({ isOpen, onClose, onCreate, isCreating, erro
 
   useEffect(() => {
     if (isOpen) {
-      setName('')
-      setDescription('')
+      setName(duplicate ? duplicate.name.slice(0, 113).trimEnd() + ' (copy)' : '')
+      setDescription(duplicate?.description ?? '')
       setTouched(false)
       setTimeout(() => nameInputRef.current?.focus(), 50)
     }
-  }, [isOpen])
+  }, [isOpen, duplicate])
 
   useEffect(() => {
     function handleKeyDown(event) {
@@ -59,7 +59,7 @@ export function ProjectCreateModal({ isOpen, onClose, onCreate, isCreating, erro
       <div className="relative w-full max-w-lg rounded-2xl border border-slate-700 bg-slate-900 p-6 md:p-8 space-y-6 shadow-2xl">
         <div className="flex items-center justify-between border-b border-slate-800 pb-4">
           <h2 id="modal-title" className="text-xl font-bold text-white tracking-tight">
-            Create new project
+            {duplicate ? 'Duplicate project' : 'Create new project'}
           </h2>
           <button
             type="button"
@@ -72,6 +72,7 @@ export function ProjectCreateModal({ isOpen, onClose, onCreate, isCreating, erro
           </button>
         </div>
 
+        {duplicate && <p className="text-sm text-slate-300">Copy the project name and description into a new project.</p>}
         {error && (
           <p role="alert" className="rounded-lg border border-rose-800/80 bg-rose-950/50 p-3 text-sm text-rose-300">
             {error}
@@ -148,7 +149,7 @@ export function ProjectCreateModal({ isOpen, onClose, onCreate, isCreating, erro
               className="inline-flex min-h-11 rounded-lg bg-indigo-600 px-5 text-sm font-medium text-white hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-indigo-300 disabled:opacity-50 items-center gap-2"
             >
               <Plus size={16} aria-hidden="true" className="shrink-0" />
-              {isCreating ? 'Creating…' : 'Create project'}
+              {isCreating ? 'Creating…' : duplicate ? 'Create copy' : 'Create project'}
             </button>
           </div>
         </form>

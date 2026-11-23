@@ -148,14 +148,11 @@ describe('protected routing and session UX', () => {
     expect(sidebar.querySelector('[aria-current="page"]').textContent).toBe('Projects')
   })
 
-  it('searches projects from the workspace header and loads account details on demand', async () => {
+  it('keeps the workspace header free of project search and loads account details on demand', async () => {
     mockSession()
     await open('/login')
     await submit(credentials)
-    const search = container.querySelector('[role=search]')
-    search.elements.q.value = 'Private'
-    await act(async () => search.requestSubmit())
-    await vi.waitFor(() => expect(container.querySelector('#search-projects')?.value).toBe('Private'))
+    expect(container.querySelector('header [type=search]')).toBeNull()
     expect(fetchMock.mock.calls.some(([url]) => url.endsWith('/auth/me'))).toBe(false)
 
     await act(async () => container.querySelector('[aria-label=Account]').click())

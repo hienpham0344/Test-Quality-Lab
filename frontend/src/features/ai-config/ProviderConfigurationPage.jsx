@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { Check, ClipboardCheck, Eraser, Eye, EyeOff, Settings2 } from 'lucide-react'
-import { ProjectBreadcrumb } from '../../components/projects/ProjectBreadcrumb'
+import { ProjectBackLink } from '../../components/projects/ProjectBackLink'
 
 const PROVIDERS = [
   { id: 'openai', label: 'OpenAI' },
@@ -9,7 +9,7 @@ const PROVIDERS = [
   { id: 'google', label: 'Google Gemini' },
 ]
 
-export function ProviderConfigurationPage({ session, onExpire }) {
+export function ProviderConfigurationPage() {
   const { projectId } = useParams()
   const [provider, setProvider] = useState('')
   const [model, setModel] = useState('')
@@ -40,7 +40,7 @@ export function ProviderConfigurationPage({ session, onExpire }) {
 
   return (
     <section className="mx-auto max-w-7xl space-y-6 px-4 py-7 sm:px-8 lg:py-10">
-      <ProjectBreadcrumb projectId={projectId} session={session} onExpire={onExpire} currentPage="AI configuration" />
+      <ProjectBackLink projectId={projectId} />
       <header className="border-b border-slate-800 pb-5">
         <h1 className="text-2xl font-semibold tracking-tight text-white">AI provider configuration</h1>
         <p className="mt-2 text-sm text-slate-400">Choose an AI provider and check the model identifier and API key fields locally.</p>

@@ -34,7 +34,7 @@ export default function AppRoutes({ session, expired, logoutNotice, signingOut, 
           <Route path="/workspace" element={<WorkspaceOverviewPage />} />
           <Route path="/projects" element={<ProjectsPage session={session} onExpire={onExpire} />} />
           <Route path="/projects/:projectId/sources/new" element={<PythonSourcePage session={session} onExpire={onExpire} />} />
-          <Route path="/projects/:projectId/ai-config" element={<ProviderConfigurationPage session={session} onExpire={onExpire} />} />
+          <Route path="/projects/:projectId/ai-config" element={<ProviderConfigurationPage />} />
           <Route path="/projects/new" element={<ProjectEditorPage session={session} onExpire={onExpire} mode="create" />} />
           <Route path="/projects/:projectId" element={<ProjectEditorPage session={session} onExpire={onExpire} mode="edit" />} />
         </Route>

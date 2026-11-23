@@ -1,7 +1,7 @@
 import { FileCheck, FileCode, FileUp } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { ProjectBreadcrumb } from '../../components/projects/ProjectBreadcrumb'
+import { ProjectBackLink } from '../../components/projects/ProjectBackLink'
 import { PythonEditor } from '../../components/sources/PythonEditor'
 import { AuthApiError, createPythonSource, getPythonSource, listPythonSources } from '../../services/api'
 import { UploadedFiles, useUploadedFiles } from './UploadedFiles'
@@ -182,7 +182,7 @@ export function PythonSourcePage({ session, onExpire }) {
 
   return (
     <section className="mx-auto max-w-7xl space-y-6 px-4 py-7 sm:px-8 lg:py-10">
-      <ProjectBreadcrumb projectId={projectId} session={session} onExpire={onExpire} currentPage={title} />
+      <ProjectBackLink projectId={projectId} />
       <header>
         <h1 className="text-2xl font-semibold tracking-tight text-white">{title}</h1>
       </header>

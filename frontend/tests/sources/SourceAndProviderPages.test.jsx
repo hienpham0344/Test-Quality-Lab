@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
 import { act } from 'react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createRoot } from 'react-dom/client'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -14,17 +13,14 @@ const session = { accessToken: 'test-token' }
 const onExpire = vi.fn()
 
 async function renderScreen(type) {
-  const client = new QueryClient()
   await act(async () => {
     root.render(
-      <QueryClientProvider client={client}>
-        <MemoryRouter initialEntries={[`/projects/project-1/${type}`]}>
-          <Routes>
-            <Route path="/projects/:projectId/sources/new" element={<PythonSourcePage session={session} onExpire={onExpire} />} />
-            <Route path="/projects/:projectId/ai-config" element={<ProviderConfigurationPage session={session} onExpire={onExpire} />} />
-          </Routes>
-        </MemoryRouter>
-      </QueryClientProvider>,
+      <MemoryRouter initialEntries={[`/projects/project-1/${type}`]}>
+        <Routes>
+          <Route path="/projects/:projectId/sources/new" element={<PythonSourcePage session={session} onExpire={onExpire} />} />
+          <Route path="/projects/:projectId/ai-config" element={<ProviderConfigurationPage />} />
+        </Routes>
+      </MemoryRouter>,
     )
   })
 }
@@ -38,27 +34,19 @@ function typeInto(input, value) {
 beforeEach(() => {
   localStorage.clear()
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
-  fetchMock = vi.fn(async (url) => ({
-    ok: true,
-    json: async () => url.endsWith('/projects/project-1') ? { name: 'Python examples' } : [],
-  }))
+  fetchMock = vi.fn(async () => ({ ok: true, json: async () => [] }))
   vi.stubGlobal('fetch', fetchMock)
   container = document.body.appendChild(document.createElement('div'))
   root = createRoot(container)
   onExpire.mockReset()
 })
 
-it.each([
-  ['sources/new', 'Python source'],
-  ['ai-config', 'AI configuration'],
-])('links %s back to the named project', async (path, label) => {
+it.each(['sources/new', 'ai-config'])('links %s directly back to the current project', async (path) => {
   await renderScreen(path)
-  const breadcrumb = container.querySelector('nav[aria-label="Breadcrumb"]')
-  await vi.waitFor(() => expect(breadcrumb.textContent).toContain('Python examples'))
-  expect([...breadcrumb.querySelectorAll('a')].map((link) => link.getAttribute('href'))).toEqual([
-    '/projects', '/projects/project-1',
-  ])
-  expect(breadcrumb.querySelector('[aria-current="page"]').textContent).toBe(label)
+  const links = [...container.querySelectorAll('a')]
+  expect(links).toHaveLength(1)
+  expect(links[0].textContent.trim()).toBe('Back to project')
+  expect(links[0].getAttribute('href')).toBe('/projects/project-1')
 })
 
 afterEach(async () => {
@@ -144,7 +132,6 @@ describe('Python source (#27)', () => {
 describe('AI provider configuration (#35)', () => {
   it('does not call backend or persist secrets during field validation', async () => {
     await renderScreen('ai-config')
-    fetchMock.mockClear()
     await act(async () => container.querySelector('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })))
     expect(container.querySelectorAll('[role=alert]').length).toBe(3)
     expect(fetchMock).not.toHaveBeenCalled()
@@ -153,7 +140,6 @@ describe('AI provider configuration (#35)', () => {
 
   it('clears a validated key without sending or storing it', async () => {
     await renderScreen('ai-config')
-    fetchMock.mockClear()
     const provider = container.querySelector('#ai-provider')
     const key = container.querySelector('#ai-secret')
     await act(async () => {

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Bell, CircleHelp, LogOut, Search, UserRound } from 'lucide-react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Bell, CircleHelp, LogOut, UserRound } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { getCurrentUser } from '../../services/api'
 
 const controls = [
@@ -11,7 +11,6 @@ const controls = [
 ]
 
 export default function WorkspaceHeader({ session, signingOut, onSignOut }) {
-  const navigate = useNavigate()
   const [panel, setPanel] = useState(null)
   const account = useQuery({
     queryKey: ['private', 'workspace-account'],
@@ -21,26 +20,9 @@ export default function WorkspaceHeader({ session, signingOut, onSignOut }) {
     gcTime: 0,
   })
 
-  function searchProjects(event) {
-    event.preventDefault()
-    const form = event.currentTarget
-    const q = String(new FormData(form).get('q')).trim()
-    navigate({ pathname: '/projects', search: q ? '?' + new URLSearchParams({ q }) : '' })
-    form.reset()
-    setPanel(null)
-  }
-
   return (
     <header className="border-b border-slate-800 bg-slate-900/60">
-      <div className="relative mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2 px-4 py-2.5 sm:px-8">
-        <form role="search" aria-label="Search projects" onSubmit={searchProjects} className="relative min-w-0 flex-1 sm:max-w-md">
-          <button type="submit" aria-label="Submit project search"
-            className="absolute inset-y-0 left-0 grid w-10 place-items-center rounded-l-lg text-slate-400 hover:text-white focus-visible:outline-2 focus-visible:outline-indigo-300">
-            <Search size={16} aria-hidden="true" />
-          </button>
-          <input name="q" type="search" aria-label="Find projects" placeholder="Search projects…"
-            className="min-h-11 w-full rounded-lg border border-slate-700 bg-slate-950 py-2 pr-2 pl-10 text-sm text-slate-100 placeholder:text-slate-400 focus-visible:outline-2 focus-visible:outline-indigo-300" />
-        </form>
+      <div className="relative mx-auto flex max-w-7xl items-center justify-end px-4 py-2.5 sm:px-8">
         <div className="flex shrink-0 items-center gap-1"
           onKeyDown={(event) => { if (event.key === 'Escape') setPanel(null) }}>
           {controls.map(({ id, label, icon: Icon }) => (
