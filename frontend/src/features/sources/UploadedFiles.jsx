@@ -6,7 +6,7 @@ function filenameKey(projectId, id) {
   return `test-quality-lab:input:${projectId}:${id}`
 }
 
-function storedFilename(projectId, id) {
+export function storedFilename(projectId, id) {
   try {
     return localStorage.getItem(filenameKey(projectId, id))
   } catch {

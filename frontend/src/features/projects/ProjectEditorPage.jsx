@@ -1,4 +1,4 @@
-import { ArrowLeft, Braces, History, Info, Plus, RotateCcw, Save, Settings2 } from 'lucide-react'
+import { ArrowLeft, Braces, FlaskConical, History, Info, Plus, RotateCcw, Save, Settings2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -255,6 +255,7 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
           <div className="flex flex-wrap items-center gap-3">
             <Link to={`/projects/${projectId}/sources/new`} className="inline-flex min-h-10 items-center rounded-lg border border-slate-600 px-3 text-sm text-indigo-300 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-indigo-300 gap-2"><Braces size={16} aria-hidden="true" className="shrink-0" /> Python source</Link>
             <Link to={`/projects/${projectId}/ai-config`} className="inline-flex min-h-10 items-center rounded-lg border border-slate-600 px-3 text-sm text-indigo-300 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-indigo-300 gap-2"><Settings2 size={16} aria-hidden="true" className="shrink-0" /> AI configuration</Link>
+            <Link to={`/projects/${encodeURIComponent(projectId)}/experiments/new`} className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-indigo-600 px-3 text-sm font-medium text-white hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-indigo-300"><FlaskConical size={16} aria-hidden="true" /> Set up experiment</Link>
           </div>
         )}
       </header>
