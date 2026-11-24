@@ -2,9 +2,13 @@
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { MemoryRouter, useLocation, useNavigate } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ProjectsPage } from '../../src/features/projects/ProjectsPage'
+import { ProjectEditorPage } from '../../src/features/projects/ProjectEditorPage'
+
+HTMLDialogElement.prototype.showModal ??= function () { this.open = true }
+HTMLDialogElement.prototype.close ??= function () { this.open = false }
 
 let container
 let root
@@ -45,7 +49,10 @@ async function renderPage(initialEntry = '/projects') {
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[initialEntry]}>
         <TestLocation />
-        <ProjectsPage session={session} onExpire={onExpire} />
+        <Routes>
+          <Route path="/projects" element={<ProjectsPage session={session} onExpire={onExpire} />} />
+          <Route path="/projects/:projectId" element={<ProjectEditorPage session={session} onExpire={onExpire} />} />
+        </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
   ))
@@ -58,6 +65,19 @@ function setInputValue(element, value) {
   setter.call(element, value)
   element.dispatchEvent(new Event('input', { bubbles: true }))
   element.dispatchEvent(new Event('change', { bubbles: true }))
+}
+
+async function openCreateDialog() {
+  const button = await vi.waitFor(() => {
+    const match = [...container.querySelectorAll('button')].find((item) => item.textContent.includes('New project'))
+    expect(match).toBeDefined()
+    return match
+  })
+  await act(async () => {
+    button.focus()
+    button.click()
+  })
+  return { button, dialog: container.querySelector('dialog') }
 }
 
 describe('ProjectsDashboard', () => {
@@ -247,34 +267,24 @@ describe('ProjectsDashboard', () => {
   })
 
   it('opens create project modal and creates a project successfully', async () => {
+    const previous = { id: 'older', name: 'Earlier project', current_revision: 1, updated_at: '2026-11-22T10:00:00Z' }
+    const created = {
+      id: 'p-new', name: 'New Test Project', description: 'My description', current_revision: 1,
+      updated_at: '2026-11-24T10:00:00Z',
+    }
+    let saved = false
     fetchMock.mockImplementation(async (url, options) => {
       if (options?.method === 'POST') {
-        return {
-          ok: true,
-          json: async () => ({
-            id: 'p-new',
-            name: 'New Test Project',
-            description: 'My description',
-            current_revision: 1,
-          }),
-        }
+        saved = true
+        return Response.json(created, { status: 201 })
       }
-      return {
-        ok: true,
-        json: async () => [],
-      }
+      if (url.endsWith('/p-new')) return Response.json(created)
+      if (url.endsWith('/history')) return Response.json([])
+      return Response.json(saved ? [previous, created] : [previous])
     })
 
     await renderPage()
-    await vi.waitFor(() => {
-      expect(container.textContent).toContain('No projects yet')
-    })
-
-    const openButton = [...container.querySelectorAll('button')].find((b) => b.textContent.includes('Create your first project'))
-    await act(async () => openButton.click())
-
-    // Modal is open
-    expect(container.querySelector('[role=dialog]')).not.toBeNull()
+    await openCreateDialog()
     const nameInput = container.querySelector('#project-create-name')
     const descInput = container.querySelector('#project-create-description')
 
@@ -290,6 +300,8 @@ describe('ProjectsDashboard', () => {
 
     await vi.waitFor(() => {
       expect(container.querySelector('[role=dialog]')).toBeNull()
+      expect(container.querySelector('#edit-project-name')?.value).toBe('New Test Project')
+      expect(container.querySelector('[role=status]').textContent).toBe('Project created successfully.')
     })
 
     const postCall = fetchMock.mock.calls.find((call) => call[1]?.method === 'POST')
@@ -298,6 +310,8 @@ describe('ProjectsDashboard', () => {
       name: 'New Test Project',
       description: 'My description',
     })
+    await act(async () => container.querySelector('a[href="/projects"]').click())
+    await vi.waitFor(() => expect(container.querySelector('li h2')?.textContent).toBe('New Test Project'))
   })
 
   it('validates project name and displays 422 error detail in modal', async () => {
@@ -306,7 +320,9 @@ describe('ProjectsDashboard', () => {
         return {
           ok: false,
           status: 422,
-          json: async () => ({ detail: 'Project name must contain 1 to 120 characters' }),
+          json: async () => ({
+            detail: { code: 'INPUT_INVALID', fields: { name: 'Name was rejected', description: 'Description was rejected' } },
+          }),
         }
       }
       return {
@@ -334,7 +350,65 @@ describe('ProjectsDashboard', () => {
     })
 
     await vi.waitFor(() => {
-      expect(container.querySelector('[role=dialog] [role=alert]').textContent).toContain('Project name must contain 1 to 120 characters')
+      expect(container.querySelector('#project-name-error').textContent).toBe('Name was rejected')
+      expect(container.querySelector('#project-description-error').textContent).toBe('Description was rejected')
+      expect(nameInput.value).toBe('Test')
     })
+  })
+
+  it.each([
+    ['   ', '0 / 120', 'Project name is required'],
+    ['á'.repeat(121), '121 / 120', 'Project name cannot exceed 120 characters'],
+  ])('keeps an invalid name out of the API', async (name, count, message) => {
+    fetchMock.mockResolvedValue({ ok: true, json: async () => [] })
+    await renderPage()
+    const { dialog } = await openCreateDialog()
+    await act(async () => setInputValue(dialog.querySelector('input'), name))
+    expect(dialog.querySelector('#project-name-count').textContent.trim()).toBe(count)
+    expect(dialog.querySelector('[type=submit]').disabled).toBe(true)
+    expect(dialog.querySelector('#project-name-error').textContent).toContain(message)
+    expect(fetchMock.mock.calls.some(([, options]) => options.method === 'POST')).toBe(false)
+  })
+
+  it.each([503, 'network'])('prevents double submit and preserves inputs after %s', async (failure) => {
+    let finish
+    fetchMock.mockImplementation(async (_url, options) => options.method === 'POST'
+      ? new Promise((resolve, reject) => {
+        finish = () => failure === 'network' ? reject(new TypeError('Failed to fetch')) : resolve(new Response(null, { status: failure }))
+      })
+      : Response.json([]))
+    await renderPage()
+    const { dialog } = await openCreateDialog()
+    await act(async () => {
+      setInputValue(dialog.querySelector('input'), 'Keep name')
+      setInputValue(dialog.querySelector('textarea'), 'Keep description')
+    })
+    const form = dialog.querySelector('form')
+    const submit = () => form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    await act(async () => { submit(); submit() })
+    expect(dialog.querySelector('[type=submit]').disabled).toBe(true)
+    expect(fetchMock.mock.calls.filter(([, options]) => options.method === 'POST')).toHaveLength(1)
+    await act(async () => finish())
+    expect(dialog.querySelector('[role=alert]').textContent).toContain('Please try again')
+    expect(dialog.querySelector('input').value).toBe('Keep name')
+    expect(dialog.querySelector('textarea').value).toBe('Keep description')
+    expect(dialog.querySelector('[type=submit]').disabled).toBe(false)
+  })
+
+  it('focuses the name, traps Tab at the bounds and restores focus on Escape', async () => {
+    fetchMock.mockResolvedValue({ ok: true, json: async () => [] })
+    await renderPage()
+    const { button, dialog } = await openCreateDialog()
+    expect(document.activeElement).toBe(dialog.querySelector('input'))
+    const first = dialog.querySelector('[aria-label="Close dialog"]')
+    const last = [...dialog.querySelectorAll('button:enabled')].at(-1)
+    first.focus()
+    await act(async () => first.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true, cancelable: true })))
+    expect(document.activeElement).toBe(last)
+    await act(async () => last.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })))
+    expect(document.activeElement).toBe(first)
+    await act(async () => dialog.dispatchEvent(new Event('cancel', { cancelable: true })))
+    expect(container.querySelector('dialog')).toBeNull()
+    expect(document.activeElement).toBe(button)
   })
 })

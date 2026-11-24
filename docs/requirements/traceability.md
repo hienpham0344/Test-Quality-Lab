@@ -2,6 +2,7 @@
 
 | Requirement group | Module | Status |
 |---|---|---|
+| Create project dialog (FR-PRJ-001, UC-03) | frontend/src/components/projects/ProjectCreateModal.jsx, frontend/src/features/projects | #89 covers trimmed metadata validation, server field errors, duplicate-submit protection, retry with preserved inputs, keyboard operation, and success navigation with a toast. Frontend coverage in ProjectsDashboard.test.jsx. |
 | Authentication (AUT) | backend/app/modules/auth, frontend/src/features/auth | FR-AUT-003/004 backend session expiry, logout revocation and owner-scoped access verified; UC-01, UC-02 and UC-12 screens; protected projects, logout, and expired-session recovery with frontend tests; see docs/api/contracts/auth.md for registration fields, session endpoints and structured errors |
 | Projects (PRJ) | backend/app/modules/projects, frontend/src/features/projects | FR-PRJ-001/002 and UC-03 implemented: owner-scoped project CRUD and history backend, dashboard and editor screens; FR-PRJ-003 adds URL-backed search, sort and pagination, loading, empty, no-match and retry states (#88). Experiment counts require API support |
 | Python input (FR-PYS-001/002/003/004) | backend/app/modules/sources, frontend/src/features/sources | Python editor, file upload, syntax feedback and function selection (UC-04, #27); upload/paste, immutable SHA-256 versions, AST function discovery and static policy checks implemented (#23/#24); execution disabled |
