@@ -106,8 +106,20 @@ async function run() {
     console.log(`Saved screenshot: ${filePath} (${fs.statSync(filePath).size} bytes)`);
   }
 
+  async function waitForSelector(selector, timeoutMs = 15000) {
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+      const exists = await evaluate(`Boolean(document.querySelector('${selector}'))`);
+      if (exists) return true;
+      await delay(400);
+    }
+    return false;
+  }
+
   try {
-    await delay(2000);
+    console.log('Waiting for login form...');
+    const foundEmail = await waitForSelector('input[name="email"]');
+    console.log('Found email input:', foundEmail);
 
     // 1. Fill login form using prototype setters only
     console.log('Filling login form and signing in...');
@@ -122,25 +134,35 @@ async function run() {
       setVal(document.querySelector('input[name="email"]'), 'tester@example.com');
       setVal(document.querySelector('input[name="password"]'), 'Password123456!');
     })()`);
-
-    const formCheck = await evaluate(`(() => {
-      const form = document.querySelector('form');
-      const data = new FormData(form);
-      return { email: data.get('email'), pwd: Boolean(data.get('password')) };
-    })()`);
-    console.log('FormData before submit:', formCheck);
+    await delay(500);
 
     // Click submit
-    console.log('Clicking sign in submit button...');
+    console.log('Submitting login form...');
     await evaluate(`(() => {
-      const btn = document.querySelector('button[type="submit"]') || [...document.querySelectorAll('button')].find(b => b.textContent.includes('Sign in'));
-      if (btn) btn.click();
+      const form = document.querySelector('form');
+      if (form) {
+        if (typeof form.requestSubmit === 'function') {
+          form.requestSubmit();
+        } else {
+          form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        }
+      }
     })()`);
 
-    await delay(3000);
+    await delay(3500);
 
     const afterLoginUrl = await evaluate('window.location.href');
     console.log('URL after login:', afterLoginUrl);
+
+    // 2. Navigate to Projects if not already redirected
+    if (afterLoginUrl.includes('/login')) {
+      console.log('Attempting button click for sign in...');
+      await evaluate(`(() => {
+        const btn = document.querySelector('button[type="submit"]') || [...document.querySelectorAll('button')].find(b => b.textContent.includes('Sign in'));
+        if (btn) btn.click();
+      })()`);
+      await delay(3000);
+    }
 
     // 2. Navigate to Projects
     console.log('Navigating to Projects...');
@@ -220,10 +242,47 @@ async function run() {
       return 'inspect button not found';
     })()`);
     console.log('Inspect modal click:', inspectModalResult);
-    await delay(1200);
+    await delay(1500);
 
     console.log('Capturing 03-execution-detail-and-logs.png...');
     await takeScreenshot('03-execution-detail-and-logs.png');
+
+    console.log('Capturing 04-test-cases-pass-fail-breakdown.png...');
+    await takeScreenshot('04-test-cases-pass-fail-breakdown.png');
+
+    // 8. Click Details on test_edge_cases (case-3)
+    console.log('Opening Individual TestCaseDetailModal on case-3...');
+    const caseModalResult = await evaluate(`(() => {
+      const caseBtn = document.querySelector('[data-testid="inspect-case-btn-case-3"]');
+      if (caseBtn) {
+        caseBtn.click();
+        return 'clicked case details button';
+      }
+      return 'case details button not found';
+    })()`);
+    console.log('Case modal click:', caseModalResult);
+    await delay(1500);
+
+    console.log('Capturing 05-individual-test-case-detail.png...');
+    await takeScreenshot('05-individual-test-case-detail.png');
+
+    // 9. Click "View in Safe Logs" inside TestCaseDetailModal
+    console.log('Clicking View in Safe Logs...');
+    await evaluate(`(() => {
+      const viewLogsBtn = [...document.querySelectorAll('button')].find(b => b.textContent.includes('View in Safe Logs'));
+      if (viewLogsBtn) viewLogsBtn.click();
+    })()`);
+    await delay(1500);
+
+    // Scroll down to safe log viewer in ExecutionDetailModal
+    await evaluate(`(() => {
+      const logViewer = document.querySelector('[aria-label="Sandbox Execution Logs Viewer"]');
+      if (logViewer) logViewer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    })()`);
+    await delay(1000);
+
+    console.log('Capturing 06-safe-log-viewer-with-explanations.png...');
+    await takeScreenshot('06-safe-log-viewer-with-explanations.png');
 
     console.log('All screenshots completed successfully!');
   } catch (err) {
