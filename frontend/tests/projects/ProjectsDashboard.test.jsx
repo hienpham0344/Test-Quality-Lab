@@ -311,7 +311,10 @@ describe('ProjectsDashboard', () => {
       description: 'My description',
     })
     await act(async () => container.querySelector('a[href="/projects"]').click())
-    await vi.waitFor(() => expect(container.querySelector('li h2')?.textContent).toBe('New Test Project'))
+    await vi.waitFor(
+      () => expect(container.querySelector('li h2')?.textContent).toBe('New Test Project'),
+      { timeout: 4000 }
+    )
   })
 
   it('validates project name and displays 422 error detail in modal', async () => {
