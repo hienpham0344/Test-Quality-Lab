@@ -9,3 +9,5 @@ celery==5.7.0
 # kombu 5.7 imports packaging in its Redis transport but does not declare it.
 packaging==26.3
 pydantic-settings==2.16.2
+cryptography==50.0.2
+httpx==0.28.1

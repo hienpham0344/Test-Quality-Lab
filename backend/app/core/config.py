@@ -17,6 +17,11 @@ class Settings(BaseSettings):
     smtp_username: str | None = None
     smtp_password: SecretStr | None = None
     public_app_url: str = "http://localhost:5173"
+    credential_encryption_keys: SecretStr | None = None
+    groq_base_url: str = "https://api.groq.com/openai/v1"
+    gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta"
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    llm_timeout_seconds: float = 30.0
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
