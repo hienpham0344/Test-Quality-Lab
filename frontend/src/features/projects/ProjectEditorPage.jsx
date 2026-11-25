@@ -18,7 +18,6 @@ import { formatDate } from '../../lib/format-date'
 
 const projectTabs = [
   ['settings', 'Project settings'],
-  ['history', 'History'],
   ['datasets', 'Datasets (CSV)'],
   ['executions', 'Executions (UC-08)'],
 ]
@@ -360,18 +359,6 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
         </div>
       )}
 
-      {mode === 'edit' && activeTab === 'history' && (
-        <section aria-labelledby="revision-history-title" className="rounded-xl border border-slate-800 bg-slate-900">
-          <h2 id="revision-history-title" className="flex items-center gap-2.5 border-b border-slate-800 px-4 py-4 text-base font-semibold text-white sm:px-5">
-            <History size={17} aria-hidden="true" className="text-indigo-300" /> Revision history
-          </h2>
-          <div className="p-4 sm:p-5">
-            <ProjectHistoryList history={historyQuery.data} isLoading={historyQuery.isPending}
-              isError={historyQuery.isError} onRetry={() => { void historyQuery.refetch() }} />
-          </div>
-        </section>
-      )}
-
       {/* Tab: Executions & Sandbox Status */}
       {mode === 'edit' && activeTab === 'executions' && (
         <ExecutionsManager
@@ -524,6 +511,20 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
                     </div>
                   )}
                 </dl>
+              </section>
+
+              <section aria-labelledby="revision-history-title" className="rounded-xl border border-slate-800 bg-slate-900">
+                <h2 id="revision-history-title" className="flex items-center gap-2.5 border-b border-slate-800 px-4 py-4 text-base font-semibold text-white sm:px-5">
+                  <History size={17} aria-hidden="true" className="text-indigo-300" /> Revision history
+                </h2>
+                <div className="p-4 sm:p-5">
+                  <ProjectHistoryList
+                    history={historyQuery.data}
+                    isLoading={historyQuery.isPending}
+                    isError={historyQuery.isError}
+                    onRetry={() => { void historyQuery.refetch() }}
+                  />
+                </div>
               </section>
 
             </div>
