@@ -731,6 +731,186 @@
       ]
     },
     {
+      "name": "projects",
+      "item": [
+        {
+          "name": "UC-03 Project management and revision history",
+          "item": [
+            {
+              "name": "POST /projects",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/projects",
+                "description": "FR-PRJ-001. Creates an owner-scoped project at revision 1 and stores {{projectId}}.\n\nContract: docs/api/contracts/projects.md",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Postman Campaign\",\n  \"description\": \"Initial project description\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 201', () => pm.response.to.have.status(201));",
+                      "const body = pm.response.json();",
+                      "pm.environment.set('projectId', body.id);",
+                      "pm.test('initial revision is 1', () => pm.expect(body.current_revision).to.eql(1));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "PATCH /projects/:projectId",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/projects/{{projectId}}",
+                "description": "FR-PRJ-002. Updates project metadata and appends an immutable history revision.\n\nContract: docs/api/contracts/projects.md",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Postman Campaign v2\",\n  \"description\": \"Updated description for history check\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 200', () => pm.response.to.have.status(200));",
+                      "pm.test('revision incremented', () => pm.expect(pm.response.json().current_revision).to.eql(2));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "GET /projects/:projectId/history",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/projects/{{projectId}}/history?from=2020-01-01&to=2099-12-31&limit=100&offset=0",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "projects",
+                    "{{projectId}}",
+                    "history"
+                  ],
+                  "query": [
+                    {
+                      "key": "from",
+                      "value": "2020-01-01",
+                      "description": "Optional inclusive lower bound (YYYY-MM-DD or ISO 8601 datetime)"
+                    },
+                    {
+                      "key": "to",
+                      "value": "2099-12-31",
+                      "description": "Optional inclusive upper bound (YYYY-MM-DD or ISO 8601 datetime)"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "100",
+                      "description": "Page size (1..200)"
+                    },
+                    {
+                      "key": "offset",
+                      "value": "0",
+                      "description": "Pagination offset (>= 0)"
+                    }
+                  ]
+                },
+                "description": "UC-03 alternate flow (#82). Returns immutable project history newest first with inclusive date-range filtering and pagination.\n\nContract: docs/api/contracts/projects.md"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 200', () => pm.response.to.have.status(200));",
+                      "const items = pm.response.json();",
+                      "pm.test('newest revision first', () => {",
+                      "  pm.expect(items.length).to.be.at.least(2);",
+                      "  pm.expect(items[0].revision).to.be.above(items[1].revision);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "GET /projects/:projectId/history - invalid date range (422)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/projects/{{projectId}}/history?from=2026-12-01&to=2026-11-01",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "projects",
+                    "{{projectId}}",
+                    "history"
+                  ],
+                  "query": [
+                    {
+                      "key": "from",
+                      "value": "2026-12-01"
+                    },
+                    {
+                      "key": "to",
+                      "value": "2026-11-01"
+                    }
+                  ]
+                },
+                "description": "UC-03 exception: rejects inverted or malformed date bounds with 422 INPUT_INVALID.\n\nContract: docs/api/contracts/projects.md"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 422', () => pm.response.to.have.status(422));",
+                      "pm.test('error code INPUT_INVALID', () => pm.expect(pm.response.json().detail.code).to.eql('INPUT_INVALID'));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
       "name": "ai-configs",
       "description": "Owner-scoped LLM provider catalog and encrypted credential management (FR-AIC-001, FR-AIC-002, FR-AIC-005). Inherits collection Bearer {{accessToken}} auth.\n\nContract: docs/api/contracts/ai-config.md",
       "item": [
