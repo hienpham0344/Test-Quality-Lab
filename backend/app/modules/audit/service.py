@@ -18,6 +18,8 @@ class AuditAction(StrEnum):
     AI_CREDENTIAL_SAVED = "ai_credential.saved"
     AI_CREDENTIAL_ROTATED = "ai_credential.rotated"
     AI_CREDENTIAL_DELETED = "ai_credential.deleted"
+    PROMPT_VERSION_CREATED = "prompt_version.created"
+    PROMPT_VERSION_APPROVED = "prompt_version.approved"
 
 
 class AuditService:

@@ -10,6 +10,7 @@ from app.modules.audit.models import AuditEvent  # noqa: F401 — register metad
 from app.modules.auth.models import AuthSession, AuthToken, User  # noqa: F401 — register metadata
 from app.modules.datasets.models import Dataset, DatasetVersion  # noqa: F401 — register metadata
 from app.modules.projects.models import Project, ProjectHistory  # noqa: F401 — register metadata
+from app.modules.prompts.models import PromptTemplate, PromptVersion  # noqa: F401 — register metadata
 from app.modules.sources.models import Source, SourceVersion  # noqa: F401 — register metadata
 
 config = context.config
