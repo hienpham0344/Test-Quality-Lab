@@ -5,10 +5,17 @@ from sqlalchemy import engine_from_config, pool
 
 from app.core.config import get_settings
 from app.infrastructure.database.base import Base
+from app.modules.ai_config.models import ProviderCredential  # noqa: F401 — register metadata
 from app.modules.audit.models import AuditEvent  # noqa: F401 — register metadata
 from app.modules.auth.models import AuthSession, AuthToken, User  # noqa: F401 — register metadata
 from app.modules.datasets.models import Dataset, DatasetVersion  # noqa: F401 — register metadata
+from app.modules.experiments.models import (  # noqa: F401 — register metadata
+    Experiment,
+    ExperimentSnapshot,
+    ExperimentSnapshotRun,
+)
 from app.modules.projects.models import Project, ProjectHistory  # noqa: F401 — register metadata
+from app.modules.prompts.models import PromptTemplate, PromptVersion  # noqa: F401 — register metadata
 from app.modules.sources.models import Source, SourceVersion  # noqa: F401 — register metadata
 
 config = context.config

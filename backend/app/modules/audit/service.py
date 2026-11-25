@@ -15,6 +15,13 @@ class AuditAction(StrEnum):
     LOGIN_FAILED = "auth.login_failed"
     LOGGED_OUT = "auth.logged_out"
     PASSWORD_RESET = "auth.password_reset"
+    AI_CREDENTIAL_SAVED = "ai_credential.saved"
+    AI_CREDENTIAL_ROTATED = "ai_credential.rotated"
+    AI_CREDENTIAL_DELETED = "ai_credential.deleted"
+    PROMPT_VERSION_CREATED = "prompt_version.created"
+    PROMPT_VERSION_APPROVED = "prompt_version.approved"
+    EXPERIMENT_CREATED = "experiment.created"
+    EXPERIMENT_SNAPSHOT_FROZEN = "experiment.snapshot_frozen"
 
 
 class AuditService:
