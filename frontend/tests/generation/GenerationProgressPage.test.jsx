@@ -109,6 +109,8 @@ describe('Generation progress (#42)', () => {
     expect(get('progress').value).toBe(2)
     expect(get('progress').max).toBe(3)
     expect(get('tbody').textContent).toContain('Unconfirmed')
+    expect(get('a[aria-label="View artifacts for run run-2"]').getAttribute('href'))
+      .toBe('/projects/demo-project/generation/runs/run-2')
     expect(get('time').dateTime).toBe('2026-11-24T09:00:00Z')
     await act(async () => client.refetchQueries({ queryKey }))
     await vi.waitFor(() => expect(get('[role=alert]').textContent).toContain('last confirmed'))

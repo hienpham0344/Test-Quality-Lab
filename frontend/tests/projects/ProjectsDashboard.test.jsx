@@ -301,6 +301,8 @@ describe('ProjectsDashboard', () => {
     await vi.waitFor(() => {
       expect(container.querySelector('[role=dialog]')).toBeNull()
       expect(container.querySelector('#edit-project-name')?.value).toBe('New Test Project')
+      expect(container.querySelector('#edit-project-description')?.value).toBe('My description')
+      expect(container.querySelector('form button[type=submit]')?.disabled).toBe(true)
       expect(container.querySelector('[role=status]').textContent).toBe('Project created successfully.')
     })
 
@@ -310,11 +312,17 @@ describe('ProjectsDashboard', () => {
       name: 'New Test Project',
       description: 'My description',
     })
-    await act(async () => container.querySelector('a[href="/projects"]').click())
-    await vi.waitFor(
-      () => expect(container.querySelector('li h2')?.textContent).toBe('New Test Project'),
-      { timeout: 4000 }
-    )
+    const backToProjects = [...container.querySelectorAll('a[href="/projects"]')]
+      .find((link) => link.textContent.trim() === 'Back to projects')
+    expect(backToProjects).toBeDefined()
+    await act(async () => backToProjects.click())
+
+    await vi.waitFor(async () => {
+      await act(async () => {})
+      expect(container.querySelector('h1')?.textContent).toBe('Projects')
+      const projectLinks = [...container.querySelectorAll('li h2')]
+      expect(projectLinks[0]?.textContent).toBe('New Test Project')
+    }, { timeout: 4000 })
   })
 
   it('validates project name and displays 422 error detail in modal', async () => {

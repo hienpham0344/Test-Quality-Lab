@@ -130,9 +130,76 @@ describe('ProjectEditorPage', () => {
 
     expect(container.textContent).toContain('Revision 2')
     expect(container.textContent).toContain('Editing project metadata does not change existing experiment snapshots.')
+    const historyTab = [...container.querySelectorAll('button')].find((button) => button.textContent === 'History')
+    await act(async () => historyTab.click())
+    await vi.waitFor(() => expect(container.textContent).toContain('LLM Evaluator (Draft)'))
+    expect(historyTab.getAttribute('aria-pressed')).toBe('true')
     expect(container.textContent).toContain('Revision history')
-    expect(container.textContent).toContain('LLM Evaluator (Draft)')
-    expect([...container.querySelectorAll('button')].some((button) => button.textContent === 'History')).toBe(false)
+  })
+
+  it('sorts revisions, paginates, and filters by inclusive local dates without losing change markers', async () => {
+    const revisions = Array.from({ length: 7 }, (_, index) => ({
+      revision: index + 1,
+      name: index === 0 ? 'Original name' : 'Renamed project',
+      description: index >= 2 ? 'Updated description' : null,
+      changed_at: new Date(2026, 10, index + 1, 12).toISOString(),
+    }))
+    fetchMock.mockImplementation(async (url) => Response.json(url.endsWith('/history') ? revisions : mockProject))
+    await renderEditor('/projects/p-1?tab=history')
+    const rows = () => [...container.querySelectorAll('ol li')]
+    const button = (name) => [...container.querySelectorAll('button')].find((item) => item.textContent === name)
+    await vi.waitFor(() => expect(rows()).toHaveLength(5))
+    expect(rows()[0].textContent).toContain('Revision 7')
+    expect(rows()[4].textContent).toContain('Revision 3')
+    expect(rows()[4].querySelectorAll('dt')[1].textContent).toBe('DescriptionChanged')
+    expect(rows()[4].querySelectorAll('dt')[0].textContent).toBe('Name')
+    expect(button('Previous').disabled).toBe(true)
+
+    await act(async () => button('Next').click())
+    expect(rows()).toHaveLength(2)
+    expect(rows()[0].textContent).toContain('Revision 2')
+    expect(rows()[0].querySelectorAll('dt')[0].textContent).toBe('NameChanged')
+    expect(rows()[1].textContent).not.toContain('Changed')
+    expect(button('Next').disabled).toBe(true)
+
+    const dates = container.querySelectorAll('input[type=date]')
+    await act(async () => {
+      setInputValue(dates[0], '2026-11-03')
+      setInputValue(dates[1], '2026-11-03')
+    })
+    expect(rows()).toHaveLength(1)
+    expect(rows()[0].textContent).toContain('Revision 3')
+    expect(rows()[0].querySelectorAll('dt')[1].textContent).toBe('DescriptionChanged')
+
+    await act(async () => setInputValue(dates[1], '2026-11-02'))
+    expect(container.querySelector('#history-date-error')).not.toBeNull()
+    await act(async () => {
+      setInputValue(dates[1], '2026-11-09')
+      setInputValue(dates[0], '2026-11-08')
+    })
+    expect(rows()).toHaveLength(0)
+    expect(container.textContent).toContain('No changes in this period')
+    expect(container.querySelector('[role=alert]')).toBeNull()
+
+    await act(async () => button('Clear dates').click())
+    expect(rows()).toHaveLength(5)
+    expect(rows()[0].textContent).toContain('Revision 7')
+  })
+
+  it('retries a history load failure without reloading project metadata', async () => {
+    let attempts = 0
+    fetchMock.mockImplementation(async (url) => {
+      if (!url.endsWith('/history')) return Response.json(mockProject)
+      attempts += 1
+      return attempts === 1 ? new Response(null, { status: 503 }) : Response.json(mockHistory)
+    })
+    await renderEditor('/projects/p-1?tab=history')
+    await vi.waitFor(() => expect(container.querySelector('[role=alert]')?.textContent).toContain('Could not load revision history'))
+    const retry = [...container.querySelectorAll('button')].find((button) => button.textContent.trim() === 'Try again')
+    await act(async () => retry.click())
+    await vi.waitFor(() => expect(container.querySelectorAll('ol li')).toHaveLength(2))
+    expect(attempts).toBe(2)
+    expect(fetchMock.mock.calls.filter(([url]) => url.endsWith('/projects/p-1'))).toHaveLength(1)
   })
 
   it('keeps edits on dismissal and discards only after confirming a tab switch', async () => {
