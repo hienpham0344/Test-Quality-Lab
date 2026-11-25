@@ -1,4 +1,4 @@
-import { Activity, Braces, FlaskConical, Folder, LayoutDashboard, LogOut, Settings2 } from 'lucide-react'
+import { Activity, Braces, FlaskConical, Folder, LayoutDashboard, LogOut, Settings2, TrendingUp } from 'lucide-react'
 import { NavLink, Outlet, useMatch } from 'react-router-dom'
 import { APP_CONFIG } from '../../config'
 import WorkspaceHeader from './WorkspaceHeader'
@@ -48,6 +48,7 @@ export default function WorkspaceLayout({ session, signingOut, onSignOut }) {
                 <WorkspaceLink to={projectPath + '/ai-config'} end icon={Settings2}>AI configuration</WorkspaceLink>
                 <WorkspaceLink to={projectPath + '/experiments/new'} end icon={FlaskConical}>Set up experiment</WorkspaceLink>
                 <WorkspaceLink to={projectPath + '/generation'} end icon={Activity}>Generation</WorkspaceLink>
+                <WorkspaceLink to={projectPath + '/results'} end icon={TrendingUp}>Results & Reports</WorkspaceLink>
               </div>
             </div>
           )}
