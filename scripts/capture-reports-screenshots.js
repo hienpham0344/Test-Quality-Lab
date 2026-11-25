@@ -206,6 +206,75 @@ async function run() {
     console.log('Capturing 04-result-drilldown-inspection-modal.png...');
     await takeScreenshot('04-result-drilldown-inspection-modal.png');
 
+    // Close modal
+    console.log('Closing drilldown modal...');
+    await evaluate(`(() => {
+      const closeBtn = document.querySelector('button[aria-label="Close dialog"]') ||
+        Array.from(document.querySelectorAll('button')).find(b => b.textContent.trim() === 'Close');
+      if (closeBtn) closeBtn.click();
+    })()`);
+    await delay(1200);
+
+    // Verify modal is closed
+    const modalStillOpen = await evaluate(`Boolean(document.querySelector('button[aria-label="Close dialog"]'))`);
+    if (modalStillOpen) {
+      console.log('Modal still open, forcing close...');
+      await evaluate(`(() => {
+        const btns = Array.from(document.querySelectorAll('button'));
+        const close = btns.find(b => b.textContent.trim() === 'Close');
+        if (close) close.click();
+      })()`);
+      await delay(1000);
+    }
+
+    // Switch to Strategy Comparison tab (FR-RPT-004 / FR-RPT-005)
+    console.log('Switching to Strategy Comparison tab...');
+    await evaluate(`(() => {
+      const compTab = document.querySelector('[data-testid="tab-comparison-btn"]');
+      if (compTab) compTab.click();
+    })()`);
+    await delay(2000);
+    await waitForSelector('[data-testid="strategy-comparison-view"]');
+
+    // 5. Capture 05-strategy-comparison-charts-multibar.png
+    console.log('Capturing 05-strategy-comparison-charts-multibar.png...');
+    await evaluate(`(() => {
+      const chart = document.querySelector('[data-testid="strategy-comparison-charts"]');
+      if (chart) chart.scrollIntoView({ behavior: 'instant', block: 'center' });
+    })()`);
+    await takeScreenshot('05-strategy-comparison-charts-multibar.png');
+
+    // 6. Switch to Radar chart view and capture 06-strategy-comparison-radar-chart.png
+    console.log('Switching to Radar profile chart...');
+    await evaluate(`(() => {
+      const radarBtn = document.querySelector('[data-testid="chart-metric-btn-radar"]');
+      if (radarBtn) radarBtn.click();
+    })()`);
+    await delay(1000);
+    console.log('Capturing 06-strategy-comparison-radar-chart.png...');
+    await takeScreenshot('06-strategy-comparison-radar-chart.png');
+
+    // 7. Open Comparability Audit details and capture 07-strategy-comparability-warning-and-audit.png
+    console.log('Expanding comparability audit details...');
+    await evaluate(`(() => {
+      const auditBtn = document.querySelector('[data-testid="comparability-toggle-audit-btn"]');
+      if (auditBtn) auditBtn.click();
+      const banner = document.querySelector('[data-testid="comparability-notice-banner"]');
+      if (banner) banner.scrollIntoView({ behavior: 'instant', block: 'center' });
+    })()`);
+    await delay(1000);
+    console.log('Capturing 07-strategy-comparability-warning-and-audit.png...');
+    await takeScreenshot('07-strategy-comparability-warning-and-audit.png');
+
+    // 8. Scroll to comparison matrix table and capture 08-strategy-comparison-matrix-and-csv-export.png
+    console.log('Capturing 08-strategy-comparison-matrix-and-csv-export.png...');
+    await evaluate(`(() => {
+      const matrix = document.querySelector('[data-testid="strategy-comparison-matrix"]');
+      if (matrix) matrix.scrollIntoView({ behavior: 'instant', block: 'center' });
+    })()`);
+    await delay(1000);
+    await takeScreenshot('08-strategy-comparison-matrix-and-csv-export.png');
+
     console.log('All screenshots captured successfully!');
   } catch (err) {
     console.error('Error during screenshot capture:', err);

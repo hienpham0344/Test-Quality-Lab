@@ -1,11 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import {
+  assessComparability,
   calculateAverage,
   computeResultsSummary,
+  computeStrategyComparison,
   exportResultsToCSV,
   exportResultsToJSON,
+  exportStrategyComparisonToCSV,
   filterResults,
   formatMetricPercent,
+  normalizeStrategyKey,
   sortResults,
 } from '../../src/features/reports/report-metrics'
 
@@ -298,6 +302,298 @@ describe('report-metrics utilities (FR-RPT-001, FR-RPT-002, FR-RPT-003)', () => 
       expect(parsed[0].id).toBe('exec-1')
       expect(parsed[0].cases.passed).toBe(10)
       expect(parsed[0].cases.pass_rate).toBe(100)
+    })
+  })
+
+  describe('normalizeStrategyKey (FR-RPT-004)', () => {
+    it('normalizes various strategy string representations', () => {
+      expect(normalizeStrategyKey('L1: Zero-shot')).toBe('L1')
+      expect(normalizeStrategyKey('Zero-shot')).toBe('L1')
+      expect(normalizeStrategyKey('L2: Few-shot')).toBe('L2')
+      expect(normalizeStrategyKey('Few shot')).toBe('L2')
+      expect(normalizeStrategyKey('L3: Chain-of-thought')).toBe('L3')
+      expect(normalizeStrategyKey('CoT')).toBe('L3')
+      expect(normalizeStrategyKey('L4: Self-consistency')).toBe('L4')
+      expect(normalizeStrategyKey('L5: Hybrid')).toBe('L5')
+      expect(normalizeStrategyKey('Random Walk')).toBe('OTHER')
+      expect(normalizeStrategyKey(null)).toBe('OTHER')
+    })
+  })
+
+  describe('computeStrategyComparison (FR-RPT-004)', () => {
+    const mockRuns = [
+      {
+        id: 'run-l1',
+        strategy: 'L1: Zero-shot',
+        model: 'GPT-4o',
+        dataset_name: 'HumanEval',
+        source_sha256: 'hash-abc',
+        status: 'COMPLETED',
+        total_cases: 20,
+        completed_cases: 20,
+        passed_cases: 16,
+        failed_cases: 4,
+        metrics: { coverage: 70.0, mutation_score: 65.0, assertion_score: 80.0 },
+        duration_ms: 20000,
+      },
+      {
+        id: 'run-l2',
+        strategy: 'L2: Few-shot',
+        model: 'GPT-4o',
+        dataset_name: 'HumanEval',
+        source_sha256: 'hash-abc',
+        status: 'COMPLETED',
+        total_cases: 20,
+        completed_cases: 20,
+        passed_cases: 18,
+        failed_cases: 2,
+        metrics: { coverage: 85.0, mutation_score: 80.0, assertion_score: 90.0 },
+        duration_ms: 25000,
+      },
+      {
+        id: 'run-l3',
+        strategy: 'L3: Chain-of-thought',
+        model: 'GPT-4o',
+        dataset_name: 'HumanEval',
+        source_sha256: 'hash-abc',
+        status: 'COMPLETED',
+        total_cases: 20,
+        completed_cases: 20,
+        passed_cases: 19,
+        failed_cases: 1,
+        metrics: { coverage: 92.0, mutation_score: 0, assertion_score: 95.0 }, // Numeric zero mutation score!
+        duration_ms: 35000,
+      },
+    ]
+
+    it('aggregates runs by prompt strategy and preserves numeric zero distinct from N/A', () => {
+      const res = computeStrategyComparison(mockRuns, { baselineKey: 'L1' })
+      expect(res.strategies).toHaveLength(5)
+
+      const l1 = res.strategies.find((s) => s.key === 'L1')
+      const l2 = res.strategies.find((s) => s.key === 'L2')
+      const l3 = res.strategies.find((s) => s.key === 'L3')
+      const l4 = res.strategies.find((s) => s.key === 'L4')
+
+      expect(l1.runCount).toBe(1)
+      expect(l1.passRate).toBe(80.0)
+      expect(l1.avgCoverage).toBe(70.0)
+      expect(l1.avgMutationScore).toBe(65.0)
+
+      expect(l2.passRate).toBe(90.0)
+      expect(l2.avgCoverage).toBe(85.0)
+
+      // Strict DoD: L3 has mutation_score: 0 -> must be preserved as 0, not null/N/A
+      expect(l3.avgMutationScore).toBe(0)
+      expect(l3.mutationState).toBe(0)
+
+      // L4 has no runs -> N/A
+      expect(l4.runCount).toBe(0)
+      expect(l4.passRate).toBeNull()
+      expect(l4.avgCoverage).toBeNull()
+      expect(l4.coverageState).toBe('N/A')
+    })
+
+    it('calculates relative percentage point deltas against baseline', () => {
+      const res = computeStrategyComparison(mockRuns, { baselineKey: 'L1' })
+      const l1 = res.strategies.find((s) => s.key === 'L1')
+      const l2 = res.strategies.find((s) => s.key === 'L2')
+
+      expect(l1.isBaseline).toBe(true)
+      expect(l1.deltas.passRate).toBe(0)
+      expect(l1.deltas.coverage).toBe(0)
+
+      // L2 pass rate 90% vs L1 80% = +10.0 pp
+      expect(l2.isBaseline).toBe(false)
+      expect(l2.deltas.passRate).toBe(10.0)
+      // L2 coverage 85% vs L1 70% = +15.0 pp
+      expect(l2.deltas.coverage).toBe(15.0)
+      // L2 mutation 80% vs L1 65% = +15.0 pp
+      expect(l2.deltas.mutationScore).toBe(15.0)
+    })
+
+    it('identifies best performing strategy per metric', () => {
+      const res = computeStrategyComparison(mockRuns, { baselineKey: 'L1' })
+      expect(res.bestPerformers.passRate).toBe('L3') // 95% (19/20)
+      expect(res.bestPerformers.coverage).toBe('L3') // 92.0%
+      expect(res.bestPerformers.mutationScore).toBe('L2') // 80.0% (L3 is 0%)
+      expect(res.bestPerformers.assertionScore).toBe('L3') // 95.0%
+      expect(res.bestPerformers.duration).toBe('L1') // 20s (fastest)
+    })
+
+    it('filters runs by model when model option is specified', () => {
+      const runsWithModels = [
+        ...mockRuns,
+        {
+          id: 'run-claude',
+          strategy: 'L1: Zero-shot',
+          model: 'Claude 3.5 Sonnet',
+          total_cases: 10,
+          completed_cases: 10,
+          passed_cases: 10,
+          metrics: { coverage: 99.0 },
+        },
+      ]
+
+      const gptOnly = computeStrategyComparison(runsWithModels, { model: 'GPT-4o' })
+      const l1Gpt = gptOnly.strategies.find((s) => s.key === 'L1')
+      expect(l1Gpt.runCount).toBe(1)
+      expect(l1Gpt.avgCoverage).toBe(70.0)
+
+      const all = computeStrategyComparison(runsWithModels, { model: 'ALL' })
+      const l1All = all.strategies.find((s) => s.key === 'L1')
+      expect(l1All.runCount).toBe(2)
+      // (70 + 99) / 2 = 84.5%
+      expect(l1All.avgCoverage).toBe(84.5)
+    })
+  })
+
+  describe('assessComparability (FR-RPT-004 Acceptance Criteria)', () => {
+    it('returns INSUFFICIENT_DATA when fewer than 2 strategies have runs', () => {
+      const strategies = [
+        { key: 'L1', runCount: 1, isSelected: true, datasets: new Set(['ds1']), sourceHashes: new Set(['hash1']), models: new Set(['m1']) },
+        { key: 'L2', runCount: 0, isSelected: true, datasets: new Set(), sourceHashes: new Set(), models: new Set() },
+      ]
+      const audit = assessComparability([], strategies, 'ALL')
+      expect(audit.status).toBe('INSUFFICIENT_DATA')
+      expect(audit.isComparable).toBe(false)
+    })
+
+    it('detects dataset divergence as FAIL and marks INCOMPARABLE', () => {
+      const strategies = [
+        { key: 'L1', runCount: 1, isSelected: true, totalCases: 20, datasets: new Set(['HumanEval']), sourceHashes: new Set(['h1']), models: new Set(['GPT-4o']) },
+        { key: 'L2', runCount: 1, isSelected: true, totalCases: 20, datasets: new Set(['MBPP Sanitized']), sourceHashes: new Set(['h1']), models: new Set(['GPT-4o']) },
+      ]
+      const audit = assessComparability([], strategies, 'ALL')
+      expect(audit.status).toBe('INCOMPARABLE')
+      expect(audit.isComparable).toBe(false)
+      const dsCheck = audit.checks.find((c) => c.id === 'dataset_consistency')
+      expect(dsCheck.status).toBe('FAIL')
+      expect(dsCheck.message).toContain('HumanEval')
+      expect(dsCheck.message).toContain('MBPP')
+    })
+
+    it('detects source code SHA-256 divergence as FAIL and marks INCOMPARABLE', () => {
+      const strategies = [
+        { key: 'L1', runCount: 1, isSelected: true, totalCases: 20, datasets: new Set(['HumanEval']), sourceHashes: new Set(['hash-v1']), models: new Set(['GPT-4o']) },
+        { key: 'L2', runCount: 1, isSelected: true, totalCases: 20, datasets: new Set(['HumanEval']), sourceHashes: new Set(['hash-v2']), models: new Set(['GPT-4o']) },
+      ]
+      const audit = assessComparability([], strategies, 'ALL')
+      expect(audit.status).toBe('INCOMPARABLE')
+      const srcCheck = audit.checks.find((c) => c.id === 'source_consistency')
+      expect(srcCheck.status).toBe('FAIL')
+    })
+
+    it('detects multi-model confounding as WARNING and marks CAUTION', () => {
+      const strategies = [
+        { key: 'L1', runCount: 1, isSelected: true, totalCases: 20, datasets: new Set(['HumanEval']), sourceHashes: new Set(['h1']), models: new Set(['GPT-4o']) },
+        { key: 'L2', runCount: 1, isSelected: true, totalCases: 20, datasets: new Set(['HumanEval']), sourceHashes: new Set(['h1']), models: new Set(['Claude 3.5 Sonnet']) },
+      ]
+      const audit = assessComparability([], strategies, 'ALL')
+      expect(audit.status).toBe('CAUTION')
+      expect(audit.isComparable).toBe(true)
+      const modelCheck = audit.checks.find((c) => c.id === 'model_consistency')
+      expect(modelCheck.status).toBe('WARNING')
+      expect(modelCheck.recommendation).toContain('Filter by a specific LLM model')
+    })
+
+    it('detects sample size disparity (> 2.5x) as WARNING', () => {
+      const strategies = [
+        { key: 'L1', runCount: 1, isSelected: true, totalCases: 5, datasets: new Set(['HumanEval']), sourceHashes: new Set(['h1']), models: new Set(['GPT-4o']) },
+        { key: 'L2', runCount: 1, isSelected: true, totalCases: 50, datasets: new Set(['HumanEval']), sourceHashes: new Set(['h1']), models: new Set(['GPT-4o']) },
+      ]
+      const audit = assessComparability([], strategies, 'GPT-4o')
+      expect(audit.status).toBe('CAUTION')
+      const sampleCheck = audit.checks.find((c) => c.id === 'sample_size_balance')
+      expect(sampleCheck.status).toBe('WARNING')
+    })
+
+    it('returns COMPATIBLE when all experimental controls are satisfied', () => {
+      const strategies = [
+        { key: 'L1', runCount: 2, isSelected: true, totalCases: 20, datasets: new Set(['HumanEval']), sourceHashes: new Set(['h1']), models: new Set(['GPT-4o']) },
+        { key: 'L2', runCount: 2, isSelected: true, totalCases: 20, datasets: new Set(['HumanEval']), sourceHashes: new Set(['h1']), models: new Set(['GPT-4o']) },
+      ]
+      const audit = assessComparability([], strategies, 'GPT-4o')
+      expect(audit.status).toBe('COMPATIBLE')
+      expect(audit.isComparable).toBe(true)
+      expect(audit.checks.every((c) => c.status === 'PASS')).toBe(true)
+    })
+  })
+
+  describe('exportStrategyComparisonToCSV (FR-RPT-005)', () => {
+    it('generates formatted RFC 4180 CSV with comparability metadata and strategy metrics', () => {
+      const mockComparison = {
+        baselineKey: 'L1',
+        baselineLabel: 'L1: Zero-shot',
+        modelFilter: 'GPT-4o',
+        strategies: [
+          {
+            key: 'L1',
+            label: 'L1: Zero-shot',
+            isBaseline: true,
+            models: ['GPT-4o'],
+            datasets: ['HumanEval'],
+            runCount: 1,
+            completedRunCount: 1,
+            activeRunCount: 0,
+            failedRunCount: 0,
+            totalCases: 20,
+            completedCases: 20,
+            passedCases: 16,
+            passRate: 80.0,
+            avgCoverage: 75.0,
+            avgMutationScore: 0, // 0.0% preserved!
+            avgAssertionScore: 85.0,
+            avgDurationMs: 15000,
+            deltas: { passRate: 0, coverage: 0, mutationScore: 0, assertionScore: 0, durationMs: 0 },
+          },
+          {
+            key: 'L2',
+            label: 'L2: Few-shot',
+            isBaseline: false,
+            models: ['GPT-4o'],
+            datasets: ['HumanEval'],
+            runCount: 1,
+            completedRunCount: 1,
+            activeRunCount: 0,
+            failedRunCount: 0,
+            totalCases: 20,
+            completedCases: 20,
+            passedCases: 19,
+            passRate: 95.0,
+            avgCoverage: 90.0,
+            avgMutationScore: 85.0,
+            avgAssertionScore: 92.0,
+            avgDurationMs: 18000,
+            deltas: { passRate: 15.0, coverage: 15.0, mutationScore: 85.0, assertionScore: 7.0, durationMs: 3000 },
+          },
+        ],
+      }
+
+      const mockComparability = {
+        label: 'Fully Comparable Benchmark',
+        status: 'COMPATIBLE',
+        summary: 'All experimental controls verified.',
+        checks: [
+          { id: 'dataset_consistency', name: 'Dataset Consistency', status: 'PASS', message: 'Uniform dataset.' },
+        ],
+      }
+
+      const csv = exportStrategyComparisonToCSV(mockComparison, mockComparability)
+
+      expect(csv).toContain('# LLM Test Quality Lab — Strategy Comparison Benchmark Report')
+      expect(csv).toContain('# Baseline Strategy: L1: Zero-shot (L1)')
+      expect(csv).toContain('# Comparability Status: Fully Comparable Benchmark [COMPATIBLE]')
+      expect(csv).toContain('Strategy Key,Strategy Label,Is Baseline')
+      expect(csv).toContain('"L1"')
+      expect(csv).toContain('"L1: Zero-shot"')
+      expect(csv).toContain('"YES"')
+      expect(csv).toContain('"80.0%"')
+      expect(csv).toContain('"0.0%"') // 0.0% preserved in mutation score!
+      expect(csv).toContain('"L2"')
+      expect(csv).toContain('"+15.0 pp"')
+      expect(csv).toContain('# Comparability Audit Checks')
+      expect(csv).toContain('"dataset_consistency"')
     })
   })
 })

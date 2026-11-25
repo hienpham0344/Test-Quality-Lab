@@ -42,6 +42,7 @@ export function ResultsFiltersBar({
   onResetFilters = () => {},
   onExportCSV = () => {},
   onExportJSON = () => {},
+  onExportComparisonCSV,
   totalFiltered = 0,
   totalUnfiltered = 0,
 }) {
@@ -111,6 +112,18 @@ export function ResultsFiltersBar({
             <FileSpreadsheet size={14} className="text-emerald-400" aria-hidden="true" />
             <span>Export CSV</span>
           </button>
+          {onExportComparisonCSV && (
+            <button
+              type="button"
+              onClick={onExportComparisonCSV}
+              data-testid="export-comparison-csv-filters-btn"
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/80 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-700 hover:text-white transition cursor-pointer"
+              title="Export strategy comparison benchmark to CSV (FR-RPT-005)"
+            >
+              <FileSpreadsheet size={14} className="text-indigo-400" aria-hidden="true" />
+              <span>Strategy CSV</span>
+            </button>
+          )}
           <button
             type="button"
             onClick={onExportJSON}

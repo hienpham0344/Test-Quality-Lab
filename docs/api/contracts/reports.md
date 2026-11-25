@@ -1,6 +1,6 @@
-# Results Dashboard, History & Reports API — UC-11 / FR-RPT-001, FR-RPT-002, FR-RPT-003 (Sprint 7)
+# Results Dashboard, History & Reports API — UC-11 / FR-RPT-001, FR-RPT-002, FR-RPT-003, FR-RPT-004, FR-RPT-005 (Sprint 7)
 
-Issue #64 implements the Results Dashboard, History tracking, and multi-dimensional Filters for test campaign quality evaluation.
+Issue #64 and Issue #65 implement the Results Dashboard, History tracking, multi-dimensional Filters, Strategy Comparison Analytics & Visualizations, and CSV Export for test campaign quality evaluation.
 All endpoints require an authenticated user with ownership of the target project context.
 
 ## Overview & Metric Specifications
@@ -83,7 +83,36 @@ Base path: `/api/v1/projects/{project_id}/reports`
 
 ---
 
-## Export Capabilities (FR-RPT-003)
+## Export Capabilities (FR-RPT-003, FR-RPT-005)
 
-- **CSV Export**: Sanitized RFC 4180-compliant comma-separated spreadsheet with quoted cell escaping.
-- **JSON Export**: Structured array of run summaries with breakdown objects for external CI/CD ingestion.
+- **Execution Runs CSV Export (FR-RPT-003)**: Sanitized RFC 4180-compliant comma-separated spreadsheet with quoted cell escaping containing run records, statuses, case counts, and individual quality scores.
+- **Strategy Comparison Benchmark CSV Export (FR-RPT-005)**: Standardized tabular benchmark export detailing prompt levels (L1–L5), evaluated models, completed runs, test case counts, pass rates, average line coverage, average mutation scores, average assertion quality, baseline improvement deltas, comparability status, and experimental control audit checks.
+- **JSON Export (FR-RPT-003)**: Structured array of run summaries with breakdown objects for external CI/CD ingestion.
+
+---
+
+## Strategy Comparison & Analytics (FR-RPT-004)
+
+### Prompt Engineering Strategy Taxonomy
+- **L1: Zero-shot**: Baseline prompt containing function signature and docstring only.
+- **L2: Few-shot**: Prompt enriched with selected canonical test case demonstrations.
+- **L3: Chain-of-thought (CoT)**: Step-by-step reasoning prompt eliciting boundary conditions and edge cases prior to code synthesis.
+- **L4: Self-consistency**: Multi-sample generation with consensus clustering across independent generations.
+- **L5: Hybrid**: Multi-agent ensemble combining Few-shot, CoT, and self-consistency techniques.
+
+### Visual Comparison Charts & State Semantics
+- **Grouped Multi-Metric Bar Chart**: Side-by-side visualization comparing Pass Rate, Line Coverage, Mutation Score, and Assertion Quality across L1–L5.
+- **Multi-Axis Radar Spider Profile**: Geometric profile plotting multi-dimensional quality signatures across 5 normalized axes.
+- **Strict Metric State Conventions (DoD)**:
+  - **Numeric zero (`0.0%`)**: Rendered distinctly on the baseline axis with an explicit numeric label, never omitted, replaced by null, or conflated with missing data.
+  - **N/A**: Rendered with diagonal hatched/striped bars and muted indicators denoting unmeasured/unevaluated dimensions.
+  - **TIMEOUT**: Rendered with amber striped patterns denoting sandbox 60s hard limit exhaustion.
+  - **FAILED**: Rendered with rose striped patterns denoting syntax or runner termination exceptions.
+- **Scientific Comparability Engine**:
+  - Automatically assesses 5 experimental controls:
+    1. *Benchmark Dataset Consistency*: Verifies identical dataset and snapshot ID.
+    2. *Source Code Provenance*: Verifies matching SHA-256 commit hash.
+    3. *LLM Model Confounding Factor*: Flags multi-model mixing and recommends model filtering.
+    4. *Sample Size Disparity*: Flags case volume imbalance (> 2.5x ratio).
+    5. *Execution Health*: Flags incomplete, running, failed, or timed out runs.
+  - Generates overall status banner: `COMPATIBLE` (green), `CAUTION` (amber), or `INCOMPARABLE` (rose) with collapsible audit drawer.
