@@ -23,6 +23,9 @@ const store = {
       source_id: 'src-sample-1',
       source_name: 'solution_v1.py',
       status: 'RUNNING',
+      model: 'GPT-4o',
+      strategy: 'L1: Zero-shot',
+      duration_ms: 30000,
       can_cancel: true,
       created_at: new Date(Date.now() - 35000).toISOString(),
       started_at: new Date(Date.now() - 30000).toISOString(),
@@ -181,6 +184,9 @@ const store = {
       source_id: 'src-sample-1',
       source_name: 'solution_v1.py',
       status: 'QUEUED',
+      model: 'Claude 3.5 Sonnet',
+      strategy: 'L2: Few-shot',
+      duration_ms: null,
       can_cancel: true,
       created_at: new Date(Date.now() - 10000).toISOString(),
       started_at: null,
@@ -218,6 +224,9 @@ const store = {
       source_id: 'src-sample-1',
       source_name: 'solution_v1.py',
       status: 'COMPLETED',
+      model: 'GPT-4o',
+      strategy: 'L3: Chain-of-thought',
+      duration_ms: 50000,
       can_cancel: false,
       created_at: new Date(Date.now() - 3600000).toISOString(),
       started_at: new Date(Date.now() - 3590000).toISOString(),
@@ -320,6 +329,9 @@ const store = {
       source_id: 'src-sample-1',
       source_name: 'solution_v1.py',
       status: 'CANCELLED',
+      model: 'Gemini 1.5 Pro',
+      strategy: 'L1: Zero-shot',
+      duration_ms: 40000,
       can_cancel: false,
       created_at: new Date(Date.now() - 7200000).toISOString(),
       started_at: new Date(Date.now() - 7190000).toISOString(),
@@ -362,6 +374,9 @@ const store = {
       source_id: 'src-sample-1',
       source_name: 'solution_v1.py',
       status: 'TIMEOUT',
+      model: 'Llama 3.3 70B',
+      strategy: 'L4: Self-consistency',
+      duration_ms: 60000,
       can_cancel: false,
       created_at: new Date(Date.now() - 10800000).toISOString(),
       started_at: new Date(Date.now() - 10790000).toISOString(),
@@ -409,6 +424,194 @@ const store = {
       cases: [
         { id: 'case-201', name: 'test_quick', status: 'PASSED', duration_ms: 8, coverage: 100, mutation_score: 90 },
         { id: 'case-202', name: 'test_infinite_loop', status: 'TIMEOUT', duration_ms: 60000, coverage: 'TIMEOUT', mutation_score: 'TIMEOUT', error: 'Exceeded sandbox timeout (60s)' },
+      ],
+    },
+    {
+      id: 'exec-run-106',
+      project_id: 'demo-project',
+      suite_name: 'Edge Condition Tests - L5 Hybrid',
+      dataset_id: 'ds-sample-1',
+      dataset_name: 'HumanEval Python Benchmarks',
+      source_id: 'src-sample-1',
+      source_name: 'solution_v1.py',
+      status: 'COMPLETED',
+      model: 'Claude 3.5 Sonnet',
+      strategy: 'L5: Hybrid',
+      duration_ms: 18500,
+      can_cancel: false,
+      created_at: new Date(Date.now() - 14400000).toISOString(),
+      started_at: new Date(Date.now() - 14390000).toISOString(),
+      completed_at: new Date(Date.now() - 14371500).toISOString(),
+      cancelled_at: null,
+      cancel_reason: null,
+      source_sha256: 'c3f9104e80bd2e650d4b68f9ef94cb9d83df75796bfa8f16104bc1b519c5c999',
+      total_cases: 8,
+      completed_cases: 8,
+      passed_cases: 8,
+      failed_cases: 0,
+      timeout_cases: 0,
+      metrics: {
+        coverage: 95.0,
+        mutation_score: 90.0,
+        validity: 'PASSED',
+      },
+      coverage_details: {
+        covered_lines: 19,
+        total_lines: 20,
+        covered_ranges: ['L1-L19'],
+        missed_ranges: ['L20'],
+      },
+      mutation_details: {
+        mutants: [
+          { id: 'MUT-01', operator: 'AOR', line: 12, original: 'a + b', mutated: 'a - b', status: 'KILLED', killed_by: 'test_edge' },
+        ],
+        summary: { killed: 1, survived: 0, timeout: 0, error: 0 },
+      },
+      sandbox_policy: {
+        untrusted_execution_enabled: false,
+        isolation_status: 'policy_simulation',
+        network: 'disabled',
+        root_fs: 'read_only',
+        timeout_seconds: 60,
+      },
+      logs: [
+        '[13:00:00] Sandbox initialized.',
+        '[13:00:18] Execution completed successfully with 100% test pass rate.',
+      ],
+      cases: [
+        { id: 'case-301', name: 'test_edge_1', status: 'PASSED', duration_ms: 10, coverage: 95, mutation_score: 90 },
+      ],
+      assertion_details: {
+        score: 92.0,
+        summary: { total: 4, verified: 4, failed: 0, ineffective: 0, pass_rate: 100, density: 1.0, assertion_less_cases: 0 },
+        assertions: [
+          { id: 'AST-301', test_case: 'test_edge_1', statement: 'assert edge_func() == True', type: 'EQUALITY', line: 10, status: 'VERIFIED', strength: 'HIGH', explanation: 'Validates edge behavior.' }
+        ]
+      }
+    },
+    {
+      id: 'exec-run-107',
+      project_id: 'demo-project',
+      suite_name: 'Few-shot Quality Suite - L2',
+      dataset_id: 'ds-sample-1',
+      dataset_name: 'HumanEval Python Benchmarks',
+      source_id: 'src-sample-1',
+      source_name: 'solution_v1.py',
+      status: 'COMPLETED',
+      model: 'GPT-4o',
+      strategy: 'L2: Few-shot',
+      duration_ms: 24000,
+      can_cancel: false,
+      created_at: new Date(Date.now() - 18000000).toISOString(),
+      started_at: new Date(Date.now() - 17990000).toISOString(),
+      completed_at: new Date(Date.now() - 17966000).toISOString(),
+      cancelled_at: null,
+      cancel_reason: null,
+      source_sha256: 'a9f24c3e80bd2e650d4b68f9ef94cb9d83df75796bfa8f16104bc1b519c5c2a1',
+      dataset_snapshot_id: 'snap-he-python-v1',
+      total_cases: 15,
+      completed_cases: 15,
+      passed_cases: 13,
+      failed_cases: 2,
+      timeout_cases: 0,
+      metrics: {
+        coverage: 82.5,
+        mutation_score: 80.0,
+        assertion_score: 86.5,
+        validity: 'PASSED',
+      },
+      coverage_details: {
+        covered_lines: 16,
+        total_lines: 20,
+        covered_ranges: ['L1-L16'],
+        missed_ranges: ['L17-L20'],
+      },
+      mutation_details: {
+        mutants: [
+          { id: 'MUT-201', operator: 'AOR', line: 8, original: 'x * y', mutated: 'x + y', status: 'KILLED', killed_by: 'test_case_1' },
+          { id: 'MUT-202', operator: 'ROR', line: 11, original: 'a < b', mutated: 'a <= b', status: 'SURVIVED', killed_by: null },
+        ],
+        summary: { killed: 4, survived: 1, timeout: 0, error: 0 },
+      },
+      assertion_details: {
+        score: 86.5,
+        summary: { total: 8, verified: 7, failed: 1, ineffective: 0, pass_rate: 87.5, density: 1.1, assertion_less_cases: 0 },
+        assertions: [
+          { id: 'AST-201', test_case: 'test_case_1', statement: 'assert result == 42', type: 'EQUALITY', line: 8, status: 'VERIFIED', strength: 'HIGH', explanation: 'Validates arithmetic equality.' },
+        ],
+      },
+      sandbox_policy: {
+        untrusted_execution_enabled: false,
+        isolation_status: 'policy_simulation',
+        network: 'disabled',
+        root_fs: 'read_only',
+        timeout_seconds: 60,
+      },
+      logs: ['[12:00:00] Sandbox initialized.', '[12:00:24] Execution completed successfully.'],
+      cases: [
+        { id: 'case-401', name: 'test_case_1', status: 'PASSED', duration_ms: 14, coverage: 85, mutation_score: 80 },
+      ],
+    },
+    {
+      id: 'exec-run-108',
+      project_id: 'demo-project',
+      suite_name: 'Self-consistency Rigor Suite - L4',
+      dataset_id: 'ds-sample-1',
+      dataset_name: 'HumanEval Python Benchmarks',
+      source_id: 'src-sample-1',
+      source_name: 'solution_v1.py',
+      status: 'COMPLETED',
+      model: 'GPT-4o',
+      strategy: 'L4: Self-consistency',
+      duration_ms: 38000,
+      can_cancel: false,
+      created_at: new Date(Date.now() - 21600000).toISOString(),
+      started_at: new Date(Date.now() - 21590000).toISOString(),
+      completed_at: new Date(Date.now() - 21552000).toISOString(),
+      cancelled_at: null,
+      cancel_reason: null,
+      source_sha256: 'a9f24c3e80bd2e650d4b68f9ef94cb9d83df75796bfa8f16104bc1b519c5c2a1',
+      dataset_snapshot_id: 'snap-he-python-v1',
+      total_cases: 16,
+      completed_cases: 16,
+      passed_cases: 15,
+      failed_cases: 1,
+      timeout_cases: 0,
+      metrics: {
+        coverage: 92.0,
+        mutation_score: 88.0,
+        assertion_score: 93.0,
+        validity: 'PASSED',
+      },
+      coverage_details: {
+        covered_lines: 18,
+        total_lines: 20,
+        covered_ranges: ['L1-L18'],
+        missed_ranges: ['L19-L20'],
+      },
+      mutation_details: {
+        mutants: [
+          { id: 'MUT-301', operator: 'ROR', line: 12, original: 'a == b', mutated: 'a != b', status: 'KILLED', killed_by: 'test_sc_1' },
+        ],
+        summary: { killed: 7, survived: 1, timeout: 0, error: 0 },
+      },
+      assertion_details: {
+        score: 93.0,
+        summary: { total: 10, verified: 9, failed: 1, ineffective: 0, pass_rate: 90.0, density: 1.3, assertion_less_cases: 0 },
+        assertions: [
+          { id: 'AST-301', test_case: 'test_sc_1', statement: 'assert solve(10) == 55', type: 'EQUALITY', line: 14, status: 'VERIFIED', strength: 'HIGH', explanation: 'Validates algorithmic accuracy.' },
+        ],
+      },
+      sandbox_policy: {
+        untrusted_execution_enabled: false,
+        isolation_status: 'policy_simulation',
+        network: 'disabled',
+        root_fs: 'read_only',
+        timeout_seconds: 60,
+      },
+      logs: ['[11:00:00] Sandbox initialized.', '[11:00:38] Execution completed successfully.'],
+      cases: [
+        { id: 'case-501', name: 'test_sc_1', status: 'PASSED', duration_ms: 22, coverage: 92, mutation_score: 88 },
       ],
     },
   ],
@@ -669,6 +872,19 @@ const server = http.createServer(async (req, res) => {
       }
     })
     sendJson(res, 200, ds)
+    return
+  }
+
+  // Reports: Results dashboard and history (FR-RPT-001/002/003, UC-11)
+  const reportResultsMatch = path.match(/^\/api\/v1\/projects\/([^/]+)\/reports\/results$/)
+  if (reportResultsMatch && req.method === 'GET') {
+    const projId = reportResultsMatch[1]
+    const list = store.executions.filter((e) => e.project_id === projId)
+    sendJson(res, 200, {
+      project_id: projId,
+      total_runs: list.length,
+      runs: list,
+    })
     return
   }
 

@@ -271,3 +271,21 @@ export function cancelExecution(accessToken, projectId, executionId, { reason } 
     signal,
   })
 }
+
+// --- UC-11 Results dashboard, history and filters (S7, FR-RPT-001/002/003) ---
+export async function getProjectResults(accessToken, projectId, signal) {
+  try {
+    const data = await request(`/projects/${projectId}/reports/results`, { accessToken, signal })
+    if (data && Array.isArray(data.runs)) return data
+    if (Array.isArray(data)) return { runs: data }
+  } catch (err) {
+    if (err.status === 404) {
+      const fallbackList = await listExecutions(accessToken, projectId, signal)
+      return { runs: fallbackList }
+    }
+    throw err
+  }
+  const fallbackList = await listExecutions(accessToken, projectId, signal)
+  return { runs: fallbackList }
+}
+
