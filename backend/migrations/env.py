@@ -9,6 +9,10 @@ from app.modules.ai_config.models import ProviderCredential  # noqa: F401 — re
 from app.modules.audit.models import AuditEvent  # noqa: F401 — register metadata
 from app.modules.auth.models import AuthSession, AuthToken, User  # noqa: F401 — register metadata
 from app.modules.datasets.models import Dataset, DatasetVersion  # noqa: F401 — register metadata
+from app.modules.evaluation.models import (  # noqa: F401 — register metadata
+    AssertionReview,
+    MetricRecord,
+)
 from app.modules.experiments.models import (  # noqa: F401 — register metadata
     Experiment,
     ExperimentSnapshot,
