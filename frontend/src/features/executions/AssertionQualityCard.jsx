@@ -1,15 +1,11 @@
 import { useState, useMemo } from 'react'
 import {
-  AlertCircle,
   AlertTriangle,
-  CheckCircle2,
-  ChevronRight,
   ExternalLink,
   FileCheck,
   HelpCircle,
   Info,
   Search,
-  ShieldCheck,
   Timer,
   X,
   XCircle,
@@ -19,7 +15,6 @@ import {
   ASSERTION_TYPES,
   calculateAssertionDensity,
   calculateAssertionPassRate,
-  calculateAssertionQualityScore,
   formatMetricState,
 } from './execution-status'
 
@@ -72,7 +67,6 @@ export function AssertionQualityCard({
     assertionLessCases.length > 0 ? assertionLessCases.length : (summary.assertion_less_cases ?? 0)
 
   const isNumeric = metric.state === 'numeric' || metric.state === 'zero'
-  const numericScore = typeof metric.raw === 'number' ? metric.raw : 0
 
   // Filter assertions for the supporting evidence table
   const filteredAssertions = useMemo(() => {

@@ -1,13 +1,10 @@
 import { useState } from 'react'
 import {
   AlertOctagon,
-  AlertTriangle,
   Check,
   CheckCircle2,
   Copy,
-  Dna,
   ExternalLink,
-  FileCheck,
   FileCode,
   Info,
   ShieldCheck,
@@ -20,10 +17,7 @@ import { ExecutionMetricBadge } from './ExecutionMetricBadge'
 import {
   formatDuration,
   formatMetricState,
-  MUTANT_STATUS_DEFINITIONS,
-  MUTATION_OPERATORS,
   ASSERTION_STATUS_DEFINITIONS,
-  ASSERTION_TYPES,
 } from './execution-status'
 import { explainTestCase, sanitizeLog } from './log-sanitizer'
 
