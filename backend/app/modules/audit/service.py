@@ -20,8 +20,11 @@ class AuditAction(StrEnum):
     AI_CREDENTIAL_DELETED = "ai_credential.deleted"
     PROMPT_VERSION_CREATED = "prompt_version.created"
     PROMPT_VERSION_APPROVED = "prompt_version.approved"
+    PROMPT_BUNDLE_FINALIZED = "prompt_bundle.finalized"
     EXPERIMENT_CREATED = "experiment.created"
     EXPERIMENT_SNAPSHOT_FROZEN = "experiment.snapshot_frozen"
+    GENERATION_STARTED = "generation.started"
+    GENERATION_CANCELLED = "generation.cancelled"
 
 
 class AuditService:

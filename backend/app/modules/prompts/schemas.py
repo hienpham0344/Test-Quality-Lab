@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -60,3 +61,36 @@ class PromptRenderOutput(BaseModel):
     rendered_system: str | None
     rendered_user: str
     rendered_sha256: str
+
+
+class PromptReadinessOutput(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    project_id: uuid.UUID
+    all_approved: bool
+    approved_strategies: list[StrategyCode]
+    missing_strategies: list[StrategyCode]
+
+
+class PromptBundleStrategyInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    strategy: StrategyCode
+    system_template: str | None = Field(default=None, max_length=16000)
+    user_template: str = Field(min_length=1, max_length=32000)
+    review_notes: str = Field(min_length=1, max_length=2000)
+    placeholder_verified: Literal[True]
+
+
+class PromptBundleFinalizeInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    strategies: list[PromptBundleStrategyInput]
+
+
+class PromptBundleFinalizeOutput(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    project_id: uuid.UUID
+    bundle_sha256: str
+    versions: list[PromptVersionOutput]

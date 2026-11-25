@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import uuid
 
 from sqlalchemy.orm import Session
@@ -24,6 +26,9 @@ from app.modules.prompts.renderer import (
 )
 from app.modules.prompts.repository import PromptRepository
 from app.modules.prompts.schemas import (
+    PromptBundleFinalizeInput,
+    PromptBundleFinalizeOutput,
+    PromptReadinessOutput,
     PromptRenderOutput,
     PromptTemplateSummary,
     PromptVersionInput,
@@ -115,6 +120,135 @@ class PromptRegistryService:
     ) -> list[PromptTemplateSummary]:
         self._require_project(owner_id, project_id)
         return [self._to_summary(row) for row in self.ensure_default_strategies(project_id)]
+
+    def get_readiness(
+        self, owner_id: uuid.UUID, project_id: uuid.UUID
+    ) -> PromptReadinessOutput:
+        self._require_project(owner_id, project_id)
+        templates = self.ensure_default_strategies(project_id)
+        by_code = {StrategyCode(row.strategy): row for row in templates}
+        approved: list[StrategyCode] = []
+        missing: list[StrategyCode] = []
+        for code in StrategyCode:
+            tpl = by_code.get(code)
+            if tpl is not None and tpl.approved_version is not None:
+                approved.append(code)
+            else:
+                missing.append(code)
+        return PromptReadinessOutput(
+            project_id=project_id,
+            all_approved=(len(missing) == 0 and len(approved) == len(StrategyCode)),
+            approved_strategies=approved,
+            missing_strategies=missing,
+        )
+
+    def finalize_bundle(
+        self,
+        owner_id: uuid.UUID,
+        project_id: uuid.UUID,
+        payload: PromptBundleFinalizeInput,
+    ) -> PromptBundleFinalizeOutput:
+        self._require_project(owner_id, project_id)
+        self.ensure_default_strategies(project_id)
+
+        seen: dict[StrategyCode, int] = {}
+        for item in payload.strategies:
+            seen[item.strategy] = seen.get(item.strategy, 0) + 1
+        duplicates = [code.value for code in StrategyCode if seen.get(code, 0) > 1]
+        if duplicates:
+            raise AppError(
+                ErrorCode.INPUT_INVALID,
+                "Duplicate strategies in prompt bundle",
+                {"strategies": f"Duplicate entries for: {', '.join(duplicates)}"},
+            )
+        missing_codes = [code.value for code in StrategyCode if code not in seen]
+        if missing_codes or len(payload.strategies) != len(StrategyCode):
+            raise AppError(
+                ErrorCode.INPUT_INVALID,
+                "Prompt bundle must contain all strategies L1 through L5",
+                {"strategies": f"Missing strategies: {', '.join(missing_codes)}"},
+            )
+
+        by_strategy = {item.strategy: item for item in payload.strategies}
+        prepared: list[tuple[StrategyCode, str | None, str, list[str], str, str]] = []
+        for code in StrategyCode:
+            entry = by_strategy[code]
+            clean_notes = entry.review_notes.strip()
+            if not clean_notes:
+                raise AppError(
+                    ErrorCode.INPUT_INVALID,
+                    f"Review notes cannot be blank for {code.value}",
+                    {"review_notes": f"Non-empty review_notes required for {code.value}"},
+                )
+            norm_user = normalize_newlines(entry.user_template)
+            norm_sys = (
+                normalize_newlines(entry.system_template)
+                if entry.system_template is not None and entry.system_template.strip()
+                else None
+            )
+            required_vars = extract_template_variables(norm_sys, norm_user)
+            digest = compute_template_sha256(code.value, norm_sys, norm_user)
+            prepared.append((code, norm_sys, norm_user, required_vars, digest, clean_notes))
+
+        now = utcnow()
+        created_versions: list[PromptVersion] = []
+        for code, norm_sys, norm_user, required_vars, digest, clean_notes in prepared:
+            template = self.repo.get_template_by_strategy(project_id, code.value)
+            if template is None:
+                raise AppError(ErrorCode.NOT_FOUND, f"Prompt template not found for {code.value}")
+
+            current_approved = self.repo.get_approved_version(template.id)
+            if current_approved is not None:
+                current_approved.status = PromptStatus.DEPRECATED.value
+
+            next_version = template.current_version + 1
+            template.current_version = next_version
+            template.approved_version = next_version
+            template.updated_at = now
+
+            version_row = PromptVersion(
+                id=uuid.uuid4(),
+                template_id=template.id,
+                strategy=code.value,
+                version=next_version,
+                status=PromptStatus.APPROVED.value,
+                system_template=norm_sys,
+                user_template=norm_user,
+                required_variables=required_vars,
+                sha256=digest,
+                notes=clean_notes,
+                created_by=owner_id,
+                approved_at=now,
+                created_at=now,
+            )
+            self.repo.add_version(version_row)
+            created_versions.append(version_row)
+
+        bundle_canonical = json.dumps(
+            [
+                {
+                    "strategy": row.strategy,
+                    "version": row.version,
+                    "sha256": row.sha256,
+                }
+                for row in created_versions
+            ],
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+        )
+        bundle_sha = hashlib.sha256(bundle_canonical.encode("utf-8")).hexdigest()
+
+        self.audit.record(AuditAction.PROMPT_BUNDLE_FINALIZED, owner_id)
+        self.db.commit()
+        for row in created_versions:
+            self.db.refresh(row)
+
+        return PromptBundleFinalizeOutput(
+            project_id=project_id,
+            bundle_sha256=bundle_sha,
+            versions=[self._to_version_output(row) for row in created_versions],
+        )
 
     def list_versions(
         self, owner_id: uuid.UUID, project_id: uuid.UUID, strategy_raw: str | StrategyCode
