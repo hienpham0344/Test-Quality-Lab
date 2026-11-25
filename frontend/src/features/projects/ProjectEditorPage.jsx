@@ -19,6 +19,7 @@ import { formatDate } from '../../lib/format-date'
 
 const projectTabs = [
   ['settings', 'Project settings'],
+  ['history', 'History'],
   ['datasets', 'Datasets (CSV)'],
   ['executions', 'Executions (UC-08)'],
   ['results', 'Results & Reports (FR-RPT)'],
@@ -92,7 +93,7 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
   const historyQuery = useQuery({
     queryKey: ['private', 'project-history', projectId],
     queryFn: ({ signal }) => getProjectHistory(session.accessToken, projectId, signal),
-    enabled: mode === 'edit' && Boolean(projectId),
+    enabled: mode === 'edit' && activeTab === 'history' && Boolean(projectId),
     retry: false,
     gcTime: 0,
   })
@@ -379,6 +380,22 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
         />
       )}
 
+      {mode === 'edit' && activeTab === 'history' && (
+        <section aria-labelledby="revision-history-title" className="rounded-xl border border-slate-800 bg-slate-900">
+          <h2 id="revision-history-title" className="flex items-center gap-2.5 border-b border-slate-800 px-4 py-4 text-base font-semibold text-white sm:px-5">
+            <History size={17} aria-hidden="true" className="text-indigo-300" /> Revision history
+          </h2>
+          <div className="p-4 sm:p-5">
+            <ProjectHistoryList key={projectId}
+              history={historyQuery.data}
+              isLoading={historyQuery.isPending}
+              isError={historyQuery.isError}
+              onRetry={() => { void historyQuery.refetch() }}
+            />
+          </div>
+        </section>
+      )}
+
       {/* Tab: Results & Reports (FR-RPT) */}
       {mode === 'edit' && activeTab === 'results' && (
         <ResultsDashboardPage
@@ -523,19 +540,6 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
                 </dl>
               </section>
 
-              <section aria-labelledby="revision-history-title" className="rounded-xl border border-slate-800 bg-slate-900">
-                <h2 id="revision-history-title" className="flex items-center gap-2.5 border-b border-slate-800 px-4 py-4 text-base font-semibold text-white sm:px-5">
-                  <History size={17} aria-hidden="true" className="text-indigo-300" /> Revision history
-                </h2>
-                <div className="p-4 sm:p-5">
-                  <ProjectHistoryList
-                    history={historyQuery.data}
-                    isLoading={historyQuery.isPending}
-                    isError={historyQuery.isError}
-                    onRetry={() => { void historyQuery.refetch() }}
-                  />
-                </div>
-              </section>
 
             </div>
           )}

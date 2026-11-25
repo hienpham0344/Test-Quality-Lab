@@ -29,7 +29,7 @@ Project management views and editor screens for Sprint 1 (FR-PRJ-001 / FR-PRJ-00
 
 - `ProjectCard.jsx`: Project card and table views with shared links, description action, and overflow menu.
 - `ProjectCreateModal.jsx`: Native modal dialog with a live trimmed-name count, keyboard focus containment, Escape dismissal, and focus restoration.
-- `ProjectHistoryList.jsx`: Timeline of revisions showing revision numbers, snapshot name/description, and formatted timestamps.
+- `ProjectHistoryList.jsx`: Read-only History tab in Edit project. Revisions appear newest first, five per page. Inclusive date filters use the browser time zone. Changed markers compare each field with the preceding revision before filtering or pagination.
 
 ## API Integration (`src/services/api.js`)
 
