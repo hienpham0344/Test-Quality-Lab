@@ -4,14 +4,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.errors import register_error_handlers
 from app.api.v1.router import router as api_router
 from app.core.config import get_settings
+from app.core.logging import install_log_redaction
 
+install_log_redaction()
 settings = get_settings()
 app = FastAPI(title="Test Quality Lab API", version="0.1.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[origin.strip() for origin in settings.cors_origins.split(",") if origin.strip()],
     allow_credentials=False,
-    allow_methods=["GET", "POST", "PATCH"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
     allow_headers=["Content-Type", "Authorization"],
 )
 register_error_handlers(app)

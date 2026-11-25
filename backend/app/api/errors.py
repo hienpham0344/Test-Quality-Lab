@@ -8,6 +8,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app.core.exceptions import AppError, ErrorCode
+from app.core.logging import redact_secrets
 
 HTTP_STATUS: dict[ErrorCode, int] = {
     ErrorCode.AUTH_INVALID_INPUT: 400,
@@ -22,7 +23,10 @@ HTTP_STATUS: dict[ErrorCode, int] = {
     ErrorCode.CSV_SCHEMA: 422,
     ErrorCode.CSV_ROW_INVALID: 422,
     ErrorCode.AUTH_RATE_LIMITED: 429,
+    ErrorCode.PROVIDER_UPSTREAM_ERROR: 502,
     ErrorCode.SERVICE_UNAVAILABLE: 503,
+    ErrorCode.CREDENTIAL_MISSING: 409,
+    ErrorCode.PROVIDER_UNSUPPORTED: 422,
 }
 
 # Request-shape errors use the module's own SRS code; first matching prefix wins.
@@ -34,7 +38,11 @@ VALIDATION_CODE_BY_PREFIX: tuple[tuple[str, ErrorCode], ...] = (
 def error_response(error: AppError) -> JSONResponse:
     status = HTTP_STATUS[error.code]
     headers = {"WWW-Authenticate": "Bearer"} if status == 401 else None
-    body = {"code": error.code, "message": error.message, "fields": error.fields}
+    body = {
+        "code": error.code,
+        "message": redact_secrets(error.message),
+        "fields": {k: redact_secrets(v) for k, v in error.fields.items()},
+    }
     return JSONResponse(status_code=status, content={"detail": body}, headers=headers)
 
 
