@@ -1,6 +1,6 @@
 import { ArrowDownWideNarrow, ChevronLeft, ChevronRight, FlaskConical, FolderKanban, History, LayoutGrid, Plus, RotateCcw, Search, Table2, X } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { AuthApiError, createProject, listProjects } from '../../services/api'
 import { ProjectCard, ProjectTable } from '../../components/projects/ProjectCard'
@@ -8,9 +8,11 @@ import { ProjectCreateModal } from '../../components/projects/ProjectCreateModal
 
 export function ProjectsPage({ session, onExpire }) {
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const [createModalOpen, setCreateModalOpen] = useState(false)
   const [duplicate, setDuplicate] = useState(null)
   const [isCreating, setIsCreating] = useState(false)
+  const createInProgress = useRef(false)
   const [createError, setCreateError] = useState(null)
   const [searchParams, setSearchParams] = useSearchParams()
   const query = searchParams.get('q') || ''
@@ -78,19 +80,36 @@ export function ProjectsPage({ session, onExpire }) {
   }
 
   async function handleCreateProject({ name, description }) {
+    if (createInProgress.current) return
+    createInProgress.current = true
     setIsCreating(true)
     setCreateError(null)
     try {
-      await createProject(session.accessToken, { name, description })
-      await queryClient.invalidateQueries({ queryKey: ['private', 'projects'] })
+      const created = await createProject(session.accessToken, { name, description })
+      const listKey = ['private', 'projects']
+      await queryClient.cancelQueries({ queryKey: listKey })
+      queryClient.setQueryData(listKey, (current = []) => [created, ...current.filter(({ id }) => id !== created.id)])
+      queryClient.setQueryData(['private', 'project', created.id], created)
       setCreateModalOpen(false)
+      if (duplicate) {
+        void queryClient.invalidateQueries({ queryKey: listKey })
+      } else {
+        navigate(`/projects/${encodeURIComponent(created.id)}`, { state: { createdProjectId: created.id } })
+      }
     } catch (error) {
       if (error instanceof AuthApiError && error.status === 401) {
         onExpire(session)
         return
       }
-      setCreateError(error.detail || error.message || 'Failed to create project. Please try again.')
+      if (!(error instanceof AuthApiError) || error.status === 503) {
+        setCreateError({ message: 'Could not reach the project service. Your entries are still here. Please try again.' })
+      } else {
+        const fields = error.fields ?? {}
+        const hasFieldError = Boolean(fields.name || fields.description)
+        setCreateError({ fields, message: hasFieldError ? null : error.message })
+      }
     } finally {
+      createInProgress.current = false
       setIsCreating(false)
     }
   }
@@ -281,14 +300,13 @@ export function ProjectsPage({ session, onExpire }) {
         )
       )}
 
-      <ProjectCreateModal
-        isOpen={createModalOpen}
+      {createModalOpen && <ProjectCreateModal
         duplicate={duplicate}
         onClose={() => setCreateModalOpen(false)}
         onCreate={handleCreateProject}
         isCreating={isCreating}
         error={createError}
-      />
+      />}
     </section>
   )
 }

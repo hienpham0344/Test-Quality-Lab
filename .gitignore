@@ -21,4 +21,5 @@ test-results/
 .vscode/
 artifacts/
 *.log
+.tmp_chrome_profile_exec/
 .tmp_*

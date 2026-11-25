@@ -11,27 +11,24 @@ Project management views and editor screens for Sprint 1 (FR-PRJ-001 / FR-PRJ-00
   - Project actions open settings or copy metadata into the create form. Delete is unavailable until the project API supports it.
   - "+ New project" action and "Create your first project" empty state CTA.
   - Handles loading (`Checking access to your projects…`), empty (`You don’t have any projects yet.`), and error states with manual retry.
-  - Integrates `ProjectCreateModal` for inline project creation.
+  - Creates projects through `ProjectCreateModal`. Validation keeps server field errors beside the inputs and preserves edits after a failed request.
+  - A successful create updates the list and opens Project details with a success toast.
   - Session termination handling: Automatically triggers `onExpire` on 401 unauthorized responses.
 - `/projects/:projectId` (`ProjectEditorPage.jsx`):
-  - Project editor screen for viewing and updating project metadata (FR-PRJ-002, Issue #90).
-  - Displays project name, description, created/updated time, and current revision badge.
-  - Multi-tab layout supporting Overview, History (F5), Experiments (F6), Datasets (CSV), and Executions (UC-08).
-  - In-place form validation matching F3: project name (1–120 characters, required) and description (up to 2000 characters) with live character counters.
+  - Project editor screen for viewing and updating project metadata.
+  - Pre-fills project name (1–120 characters) and description (up to 2000 characters) with live character counters.
   - `?edit=description` focuses the description field from the registry.
-  - Dirty checking: Save button is disabled until changes are made and inputs are valid; Cancel restores original values and resets dirty state.
-  - Unsaved changes guard: warns before leaving with unsaved edits via beforeunload and accessible confirmation dialog when navigating or switching tabs.
-  - Informative policy notice on screen: "Editing metadata does not change experiments already frozen (FR-PRJ-002)."
-  - Save success updates the detail and list query cache (`queryClient`); failure retains user input and displays field error details.
-  - 404 NOT_FOUND handling: renders identical "Project not found" screen with link back to `/projects` for both missing and other users' private projects.
-  - Revision history timeline (`ProjectHistoryList.jsx`): Displays an immutable audit trail of past project revisions with revision badges and timestamps.
+  - In-place form validation and dirty checking (disables saving when inputs are untouched or invalid).
+  - Handles 404 (project not found / unauthorized) gracefully without disclosing private resources.
+  - **History** (`?tab=history`) displays the existing revision history timeline with revision badges and timestamps.
+  - Pending edits prompt for confirmation before switching project tabs or following same-origin navigation links. Reloading or closing the document uses the browser warning.
 - `/projects/new` (`ProjectEditorPage.jsx` in `create` mode):
   - Standalone project creation screen.
 
 ## Shared Components (`src/components/projects/`)
 
 - `ProjectCard.jsx`: Project card and table views with shared links, description action, and overflow menu.
-- `ProjectCreateModal.jsx`: Accessible modal dialog for creating a project with keyboard escape support and field validation.
+- `ProjectCreateModal.jsx`: Native modal dialog with a live trimmed-name count, keyboard focus containment, Escape dismissal, and focus restoration.
 - `ProjectHistoryList.jsx`: Timeline of revisions showing revision numbers, snapshot name/description, and formatted timestamps.
 
 ## API Integration (`src/services/api.js`)
