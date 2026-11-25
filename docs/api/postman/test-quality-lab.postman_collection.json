@@ -729,6 +729,519 @@
           ]
         }
       ]
+    },
+    {
+      "name": "ai-configs",
+      "description": "Owner-scoped LLM provider catalog and encrypted credential management (FR-AIC-001, FR-AIC-002, FR-AIC-005). Inherits collection Bearer {{accessToken}} auth.\n\nContract: docs/api/contracts/ai-config.md",
+      "item": [
+        {
+          "name": "GET /projects/{{project_id}}/ai-configs/providers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/projects/{{project_id}}/ai-configs/providers",
+            "description": "FR-AIC-001. Lists supported LLM provider descriptors (groq, gemini, openrouter) and their authentication schemes.\n\nContract: docs/api/contracts/ai-config.md"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('returns supported providers', () => {",
+                  "  const ids = pm.response.json().map((p) => p.id);",
+                  "  pm.expect(ids).to.include.members(['groq', 'gemini', 'openrouter']);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /projects/{{project_id}}/ai-configs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/projects/{{project_id}}/ai-configs",
+            "description": "FR-AIC-002. Lists configured provider credentials for the owned project with masked key hints (raw credentials are never returned).\n\nContract: docs/api/contracts/ai-config.md"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('returns masked configurations only', () => {",
+                  "  const items = pm.response.json();",
+                  "  pm.expect(items).to.be.an('array');",
+                  "  items.forEach((item) => {",
+                  "    pm.expect(item).to.not.have.property('api_key');",
+                  "    pm.expect(item).to.not.have.property('encrypted_secret');",
+                  "  });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PUT /projects/{{project_id}}/ai-configs/groq",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/projects/{{project_id}}/ai-configs/groq",
+            "description": "FR-AIC-002, FR-AIC-005. Encrypts and upserts the provider credential using AES-256-GCM bound to {project_id}:{provider}, returning masked metadata only.\n\nSet {{provider_api_key_placeholder}} locally before sending; never commit real keys.\n\nContract: docs/api/contracts/ai-config.md",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"api_key\": \"{{provider_api_key_placeholder}}\",\n  \"default_model\": \"llama-3.3-70b-versatile\",\n  \"default_params\": {\n    \"temperature\": 0.0,\n    \"max_tokens\": 2048,\n    \"top_p\": 1.0,\n    \"seed\": 42,\n    \"timeout_seconds\": 30.0\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('returns masked credential metadata', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.provider).to.eql('groq');",
+                  "  pm.expect(body).to.have.property('key_hint');",
+                  "  pm.expect(body).to.not.have.property('api_key');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /projects/{{project_id}}/ai-configs/groq/rotate-encryption",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/projects/{{project_id}}/ai-configs/groq/rotate-encryption",
+            "description": "FR-AIC-002. Re-wraps the stored credential envelope from a legacy KEK to the active primary KEK in CREDENTIAL_ENCRYPTION_KEYS.\n\nContract: docs/api/contracts/ai-config.md"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('needs_rotation is false', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.provider).to.eql('groq');",
+                  "  pm.expect(body.needs_rotation).to.eql(false);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DELETE /projects/{{project_id}}/ai-configs/groq",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/projects/{{project_id}}/ai-configs/groq",
+            "description": "FR-AIC-002. Hard-deletes the stored provider credential for the project (204 No Content).\n\nContract: docs/api/contracts/ai-config.md"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "prompts",
+      "description": "Owner-scoped L1-L5 versioned prompt registry, approval lifecycle, and deterministic rendering (FR-PRM-001, FR-PRM-002, FR-PRM-003). Official L1-L5 templates remain unapproved per SRS TBD-04.\n\nContract: docs/api/contracts/prompts.md",
+      "item": [
+        {
+          "name": "GET /projects/{{project_id}}/prompts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/projects/{{project_id}}/prompts",
+            "description": "FR-PRM-001. Lists L1-L5 strategy summaries for the project (seeded as UNAPPROVED with current_version=0 per SRS TBD-04).\n\nContract: docs/api/contracts/prompts.md"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('lists L1 through L5 strategies', () => {",
+                  "  const strategies = pm.response.json().map((s) => s.strategy);",
+                  "  pm.expect(strategies).to.eql(['L1', 'L2', 'L3', 'L4', 'L5']);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /projects/{{project_id}}/prompts/L1/versions",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/projects/{{project_id}}/prompts/L1/versions",
+            "description": "FR-PRM-001, FR-PRM-002. Registers a new immutable UNAPPROVED prompt version for L1.\n\nIMPORTANT (SRS TBD-04): Official L1-L5 prompt wording is not approved. The payload below is a clearly labeled non-official test example strictly for manual API verification.\n\nContract: docs/api/contracts/prompts.md",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"system_template\": \"Non-official test example only (SRS TBD-04 official L1-L5 templates remain unapproved).\",\n  \"user_template\": \"[NON-OFFICIAL TEST EXAMPLE - SRS TBD-04] Generate pytest unit tests for {function_name} ({function_signature}):\\n{function_code}\",\n  \"notes\": \"NON-OFFICIAL TEST EXAMPLE ONLY (respecting SRS TBD-04): placeholder template for local manual API testing, not an official L1 prompt.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('creates immutable UNAPPROVED version', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.strategy).to.eql('L1');",
+                  "  pm.expect(body.status).to.eql('UNAPPROVED');",
+                  "  pm.expect(body.sha256).to.match(/^[a-f0-9]{64}$/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /projects/{{project_id}}/prompts/L1/versions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/projects/{{project_id}}/prompts/L1/versions",
+            "description": "FR-PRM-001. Lists immutable PromptVersion history for strategy L1 newest-first.\n\nContract: docs/api/contracts/prompts.md"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('returns version history array', () => {",
+                  "  pm.expect(pm.response.json()).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /projects/{{project_id}}/prompts/L1/versions/1/approve",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/projects/{{project_id}}/prompts/L1/versions/1/approve",
+            "description": "FR-PRM-002. Marks L1 version 1 as APPROVED and transitions any previously approved version to DEPRECATED without mutating historical text or hashes.\n\nContract: docs/api/contracts/prompts.md"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('marks version 1 APPROVED', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.strategy).to.eql('L1');",
+                  "  pm.expect(body.version).to.eql(1);",
+                  "  pm.expect(body.status).to.eql('APPROVED');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /projects/{{project_id}}/prompts/L1/render",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/projects/{{project_id}}/prompts/L1/render",
+            "description": "FR-PRM-003. Deterministically renders the active APPROVED version of L1 using safe variable substitution (returns 409 PROMPT_NOT_APPROVED if unapproved).\n\nContract: docs/api/contracts/prompts.md",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"context\": {\n    \"function_name\": \"add\",\n    \"function_signature\": \"add(a: int, b: int) -> int\",\n    \"function_code\": \"def add(a: int, b: int) -> int:\\n    return a + b\",\n    \"module_code\": \"def add(a: int, b: int) -> int:\\n    return a + b\\n\",\n    \"csv_cases\": \"\",\n    \"docstring\": \"\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('returns rendered prompt with sha256', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.strategy).to.eql('L1');",
+                  "  pm.expect(body.rendered_sha256).to.match(/^[a-f0-9]{64}$/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "experiments",
+      "description": "Owner-scoped experiment configuration validation, editable drafts, and immutable provenance snapshots (FR-EXP-001..004, FR-EXP-006, FR-EXP-007).\n\nContract: docs/api/contracts/experiments.md",
+      "item": [
+        {
+          "name": "POST /projects/{{project_id}}/experiments/validate",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/projects/{{project_id}}/experiments/validate",
+            "description": "FR-EXP-001, FR-EXP-002, FR-EXP-004, FR-EXP-007. Validates AST function selection, optional CSV row selection, planned run ceiling (<= 1000), credential availability, and prompt approval readiness.\n\nContract: docs/api/contracts/experiments.md",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"source_id\": \"{{source_id}}\",\n  \"source_revision\": 1,\n  \"function_names\": [\n    \"add\"\n  ],\n  \"dataset_id\": \"{{dataset_id}}\",\n  \"dataset_revision\": 1,\n  \"selected_rows\": [\n    1\n  ],\n  \"models\": [\n    {\n      \"provider\": \"groq\",\n      \"model\": \"llama-3.3-70b-versatile\"\n    }\n  ],\n  \"strategies\": [\n    \"L1\"\n  ],\n  \"repeats\": 1,\n  \"parameters\": {\n    \"temperature\": 0.0,\n    \"max_tokens\": 2048,\n    \"top_p\": 1.0,\n    \"seed\": 42,\n    \"timeout_seconds\": 30.0\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('returns run_count and freeze readiness', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.run_count).to.be.a('number');",
+                  "  pm.expect(body).to.have.property('can_freeze');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /projects/{{project_id}}/experiments",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/projects/{{project_id}}/experiments",
+            "description": "FR-EXP-001, FR-EXP-002. Persists a validated experiment draft and stores {{experiment_id}} in the Postman environment.\n\nContract: docs/api/contracts/experiments.md",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Local Sprint 3 Experiment\",\n  \"description\": \"Manual verification draft for L1 on groq.\",\n  \"config\": {\n    \"source_id\": \"{{source_id}}\",\n    \"source_revision\": 1,\n    \"function_names\": [\n      \"add\"\n    ],\n    \"dataset_id\": \"{{dataset_id}}\",\n    \"dataset_revision\": 1,\n    \"selected_rows\": [\n      1\n    ],\n    \"models\": [\n      {\n        \"provider\": \"groq\",\n        \"model\": \"llama-3.3-70b-versatile\"\n      }\n    ],\n    \"strategies\": [\n      \"L1\"\n    ],\n    \"repeats\": 1,\n    \"parameters\": {\n      \"temperature\": 0.0,\n      \"max_tokens\": 2048,\n      \"top_p\": 1.0,\n      \"seed\": 42,\n      \"timeout_seconds\": 30.0\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.environment.set('experiment_id', body.id);",
+                  "pm.test('experiment created with run_count', () => pm.expect(body.run_count).to.eql(1));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /projects/{{project_id}}/experiments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/projects/{{project_id}}/experiments",
+            "description": "Lists experiment drafts for the owned project.\n\nContract: docs/api/contracts/experiments.md"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('returns experiments array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH /projects/{{project_id}}/experiments/{{experiment_id}}",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/projects/{{project_id}}/experiments/{{experiment_id}}",
+            "description": "Updates mutable draft metadata or configuration without altering previously frozen snapshots (FR-EXP-006).\n\nContract: docs/api/contracts/experiments.md",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Local Sprint 3 Experiment (Updated)\",\n  \"description\": \"Updated draft metadata prior to freezing snapshot.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('updated draft name', () => {",
+                  "  pm.expect(pm.response.json().name).to.eql('Local Sprint 3 Experiment (Updated)');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /projects/{{project_id}}/experiments/{{experiment_id}}/snapshots",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/projects/{{project_id}}/experiments/{{experiment_id}}/snapshots",
+            "description": "FR-EXP-003, FR-EXP-006. Freezes an append-only immutable snapshot with source/dataset/prompt SHA-256 provenance hashes and per-run hashes (stores {{snapshot_id}} in the Postman environment). Requires configured provider credentials (409 CREDENTIAL_MISSING) and approved prompt versions (409 PROMPT_NOT_APPROVED).\n\nContract: docs/api/contracts/experiments.md"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.environment.set('snapshot_id', body.id);",
+                  "pm.test('snapshot frozen with sha256 and runs', () => {",
+                  "  pm.expect(body.snapshot_sha256).to.match(/^[a-f0-9]{64}$/);",
+                  "  pm.expect(body.runs).to.be.an('array').that.is.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /projects/{{project_id}}/experiments/{{experiment_id}}/snapshots",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/projects/{{project_id}}/experiments/{{experiment_id}}/snapshots",
+            "description": "Lists immutable snapshot summaries for the experiment.\n\nContract: docs/api/contracts/experiments.md"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('returns snapshot summaries array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /projects/{{project_id}}/experiments/{{experiment_id}}/snapshots/{{snapshot_id}}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/projects/{{project_id}}/experiments/{{experiment_id}}/snapshots/{{snapshot_id}}",
+            "description": "FR-EXP-003, FR-EXP-006. Retrieves full immutable snapshot detail including frozen code, AST functions, CSV rows, masked credential hints, approved prompt hashes, and planned run records.\n\nContract: docs/api/contracts/experiments.md"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('returns immutable snapshot detail without raw secrets', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.id).to.eql(pm.environment.get('snapshot_id'));",
+                  "  pm.expect(JSON.stringify(body.frozen_models)).to.not.include('api_key');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
     }
   ]
 }

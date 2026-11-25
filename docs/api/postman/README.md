@@ -1,14 +1,41 @@
 # Postman
 
 - `test-quality-lab.postman_collection.json` - one folder per module, one request per endpoint,
-  plus the main error cases. Each request has status/code tests.
-- `local.postman_environment.json` - local values only; token variables are empty secrets.
+  plus error/lifecycle checks and status/schema assertions.
+- `local.postman_environment.json` - local values and empty placeholder IDs only; token and API
+  credential variables are empty secrets.
 
-Usage: `docker compose up -d`, import both files, select **Test Quality Lab - local**, run the
-`auth` folder top to bottom (or *Run collection*). The register request creates a fresh email each
-run, and the "Mailpit - read newest ... link" requests copy the email token into the environment.
-Public auth routes are rate limited per IP: wait a minute between full runs.
+## Folders
 
-Command line (same checks): `npx newman run docs/api/postman/test-quality-lab.postman_collection.json -e docs/api/postman/local.postman_environment.json`
+- `auth` - registration, email verification via Mailpit, sign-in/sign-out, token refresh, and
+  password reset (`docs/api/contracts/auth.md`).
+- `ai-configs` - Sprint 3 LLM provider catalog (`groq`, `gemini`, `openrouter`), encrypted
+  credential upsert, KEK envelope rotation, masked listing, and deletion
+  (`docs/api/contracts/ai-config.md`).
+- `prompts` - Sprint 3 `L1`-`L5` strategy listing, immutable version registration (using a clearly
+  labeled non-official test example because official `L1`-`L5` wording remains unapproved under
+  SRS `TBD-04`), version history, approval, and deterministic rendering
+  (`docs/api/contracts/prompts.md`).
+- `experiments` - Sprint 3 matrix validation (`<= 1000` planned runs), draft creation/listing/patch,
+  and append-only immutable snapshot freezing and retrieval (`docs/api/contracts/experiments.md`).
 
-Never commit real tokens or passwords: clear current values before exporting.
+## Usage
+
+1. Start the local stack (`docker compose up -d`), import both JSON files into Postman, and select
+   the **Test Quality Lab - local** environment.
+2. Run `auth` to populate `accessToken` (inherited via collection-level Bearer auth). The register
+   request creates a fresh email each run, and the Mailpit helper requests copy verification/reset
+   tokens into the environment. Public auth routes are rate limited per IP: wait a minute between
+   full runs.
+3. Before running the Sprint 3 folders (`ai-configs`, `prompts`, `experiments`), set `project_id`,
+   `source_id`, `dataset_id`, and `provider_api_key_placeholder` in your local Postman environment
+   current values. Creating an experiment and freezing a snapshot automatically populate
+   `experiment_id` and `snapshot_id`. Note that `DELETE /projects/{{project_id}}/ai-configs/groq`
+   removes the stored credential, so re-run `PUT /projects/{{project_id}}/ai-configs/groq` before
+   freezing an experiment snapshot that targets `groq`.
+
+Command line (`auth` flow):
+`npx newman run docs/api/postman/test-quality-lab.postman_collection.json --folder auth -e docs/api/postman/local.postman_environment.json`
+
+Never commit real API keys, tokens, or passwords: keep secret placeholders empty and clear current
+values before exporting.
