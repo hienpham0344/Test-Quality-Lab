@@ -38,6 +38,12 @@ In accordance with system requirements and the Definition of Done (DoD):
   $$\text{Line Coverage} = \frac{\text{Covered Executable Lines}}{\text{Total Executable Lines}} \times 100\%$$
 - **Mutation Score**:
   $$\text{Mutation Score} = \frac{\text{Killed Mutants}}{\text{Total Mutants} - \text{Equivalent Mutants}} \times 100\%$$
+- **Assertion Quality Score**:
+  $$\text{Assertion Quality Score} = \frac{\text{Effective Non-Trivial Assertions}}{\text{Total Assertions}} \times \text{Assertion Coverage Factor} \times 100\%$$
+- **Assertion Pass Rate**:
+  $$\text{Assertion Pass Rate} = \frac{\text{Verified Assertions}}{\text{Total Evaluated Assertions}} \times 100\%$$
+- **Assertion Density**:
+  $$\text{Assertion Density} = \frac{\text{Total Assertions}}{\text{Total Test Cases}}$$
 
 ## Endpoints
 
@@ -105,6 +111,46 @@ Base path: `/api/v1/projects/{project_id}/executions`
     "timeout": 0,
     "error": 0
   }
+}
+```
+
+#### Assertion Details Schema (`assertion_details` object):
+```json
+{
+  "score": 85.0,
+  "summary": {
+    "total": 6,
+    "verified": 5,
+    "failed": 1,
+    "ineffective": 0,
+    "unchecked": 0,
+    "pass_rate": 83.3,
+    "density": 1.2,
+    "assertion_less_cases": 0
+  },
+  "assertions": [
+    {
+      "id": "AST-01",
+      "test_case": "test_add",
+      "statement": "assert add(2, 3) == 5",
+      "type": "EQUALITY",
+      "line": 12,
+      "status": "VERIFIED",
+      "strength": "HIGH",
+      "explanation": "Validates exact arithmetic return value equivalence."
+    },
+    {
+      "id": "AST-04",
+      "test_case": "test_edge_cases",
+      "statement": "assert result == 1",
+      "type": "EQUALITY",
+      "line": 28,
+      "status": "FAILED",
+      "strength": "HIGH",
+      "explanation": "Expected 1 but got 0 due to edge case failure."
+    }
+  ],
+  "unavailable_reason": null
 }
 ```
 

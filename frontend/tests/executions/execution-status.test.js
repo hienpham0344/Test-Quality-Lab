@@ -5,6 +5,11 @@ import {
   isCancellable,
   calculateLineCoverage,
   calculateMutationScore,
+  calculateAssertionPassRate,
+  calculateAssertionDensity,
+  calculateAssertionQualityScore,
+  ASSERTION_STATUS_DEFINITIONS,
+  ASSERTION_TYPES,
 } from '../../src/features/executions/execution-status'
 
 describe('execution-status utility (UC-08 / UC-10)', () => {
@@ -141,6 +146,88 @@ describe('execution-status utility (UC-08 / UC-10)', () => {
       expect(formatDuration(-10)).toBe('—')
       expect(formatDuration(null)).toBe('—')
       expect(formatDuration('foo')).toBe('—')
+    })
+  })
+
+  describe('Assertion Quality Metrics (UC-10 DoD)', () => {
+    describe('calculateAssertionPassRate', () => {
+      it('calculates pass rate percentage accurately', () => {
+        expect(calculateAssertionPassRate(10, 12)).toBe(83.3)
+        expect(calculateAssertionPassRate(5, 5)).toBe(100.0)
+        expect(calculateAssertionPassRate(1, 4)).toBe(25.0)
+      })
+
+      it('returns true numeric 0 when 0 verified (distinct from N/A)', () => {
+        const res = calculateAssertionPassRate(0, 10)
+        expect(res).toBe(0)
+        expect(typeof res).toBe('number')
+      })
+
+      it('returns N/A for invalid or non-positive total assertions without fabricating values', () => {
+        expect(calculateAssertionPassRate(0, 0)).toBe('N/A')
+        expect(calculateAssertionPassRate(null, 10)).toBe('N/A')
+        expect(calculateAssertionPassRate(5, null)).toBe('N/A')
+        expect(calculateAssertionPassRate('5', 10)).toBe('N/A')
+      })
+    })
+
+    describe('calculateAssertionDensity', () => {
+      it('calculates assertions per test case accurately', () => {
+        expect(calculateAssertionDensity(12, 10)).toBe(1.2)
+        expect(calculateAssertionDensity(25, 5)).toBe(5.0)
+      })
+
+      it('returns true numeric 0 when 0 assertions (distinct from N/A)', () => {
+        const res = calculateAssertionDensity(0, 5)
+        expect(res).toBe(0)
+        expect(typeof res).toBe('number')
+      })
+
+      it('returns N/A when test cases count is 0 or invalid', () => {
+        expect(calculateAssertionDensity(5, 0)).toBe('N/A')
+        expect(calculateAssertionDensity(null, 5)).toBe('N/A')
+        expect(calculateAssertionDensity(5, null)).toBe('N/A')
+      })
+    })
+
+    describe('calculateAssertionQualityScore', () => {
+      it('calculates score according to equation and coverage factor', () => {
+        expect(calculateAssertionQualityScore(8, 10, 1.0)).toBe(80.0)
+        expect(calculateAssertionQualityScore(10, 10, 0.9)).toBe(90.0)
+      })
+
+      it('returns true numeric 0 when 0 effective assertions', () => {
+        const res = calculateAssertionQualityScore(0, 10, 1.0)
+        expect(res).toBe(0)
+        expect(typeof res).toBe('number')
+      })
+
+      it('clamps score between 0 and 100', () => {
+        expect(calculateAssertionQualityScore(15, 10, 1.5)).toBe(100.0)
+      })
+
+      it('returns N/A when total assertions is 0 or invalid', () => {
+        expect(calculateAssertionQualityScore(0, 0)).toBe('N/A')
+        expect(calculateAssertionQualityScore(null, 10)).toBe('N/A')
+      })
+    })
+
+    describe('ASSERTION_STATUS_DEFINITIONS & ASSERTION_TYPES', () => {
+      it('defines required statuses with styling badges', () => {
+        expect(ASSERTION_STATUS_DEFINITIONS.VERIFIED).toBeDefined()
+        expect(ASSERTION_STATUS_DEFINITIONS.FAILED).toBeDefined()
+        expect(ASSERTION_STATUS_DEFINITIONS.INEFFECTIVE).toBeDefined()
+        expect(ASSERTION_STATUS_DEFINITIONS.UNCHECKED).toBeDefined()
+      })
+
+      it('defines standard assertion types taxonomy', () => {
+        expect(ASSERTION_TYPES.EQUALITY).toBeDefined()
+        expect(ASSERTION_TYPES.RELATIONAL).toBeDefined()
+        expect(ASSERTION_TYPES.TYPE_INSTANCE).toBeDefined()
+        expect(ASSERTION_TYPES.IDENTITY_BOOLEAN).toBeDefined()
+        expect(ASSERTION_TYPES.INVARIANT).toBeDefined()
+        expect(ASSERTION_TYPES.EXCEPTION).toBeDefined()
+      })
     })
   })
 })

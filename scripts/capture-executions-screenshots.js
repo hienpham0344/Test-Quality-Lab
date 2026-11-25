@@ -306,7 +306,41 @@ async function run() {
     console.log('Capturing 08-mutants-breakdown-table.png...');
     await takeScreenshot('08-mutants-breakdown-table.png');
 
-    // 11. Switch to Test Cases tab and open TestCaseDetailModal for case-1 (which has killed mutants)
+    // Scroll to Assertion Quality card inside Quality Evaluation tab
+    console.log('Scrolling to Assertion Quality card...');
+    await evaluate(`(() => {
+      const astCard = document.querySelector('[data-testid="assertion-quality-card"]');
+      if (astCard) astCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    })()`);
+    await delay(1000);
+
+    // Toggle equation info
+    await evaluate(`(() => {
+      const astCard = document.querySelector('[data-testid="assertion-quality-card"]');
+      if (astCard) {
+        const btn = Array.from(astCard.querySelectorAll('button')).find(b => b.textContent.includes('Metric Equation'));
+        if (btn) btn.click();
+      }
+    })()`);
+    await delay(800);
+
+    console.log('Capturing 10-assertion-quality-view.png...');
+    await takeScreenshot('10-assertion-quality-view.png');
+
+    // Scroll down to Assertion supporting evidence table
+    await evaluate(`(() => {
+      const astCard = document.querySelector('[data-testid="assertion-quality-card"]');
+      if (astCard) {
+        const table = astCard.querySelector('table');
+        if (table) table.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    })()`);
+    await delay(800);
+
+    console.log('Capturing 11-assertion-evidence-table.png...');
+    await takeScreenshot('11-assertion-evidence-table.png');
+
+    // 11. Switch to Test Cases tab and open TestCaseDetailModal for case-1 (which has killed mutants and assertions)
     console.log('Switching to Test Cases tab and opening case-1 details...');
     await evaluate(`(() => {
       const casesTab = document.querySelector('[data-testid="tab-test-cases"]');

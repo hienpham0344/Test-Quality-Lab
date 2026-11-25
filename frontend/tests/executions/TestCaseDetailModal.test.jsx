@@ -208,4 +208,58 @@ describe('TestCaseDetailModal component (UC-09)', () => {
     expect(container.textContent).toContain('N/A — Statement instrumentation not available.')
     expect(container.textContent).toContain('N/A — Mutation score not evaluated for this case.')
   })
+
+  it('renders per-test assertion quality impact and evaluated assertions list (UC-10 DoD)', async () => {
+    const caseWithAssertions = {
+      id: 'case-ast',
+      name: 'test_with_assertions',
+      status: 'PASSED',
+      duration_ms: 15,
+      coverage: 90.0,
+      mutation_score: 80.0,
+      assertion_score: 100.0,
+      assertions_count: 2,
+      assertions: [
+        { statement: 'assert result == 42', status: 'VERIFIED' },
+        { statement: 'assert isinstance(result, int)', status: 'VERIFIED' },
+      ],
+    }
+
+    await act(async () => {
+      root.render(<TestCaseDetailModal testCase={caseWithAssertions} onClose={vi.fn()} />)
+    })
+
+    expect(container.textContent).toContain('Assertion Verification')
+    expect(container.textContent).toContain('100.0%')
+    expect(container.textContent).toContain('2 invariant assertions verified')
+    expect(container.textContent).toContain('assert result == 42')
+    expect(container.textContent).toContain('assert isinstance(result, int)')
+
+    // Equation toggle check
+    const verifyEqBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent.includes('Verify Equation')
+    )
+    await act(async () => {
+      verifyEqBtn.click()
+    })
+    expect(container.textContent).toContain('Assertion Quality = (Effective Assertions / Total Assertions) × 100')
+  })
+
+  it('detects and displays assertion-less test case warning', async () => {
+    const assertionLessCase = {
+      id: 'case-empty',
+      name: 'test_empty_case',
+      status: 'PASSED',
+      coverage: 50.0,
+      mutation_score: 0,
+      assertions_count: 0,
+      assertions: [],
+    }
+
+    await act(async () => {
+      root.render(<TestCaseDetailModal testCase={assertionLessCase} onClose={vi.fn()} />)
+    })
+
+    expect(container.textContent).toContain('Assertion-less: 0 assertions detected in this test case.')
+  })
 })

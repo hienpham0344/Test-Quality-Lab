@@ -34,6 +34,7 @@ const mockExecution = {
   metrics: {
     coverage: 65.0,
     mutation_score: 0, // numeric zero distinguishing from N/A
+    assertion_score: 75.0,
     validity: 'PASSED',
   },
   logs: [
@@ -106,6 +107,8 @@ describe('ExecutionDetailModal component (UC-08 / UC-09)', () => {
     expect(container.textContent).toContain('33.3%')
     expect(container.textContent).toContain('(1/3)')
     expect(container.textContent).toContain('Executed Test Cases (3)')
+    expect(container.textContent).toContain('Assertion Quality')
+    expect(container.textContent).toContain('75.0%')
   })
 
   it('filters test cases by status pills (Passed, Failed, Timeout)', async () => {
