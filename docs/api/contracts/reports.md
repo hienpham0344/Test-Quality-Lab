@@ -1,118 +1,128 @@
-# Results Dashboard, History & Reports API — UC-11 / FR-RPT-001, FR-RPT-002, FR-RPT-003, FR-RPT-004, FR-RPT-005 (Sprint 7)
+# Results Dashboard, History, Sanitized CSV Exports & Audit API — UC-11 / FR-RPT-001..006 (Sprint 7)
 
-Issue #64 and Issue #65 implement the Results Dashboard, History tracking, multi-dimensional Filters, Strategy Comparison Analytics & Visualizations, and CSV Export for test campaign quality evaluation.
-All endpoints require an authenticated user with ownership of the target project context.
+Issues #62, #63, #64, and #65 implement the Results Dashboard, History tracking, multi-dimensional Filters, Strategy Comparison Analytics, Sanitized RFC 4180 CSV Exports, Secure Run Deletion, and Owner-Scoped Audit / Integrity / Backup endpoints.
+All endpoints require an authenticated user (`Authorization: Bearer <token>`); project-scoped endpoints enforce ownership (`404 NOT_FOUND` when unowned).
 
 ## Overview & Metric Specifications
 
-The Results Dashboard and History views provide aggregated visibility across past test generation and evaluation executions.
-
 ### Definition of Done (DoD) Metric Conventions
-- **Numeric zero** (`0.0%` / `0`): Preserved as a distinct valid value (e.g. executed code with 0 statements covered or 0 mutants killed), never omitted, replaced by null, or conflated with missing data.
-- **N/A**: Not available or not evaluated yet (e.g. mutation testing skipped or pending execution).
-- **FAILED**: Metric evaluation failed due to syntax errors or unexpected runner termination.
-- **TIMEOUT**: Execution exceeded sandbox runtime limit (60s).
-- **Non-fabricated provenance**: All summary statistics and aggregates are calculated strictly from verifiable test run traces without synthetic placeholder scores.
+- **Numeric zero** (`0.0` / `0.0%`): Preserved as a distinct valid numeric value (e.g. executed code with 0 statements covered or 0 mutants killed), never omitted, replaced by `null`, or conflated with missing data.
+- **`N/A`**: Not available or not evaluated yet (e.g. untrusted execution disabled by sandbox security policy or pending evaluation).
+- **`FAILED`**: Metric evaluation failed due to syntax errors or runner failure.
+- **`TIMEOUT`**: Execution exceeded runtime timeout limit.
+- **Non-fabricated provenance**: Summary statistics, comparability flags, and CSV exports are computed live from persisted run and metric records (`report_runs` and/or `generation_runs` + `metric_records`).
 
 ### Aggregate Mathematical Formulas (FR-RPT-001)
 - **Campaign Execution Progress**:
   $$\text{Progress} = \frac{\text{Completed Runs} + \text{Failed Runs} + \text{Timeout Runs} + \text{Cancelled Runs}}{\text{Total Runs}} \times 100\%$$
 - **Overall Test Pass Rate**:
   $$\text{Pass Rate} = \frac{\sum \text{Passed Cases}}{\sum \text{Completed Cases}} \times 100\%$$
-- **Average Line Coverage**:
-  $$\text{Avg Coverage} = \frac{\sum_{i \in \text{Evaluated}} \text{Coverage}_i}{|\text{Evaluated Runs}|}$$
-- **Average Mutation Score**:
-  $$\text{Avg Mutation Score} = \frac{\sum_{i \in \text{Evaluated}} \text{Mutation Score}_i}{|\text{Evaluated Runs}|}$$
+- **Average Line Coverage / Mutation Score / Assertion Quality**:
+  Arithmetic mean over runs with `MEASURED` state (preserving `0.0`), or `"TIMEOUT"` / `"FAILED"` / `"N/A"` when no `MEASURED` runs exist.
 
 ---
 
-## Endpoints
+## Reporting Endpoints
 
 Base path: `/api/v1/projects/{project_id}/reports`
 
-### 1. Get Results Report Summary & History
-`GET /api/v1/projects/{project_id}/reports/results`
+### 1. Get Live Project Summary & Strategy Comparison Matrix
+`GET /api/v1/projects/{project_id}/reports/summary`
 
-- Headers: `Authorization: Bearer <token>`
 - Response: `200 OK`
 ```json
 {
-  "project_id": "proj-123",
-  "total_runs": 6,
-  "runs": [
+  "project_id": "550e8400-e29b-41d4-a716-446655440000",
+  "total_runs": 2,
+  "completed_runs": 2,
+  "failed_runs": 0,
+  "timeout_runs": 0,
+  "cancelled_runs": 0,
+  "queued_runs": 0,
+  "running_runs": 0,
+  "progress_pct": 100.0,
+  "pass_rate": 50.0,
+  "avg_coverage": 40.0,
+  "avg_mutation_score": "N/A",
+  "avg_assertion_quality": 45.0,
+  "comparability": {
+    "status": "COMPATIBLE",
+    "reasons": [],
+    "checks": {
+      "source_consistent": true,
+      "dataset_consistent": true,
+      "single_model": true,
+      "balanced_samples": true,
+      "all_completed": true
+    },
+    "distinct_source_sha256": ["bbbb..."],
+    "distinct_dataset_sha256": ["cccc..."],
+    "distinct_models": ["groq/llama-3.3-70b-versatile"]
+  },
+  "strategy_comparison": [
     {
-      "id": "exec-run-101",
-      "project_id": "proj-123",
-      "suite_name": "Regression Suite - Prompt L1",
-      "dataset_id": "ds-sample-1",
-      "dataset_name": "HumanEval Python Benchmarks",
-      "source_id": "src-sample-1",
-      "source_name": "solution_v1.py",
-      "status": "RUNNING",
-      "model": "GPT-4o",
-      "strategy": "L1: Zero-shot",
-      "duration_ms": 30000,
-      "total_cases": 20,
-      "completed_cases": 12,
-      "passed_cases": 10,
-      "failed_cases": 2,
-      "timeout_cases": 0,
-      "metrics": {
-        "coverage": 68.5,
-        "mutation_score": 75.0,
-        "validity": "PASSED"
-      },
-      "created_at": "2026-11-25T07:20:00Z"
+      "strategy": "L1",
+      "provider": "groq",
+      "model": "llama-3.3-70b-versatile",
+      "snapshot_id": "660e8400-e29b-41d4-a716-446655440000",
+      "snapshot_sha256": "aaaa...",
+      "source_sha256": "bbbb...",
+      "dataset_sha256": "cccc...",
+      "prompt_version": 1,
+      "prompt_sha256": "dddd...",
+      "total_runs": 1,
+      "completed_runs": 1,
+      "total_cases": 4,
+      "completed_cases": 4,
+      "passed_cases": 0,
+      "pass_rate": 0.0,
+      "avg_coverage": 0.0,
+      "avg_mutation_score": "N/A",
+      "avg_assertion_quality": 0.0,
+      "baseline_coverage_delta": 0.0,
+      "baseline_mutation_delta": "N/A",
+      "comparability_status": "COMPATIBLE"
     }
   ]
 }
 ```
 
+### 2. Get Filtered Results History
+`GET /api/v1/projects/{project_id}/reports/results`
+
+- Query Parameters:
+  - `status`: `ALL` | `COMPLETED` | `ACTIVE` | `QUEUED` | `RUNNING` | `FAILED` | `TIMEOUT` | `CANCELLED`
+  - `strategy`: `ALL` | `L1` | `L2` | `L3` | `L4` | `L5`
+  - `model`: `ALL` or substring match on LLM model identifier
+  - `quality`: `ALL` | `ONLY_PASSING` | `HAS_FAILURES` | `HIGH_COVERAGE`
+  - `search`: Substring search across `suite_name`, `id`, `dataset_name`, `source_name`, `function_name`, `model`, `provider`
+  - `sort_by`: `date` | `pass_rate` | `coverage` | `mutation` | `duration` | `suite_name`
+  - `sort_dir`: `asc` | `desc` (default `desc`)
+- Response: `200 OK` (`{project_id, total_runs, filtered_runs, summary, comparability, strategy_comparison, runs}`)
+
+### 3. Export Sanitized Runs CSV (`FR-RPT-005`)
+`GET /api/v1/projects/{project_id}/reports/exports/runs.csv`
+
+- Optional filters: `status`, `strategy`, `model`, `search`.
+- Response: `200 OK` (`Content-Type: text/csv; charset=utf-8`, `Content-Disposition: attachment; filename="project-<id>-runs.csv"`, `\r\n` line endings).
+- Includes full provenance columns (`project_id`, `snapshot_id`, `snapshot_sha256`, `source_sha256`, `dataset_sha256`, `strategy`, `prompt_version`, `prompt_sha256`, `provider`, `model`), metric state fidelity (`"0.0"` vs `"N/A"` vs `"FAILED"` vs `"TIMEOUT"`), `redact_secrets()` scrubbing, and spreadsheet formula neutralization (prefixing `'` when `cell.lstrip()` starts with `=`, `+`, `-`, `@` or raw `cell` starts with `\t` or `\r`, while leaving genuine numeric `int`/`float` cells unprefixed).
+
+### 4. Export Sanitized Strategy Comparison CSV (`FR-RPT-005`)
+`GET /api/v1/projects/{project_id}/reports/exports/strategy-comparison.csv`
+
+- Response: `200 OK` (`Content-Type: text/csv; charset=utf-8`, `Content-Disposition: attachment; filename="project-<id>-strategy-comparison.csv"`).
+- Includes full provenance columns (`project_id`, `snapshot_id`, `snapshot_sha256`, `source_sha256`, `dataset_sha256`, `strategy`, `prompt_version`, `prompt_sha256`, `provider`, `model`), baseline deltas, and `comparability_status` (`COMPATIBLE` | `CAUTION` | `INCOMPARABLE`).
+
+### 5. Delete Run Result (`FR-RPT-006`)
+`DELETE /api/v1/projects/{project_id}/reports/runs/{run_id}`
+
+- Verifies project ownership (`404`), validates any referenced `artifact_relpath` inside `settings.artifact_dir` (`resolved.is_relative_to(artifact_root)` and `not candidate.is_symlink()`, returning `403 ACCESS_DENIED` on traversal or symlink), unlinks the artifact file, deletes the run record and associated metric/review rows, records `AuditEvent("report.result_deleted")`, and returns the freshly recomputed `ReportSummaryOutput` (`200 OK`).
+
 ---
 
-## Filters & Search Matrix (FR-RPT-003)
+## Audit, Integrity & Backup Endpoints (`NFR-DAT` / `NFR-OBS`)
 
-| Dimension | Supported Options | Description |
-|---|---|---|
-| **Status** | `ALL`, `COMPLETED`, `ACTIVE`, `FAILED`, `CANCELLED` | Filter by execution lifecycle state |
-| **Strategy** | `ALL`, `L1`, `L2`, `L3`, `L4`, `L5` | Filter by prompt engineering strategy taxonomy (Zero-shot, Few-shot, CoT, Self-consistency, Hybrid) |
-| **Model** | `ALL`, `GPT-4o`, `Claude 3.5 Sonnet`, `Gemini 1.5 Pro`, `Llama 3.3 70B` | Filter by LLM provider model |
-| **Quality Criteria** | `ALL`, `ONLY_PASSING`, `HAS_FAILURES`, `HIGH_COVERAGE` | Filter runs by performance threshold (100% pass, error detection, ≥ 80% coverage) |
-| **Sort By** | `date`, `pass_rate`, `coverage`, `mutation`, `duration`, `suite_name` | Sort runs with asc/desc direction toggling |
-| **Search Query** | String text match | Substring matching across suite name, run ID, dataset name, source filename, and model |
-
----
-
-## Export Capabilities (FR-RPT-003, FR-RPT-005)
-
-- **Execution Runs CSV Export (FR-RPT-003)**: Sanitized RFC 4180-compliant comma-separated spreadsheet with quoted cell escaping containing run records, statuses, case counts, and individual quality scores.
-- **Strategy Comparison Benchmark CSV Export (FR-RPT-005)**: Standardized tabular benchmark export detailing prompt levels (L1–L5), evaluated models, completed runs, test case counts, pass rates, average line coverage, average mutation scores, average assertion quality, baseline improvement deltas, comparability status, and experimental control audit checks.
-- **JSON Export (FR-RPT-003)**: Structured array of run summaries with breakdown objects for external CI/CD ingestion.
-
----
-
-## Strategy Comparison & Analytics (FR-RPT-004)
-
-### Prompt Engineering Strategy Taxonomy
-- **L1: Zero-shot**: Baseline prompt containing function signature and docstring only.
-- **L2: Few-shot**: Prompt enriched with selected canonical test case demonstrations.
-- **L3: Chain-of-thought (CoT)**: Step-by-step reasoning prompt eliciting boundary conditions and edge cases prior to code synthesis.
-- **L4: Self-consistency**: Multi-sample generation with consensus clustering across independent generations.
-- **L5: Hybrid**: Multi-agent ensemble combining Few-shot, CoT, and self-consistency techniques.
-
-### Visual Comparison Charts & State Semantics
-- **Grouped Multi-Metric Bar Chart**: Side-by-side visualization comparing Pass Rate, Line Coverage, Mutation Score, and Assertion Quality across L1–L5.
-- **Multi-Axis Radar Spider Profile**: Geometric profile plotting multi-dimensional quality signatures across 5 normalized axes.
-- **Strict Metric State Conventions (DoD)**:
-  - **Numeric zero (`0.0%`)**: Rendered distinctly on the baseline axis with an explicit numeric label, never omitted, replaced by null, or conflated with missing data.
-  - **N/A**: Rendered with diagonal hatched/striped bars and muted indicators denoting unmeasured/unevaluated dimensions.
-  - **TIMEOUT**: Rendered with amber striped patterns denoting sandbox 60s hard limit exhaustion.
-  - **FAILED**: Rendered with rose striped patterns denoting syntax or runner termination exceptions.
-- **Scientific Comparability Engine**:
-  - Automatically assesses 5 experimental controls:
-    1. *Benchmark Dataset Consistency*: Verifies identical dataset and snapshot ID.
-    2. *Source Code Provenance*: Verifies matching SHA-256 commit hash.
-    3. *LLM Model Confounding Factor*: Flags multi-model mixing and recommends model filtering.
-    4. *Sample Size Disparity*: Flags case volume imbalance (> 2.5x ratio).
-    5. *Execution Health*: Flags incomplete, running, failed, or timed out runs.
-  - Generates overall status banner: `COMPATIBLE` (green), `CAUTION` (amber), or `INCOMPARABLE` (rose) with collapsible audit drawer.
+- `GET /api/v1/audit-events`: Authenticated user's own `AuditEvent` trail newest-first with optional `action`, `from`, `to` (`YYYY-MM-DD` or ISO 8601 datetime; `422 INPUT_INVALID` if `from > to`), `limit` (`1..200`), and `offset` (`>= 0`).
+- `GET /api/v1/projects/{project_id}/audit/integrity`: Recomputes SHA-256 digests of `SourceVersion`, `DatasetVersion`, `PromptVersion`, `ExperimentSnapshot`, and referenced artifact files.
+- `POST /api/v1/projects/{project_id}/audit/cleanup-orphans?dry_run=false`: Safely scans `<artifact_dir>/<project_id>`, rejects symlinks, deletes unreferenced files when `dry_run=false`, and records `system.artifact_cleanup`.
+- `POST /api/v1/projects/{project_id}/audit/backup-export` & `POST /api/v1/audit/backup-restore`: Secret-free deterministic JSON backup export (`system.backup_exported`) and checksum-verified restore (`system.backup_restored`). See [`docs/operations/backup-restore.md`](../../operations/backup-restore.md).

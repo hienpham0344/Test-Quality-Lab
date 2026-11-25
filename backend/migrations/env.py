@@ -24,6 +24,7 @@ from app.modules.prompts.models import (  # noqa: F401 — register metadata
     PromptTemplate,
     PromptVersion,
 )
+from app.modules.reporting.models import ReportRunRecord  # noqa: F401 — register metadata
 from app.modules.sources.models import Source, SourceVersion  # noqa: F401 — register metadata
 
 config = context.config

@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.modules.ai_config.router import router as ai_config_router
+from app.modules.audit.router import router as audit_router
 from app.modules.auth.router import router as auth_router
 from app.modules.datasets.router import router as datasets_router
 from app.modules.evaluation.router import router as evaluation_router
@@ -8,10 +9,12 @@ from app.modules.experiments.router import router as experiments_router
 from app.modules.generation.router import router as generation_router
 from app.modules.projects.router import router as projects_router
 from app.modules.prompts.router import router as prompts_router
+from app.modules.reporting.router import router as reporting_router
 from app.modules.sources.router import router as sources_router
 
 router = APIRouter()
 router.include_router(ai_config_router)
+router.include_router(audit_router)
 router.include_router(auth_router)
 router.include_router(datasets_router)
 router.include_router(evaluation_router)
@@ -19,6 +22,7 @@ router.include_router(experiments_router)
 router.include_router(generation_router)
 router.include_router(projects_router)
 router.include_router(prompts_router)
+router.include_router(reporting_router)
 router.include_router(sources_router)
 
 

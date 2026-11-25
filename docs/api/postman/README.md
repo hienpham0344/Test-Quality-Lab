@@ -12,12 +12,22 @@
 - `ai-configs` - Sprint 3 LLM provider catalog (`groq`, `gemini`, `openrouter`), encrypted
   credential upsert, KEK envelope rotation, masked listing, and deletion
   (`docs/api/contracts/ai-config.md`).
-- `prompts` - Sprint 3 `L1`-`L5` strategy listing, immutable version registration (using a clearly
-  labeled non-official test example because official `L1`-`L5` wording remains unapproved under
-  SRS `TBD-04`), version history, approval, and deterministic rendering
-  (`docs/api/contracts/prompts.md`).
+- `prompts` - Sprint 3/4 `L1`-`L5` strategy listing, readiness check, atomic `L1`-`L5` bundle
+  finalization, immutable version registration (using clearly labeled non-official test examples
+  because official `L1`-`L5` wording remains unapproved under SRS `TBD-04`), version history,
+  approval, and deterministic rendering (`docs/api/contracts/prompts.md`).
 - `experiments` - Sprint 3 matrix validation (`<= 1000` planned runs), draft creation/listing/patch,
   and append-only immutable snapshot freezing and retrieval (`docs/api/contracts/experiments.md`).
+- `generation` - Sprint 4 dashboard inspection, idempotent snapshot generation queue launch (`202`),
+  and active job cancellation (`docs/api/contracts/generation.md`).
+- `evaluations` - Sprint 6 static AST + verified trace evaluation (`0.0` vs `N/A`/`FAILED`/`TIMEOUT`),
+  snapshot generation-success calculation, and human assertion rubric reviews
+  (`docs/api/contracts/evaluations.md`).
+- `reports` - Sprint 7 live summary & filtered results, sanitized RFC 4180 CSV exports (`runs.csv`
+  and `strategy-comparison.csv`), and safe run result deletion (`docs/api/contracts/reports.md`).
+- `audit` - Sprint 7 owner-scoped audit trail (`GET /audit-events`), project SHA-256 integrity
+  verification, orphan artifact cleanup, and secret-free backup export/restore
+  (`docs/operations/backup-restore.md`).
 
 ## Usage
 
