@@ -1,5 +1,6 @@
 import { CoverageVisualizationCard } from './CoverageVisualizationCard'
 import { MutationVisualizationCard } from './MutationVisualizationCard'
+import { AssertionQualityCard } from './AssertionQualityCard'
 import { ProvenanceAuditCard } from './ProvenanceAuditCard'
 
 export function QualityEvaluationView({ execution, onInspectCase }) {
@@ -23,6 +24,23 @@ export function QualityEvaluationView({ execution, onInspectCase }) {
     },
   }
 
+  const assertionDetails = execution.assertion_details || {
+    score: metrics.assertion_score,
+    summary: {
+      total: execution.assertions?.length ?? 0,
+      verified: execution.assertions?.filter((a) => a.status === 'VERIFIED').length ?? 0,
+      failed: execution.assertions?.filter((a) => a.status === 'FAILED').length ?? 0,
+      ineffective: execution.assertions?.filter((a) => a.status === 'INEFFECTIVE').length ?? 0,
+      density: execution.cases?.length ? (execution.assertions?.length ?? 0) / execution.cases.length : 0,
+      pass_rate: execution.assertions?.length
+        ? (execution.assertions.filter((a) => a.status === 'VERIFIED').length / execution.assertions.length) * 100
+        : 'N/A',
+      assertion_less_cases: execution.cases?.filter((c) => !c.assertions || c.assertions.length === 0).length ?? 0,
+    },
+    assertions: execution.assertions || [],
+    unavailable_reason: execution.assertion_unavailable_reason || null,
+  }
+
   return (
     <div data-testid="quality-evaluation-view" className="space-y-6">
       {/* Coverage Visualization Card */}
@@ -37,6 +55,14 @@ export function QualityEvaluationView({ execution, onInspectCase }) {
       <MutationVisualizationCard
         mutationScore={metrics.mutation_score}
         mutationDetails={mutationDetails}
+        onInspectCase={onInspectCase}
+      />
+
+      {/* Assertion Quality Card */}
+      <AssertionQualityCard
+        assertionScore={metrics.assertion_score}
+        assertionDetails={assertionDetails}
+        testCases={execution.cases}
         onInspectCase={onInspectCase}
       />
 

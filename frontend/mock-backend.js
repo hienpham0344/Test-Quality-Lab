@@ -42,6 +42,7 @@ const store = {
       metrics: {
         coverage: 68.5,
         mutation_score: 75.0,
+        assertion_score: 85.0,
         validity: 'PASSED',
       },
       coverage_details: {
@@ -63,6 +64,27 @@ const store = {
           timeout: 0,
           error: 0,
         },
+      },
+      assertion_details: {
+        score: 85.0,
+        summary: {
+          total: 6,
+          verified: 5,
+          failed: 1,
+          ineffective: 0,
+          pass_rate: 83.3,
+          density: 1.2,
+          assertion_less_cases: 0,
+        },
+        assertions: [
+          { id: 'AST-01', test_case: 'test_add', statement: 'assert add(2, 3) == 5', type: 'EQUALITY', line: 12, status: 'VERIFIED', strength: 'HIGH', explanation: 'Validates exact arithmetic return value.' },
+          { id: 'AST-02', test_case: 'test_add', statement: 'assert isinstance(add(2, 3), int)', type: 'TYPE_INSTANCE', line: 13, status: 'VERIFIED', strength: 'MEDIUM', explanation: 'Ensures type constraint is satisfied.' },
+          { id: 'AST-03', test_case: 'test_multiply', statement: 'assert multiply(4, 5) == 20', type: 'EQUALITY', line: 20, status: 'VERIFIED', strength: 'HIGH', explanation: 'Validates multiplication product.' },
+          { id: 'AST-04', test_case: 'test_edge_cases', statement: 'assert result == 1', type: 'EQUALITY', line: 28, status: 'FAILED', strength: 'HIGH', explanation: 'Expected 1 but got 0 due to edge case failure.' },
+          { id: 'AST-05', test_case: 'test_fibonacci', statement: 'assert fibonacci(5) == 5', type: 'EQUALITY', line: 35, status: 'VERIFIED', strength: 'HIGH', explanation: 'Validates recursive sequence value.' },
+          { id: 'AST-06', test_case: 'test_fibonacci', statement: 'assert fibonacci(0) == 0', type: 'RELATIONAL', line: 36, status: 'VERIFIED', strength: 'HIGH', explanation: 'Validates base case invariant.' },
+        ],
+        unavailable_reason: null,
       },
       sandbox_policy: {
         untrusted_execution_enabled: false,
@@ -179,8 +201,10 @@ const store = {
       metrics: {
         coverage: 'N/A',
         mutation_score: 'N/A',
+        assertion_score: 'N/A',
         validity: 'N/A',
       },
+      assertion_details: null,
       sandbox_policy: {
         untrusted_execution_enabled: false,
         isolation_status: 'policy_simulation',
@@ -219,6 +243,7 @@ const store = {
       metrics: {
         coverage: 91.2,
         mutation_score: 0,
+        assertion_score: 0,
         validity: 'PASSED',
       },
       coverage_details: {
@@ -238,6 +263,23 @@ const store = {
           timeout: 0,
           error: 0,
         },
+      },
+      assertion_details: {
+        score: 0,
+        summary: {
+          total: 2,
+          verified: 0,
+          failed: 1,
+          ineffective: 1,
+          pass_rate: 0,
+          density: 0.2,
+          assertion_less_cases: 1,
+        },
+        assertions: [
+          { id: 'AST-101', test_case: 'test_core_logic', statement: 'assert True', type: 'IDENTITY_BOOLEAN', line: 11, status: 'INEFFECTIVE', strength: 'LOW', explanation: 'Trivial assertion provides zero behavioral verification.' },
+          { id: 'AST-102', test_case: 'test_boundary', statement: 'assert len(res) > 5', type: 'INVARIANT', line: 19, status: 'FAILED', strength: 'MEDIUM', explanation: 'Boundary invariant check failed.' },
+        ],
+        unavailable_reason: 'Test suite contains trivial and failing assertions resulting in 0.0% assertion quality score.',
       },
       sandbox_policy: {
         untrusted_execution_enabled: false,
@@ -304,8 +346,10 @@ const store = {
       metrics: {
         coverage: 'N/A',
         mutation_score: 'N/A',
+        assertion_score: 'N/A',
         validity: 'N/A',
       },
+      assertion_details: null,
       sandbox_policy: {
         untrusted_execution_enabled: false,
         isolation_status: 'policy_simulation',
@@ -347,7 +391,22 @@ const store = {
       metrics: {
         coverage: 'TIMEOUT',
         mutation_score: 'TIMEOUT',
+        assertion_score: 'TIMEOUT',
         validity: 'TIMEOUT',
+      },
+      assertion_details: {
+        score: 'TIMEOUT',
+        summary: {
+          total: 0,
+          verified: 0,
+          failed: 0,
+          ineffective: 0,
+          pass_rate: 'N/A',
+          density: 'N/A',
+          assertion_less_cases: 0,
+        },
+        assertions: [],
+        unavailable_reason: 'Exceeded sandbox hard limit (60s) before AST assertion extraction finished.',
       },
       sandbox_policy: {
         untrusted_execution_enabled: false,
@@ -733,8 +792,10 @@ const server = http.createServer(async (req, res) => {
       metrics: {
         coverage: 'N/A',
         mutation_score: 'N/A',
+        assertion_score: 'N/A',
         validity: 'N/A',
       },
+      assertion_details: null,
       sandbox_policy: {
         untrusted_execution_enabled: false,
         isolation_status: 'policy_simulation',

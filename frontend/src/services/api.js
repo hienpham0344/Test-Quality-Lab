@@ -212,6 +212,20 @@ export function getPythonSource(accessToken, projectId, source, signal) {
   })
 }
 
+export async function getGenerationProgress(accessToken, projectId, signal) {
+  const data = await request(`/projects/${encodeURIComponent(projectId)}/generation`, { accessToken, signal })
+  if (!Array.isArray(data?.approved_snapshots) || !Array.isArray(data?.runs) || typeof data?.launch_enabled !== 'boolean') {
+    throw new Error('Invalid generation response')
+  }
+  return data
+}
+
+export function startGeneration(accessToken, projectId, snapshotId, requestId) {
+  return request(`/projects/${encodeURIComponent(projectId)}/generation`, {
+    accessToken, method: 'POST', body: { snapshot_id: snapshotId, request_id: requestId },
+  })
+}
+
 // --- UC-08 Execution status and cancellation (S5) ---
 export async function listExecutions(accessToken, projectId, signal) {
   const data = await request(`/projects/${projectId}/executions`, { accessToken, signal })
