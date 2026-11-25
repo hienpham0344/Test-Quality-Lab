@@ -1,7 +1,8 @@
 /**
- * Execution status & metric helpers (Sprint 5 / UC-08).
+ * Execution status & metric helpers (Sprint 5 / UC-08 & Sprint 6 / UC-10).
  * Adheres strictly to the requirement:
  * "All metric states distinguish numeric zero, N/A, FAILED and TIMEOUT."
+ * "Metric equations and source provenance verified without fabricated values."
  */
 
 export const CANCELLABLE_STATUSES = new Set(['QUEUED', 'PENDING', 'RUNNING'])
@@ -63,6 +64,83 @@ export const STATUS_DEFINITIONS = {
     dotClass: 'bg-red-400',
     cancellable: false,
   },
+}
+
+export const MUTANT_STATUS_DEFINITIONS = {
+  KILLED: {
+    label: 'Killed',
+    description: 'Mutant detected and eliminated by test failure or assertion error',
+    badgeClass: 'bg-emerald-950/70 text-emerald-300 border-emerald-800',
+    dotClass: 'bg-emerald-400',
+  },
+  SURVIVED: {
+    label: 'Survived',
+    description: 'Mutant undetected; test suite passed despite mutation (test suite weakness)',
+    badgeClass: 'bg-amber-950/70 text-amber-300 border-amber-800',
+    dotClass: 'bg-amber-400',
+  },
+  TIMEOUT: {
+    label: 'Timeout',
+    description: 'Mutant resulted in infinite loop or exceeded runtime threshold',
+    badgeClass: 'bg-red-950/70 text-red-300 border-red-800',
+    dotClass: 'bg-red-400',
+  },
+  ERROR: {
+    label: 'Error',
+    description: 'Incompetent mutant: syntax error or compiler exception (excluded from score)',
+    badgeClass: 'bg-rose-950/70 text-rose-300 border-rose-800',
+    dotClass: 'bg-rose-400',
+  },
+}
+
+export const MUTATION_OPERATORS = {
+  AOR: {
+    name: 'Arithmetic Operator Replacement',
+    description: 'Replaces arithmetic operators (+, -, *, /, %, **)',
+  },
+  ROR: {
+    name: 'Relational Operator Replacement',
+    description: 'Replaces comparison operators (==, !=, <, <=, >, >=)',
+  },
+  LCR: {
+    name: 'Logical Connector Replacement',
+    description: 'Replaces logical operators (and, or, not)',
+  },
+  SDL: {
+    name: 'Statement Deletion',
+    description: 'Removes or passes over a statement',
+  },
+  UOI: {
+    name: 'Unary Operator Insertion',
+    description: 'Inserts unary operators (e.g., negative sign, logical not)',
+  },
+}
+
+/**
+ * Calculate Line Coverage rate from covered lines and total executable lines.
+ * Equation: (coveredLines / totalExecutableLines) * 100
+ * Strictly returns numeric 0 for zero coverage (distinguishing from N/A).
+ */
+export function calculateLineCoverage(coveredLines, totalLines) {
+  if (typeof coveredLines !== 'number' || typeof totalLines !== 'number') return 'N/A'
+  if (totalLines <= 0) return 'N/A'
+  if (coveredLines <= 0) return 0
+  const rate = (coveredLines / totalLines) * 100
+  return Math.min(100, Math.max(0, Math.round(rate * 10) / 10))
+}
+
+/**
+ * Calculate Mutation Score.
+ * Equation: (killed / (total - equivalent)) * 100
+ * Strictly returns numeric 0 for zero killed (distinguishing from N/A).
+ */
+export function calculateMutationScore(killed, total, equivalent = 0) {
+  if (typeof killed !== 'number' || typeof total !== 'number') return 'N/A'
+  const viableMutants = total - (typeof equivalent === 'number' ? equivalent : 0)
+  if (viableMutants <= 0) return 'N/A'
+  if (killed <= 0) return 0
+  const score = (killed / viableMutants) * 100
+  return Math.min(100, Math.max(0, Math.round(score * 10) / 10))
 }
 
 /**

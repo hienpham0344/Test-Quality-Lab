@@ -284,6 +284,45 @@ async function run() {
     console.log('Capturing 06-safe-log-viewer-with-explanations.png...');
     await takeScreenshot('06-safe-log-viewer-with-explanations.png');
 
+    // 10. Click "Quality Evaluation (UC-10)" sub-tab in ExecutionDetailModal
+    console.log('Switching to Quality Evaluation (UC-10) tab...');
+    await evaluate(`(() => {
+      const qTab = document.querySelector('[data-testid="tab-quality-evaluation"]');
+      if (qTab) qTab.click();
+    })()`);
+    await delay(1200);
+
+    console.log('Capturing 07-coverage-and-mutation-visualization.png...');
+    await takeScreenshot('07-coverage-and-mutation-visualization.png');
+
+    // Scroll to mutants breakdown table inside Mutation card
+    console.log('Scrolling to mutants breakdown table...');
+    await evaluate(`(() => {
+      const mutCard = document.querySelector('[data-testid="mutation-visualization-card"]');
+      if (mutCard) mutCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    })()`);
+    await delay(1000);
+
+    console.log('Capturing 08-mutants-breakdown-table.png...');
+    await takeScreenshot('08-mutants-breakdown-table.png');
+
+    // 11. Switch to Test Cases tab and open TestCaseDetailModal for case-1 (which has killed mutants)
+    console.log('Switching to Test Cases tab and opening case-1 details...');
+    await evaluate(`(() => {
+      const casesTab = document.querySelector('[data-testid="tab-test-cases"]');
+      if (casesTab) casesTab.click();
+    })()`);
+    await delay(1000);
+
+    await evaluate(`(() => {
+      const caseBtn = document.querySelector('[data-testid="inspect-case-btn-case-1"]');
+      if (caseBtn) caseBtn.click();
+    })()`);
+    await delay(1500);
+
+    console.log('Capturing 09-per-test-coverage-and-mutants-modal.png...');
+    await takeScreenshot('09-per-test-coverage-and-mutants-modal.png');
+
     console.log('All screenshots completed successfully!');
   } catch (err) {
     console.error('Error during capture:', err);

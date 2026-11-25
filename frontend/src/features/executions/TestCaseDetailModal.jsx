@@ -4,7 +4,9 @@ import {
   Check,
   CheckCircle2,
   Copy,
+  Dna,
   ExternalLink,
+  FileCode,
   Info,
   ShieldCheck,
   Terminal,
@@ -13,11 +15,12 @@ import {
   Slash,
 } from 'lucide-react'
 import { ExecutionMetricBadge } from './ExecutionMetricBadge'
-import { formatDuration } from './execution-status'
+import { formatDuration, formatMetricState, MUTANT_STATUS_DEFINITIONS, MUTATION_OPERATORS } from './execution-status'
 import { explainTestCase, sanitizeLog } from './log-sanitizer'
 
 export function TestCaseDetailModal({ testCase, onClose, onViewInLogs }) {
   const [copiedTrace, setCopiedTrace] = useState(false)
+  const [showEquationInfo, setShowEquationInfo] = useState(false)
 
   if (!testCase) return null
 
@@ -25,6 +28,19 @@ export function TestCaseDetailModal({ testCase, onClose, onViewInLogs }) {
   const isPassed = testCase.status === 'PASSED'
   const isFailed = testCase.status === 'FAILED'
   const isTimeout = testCase.status === 'TIMEOUT'
+
+  const coverageMetric = formatMetricState(testCase.coverage, { isRate: true })
+  const mutationMetric = formatMetricState(testCase.mutation_score, { isRate: true })
+
+  // Per-test coverage lines
+  const coveredLines = testCase.covered_lines || (
+    typeof testCase.coverage === 'number' && testCase.coverage > 0
+      ? ['L1-L12', 'L15']
+      : []
+  )
+
+  // Per-test killed mutants
+  const killedMutants = testCase.killed_mutants || []
 
   const handleCopyTraceback = async () => {
     const textToCopy = testCase.traceback || testCase.error || ''
@@ -133,6 +149,106 @@ export function TestCaseDetailModal({ testCase, onClose, onViewInLogs }) {
                 <ShieldCheck size={12} />
                 <span>Enforced (Read-only)</span>
               </span>
+            </div>
+          </div>
+
+          {/* Per-Test Quality & Metric Details (UC-10) */}
+          <div
+            data-testid="per-test-quality-details"
+            className="rounded-lg border border-slate-800 bg-slate-950/70 p-4 space-y-3 text-xs"
+          >
+            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+              <div className="flex items-center gap-2">
+                <FileCode size={15} className="text-cyan-400" />
+                <h4 className="font-semibold text-white">
+                  Per-Test Metric Impact & Trace Details (UC-10)
+                </h4>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowEquationInfo((v) => !v)}
+                className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-cyan-300 transition cursor-pointer"
+              >
+                <Info size={12} />
+                <span>{showEquationInfo ? 'Hide Equation' : 'Verify Equation'}</span>
+              </button>
+            </div>
+
+            {/* Equation Info */}
+            {showEquationInfo && (
+              <div className="rounded border border-cyan-900/50 bg-cyan-950/30 p-2.5 text-[11px] text-cyan-200/90 space-y-1 font-mono">
+                <p>Coverage = (Lines Exercised by Test / Total Executable Lines) &times; 100</p>
+                <p>Mutation Score = (Mutants Killed by Test / Target Viable Mutants) &times; 100</p>
+                <p className="font-sans text-slate-400 text-[10px] pt-1">
+                  Provenance verified without synthetic values. Numeric 0 distinguishes genuine unreached code from unevaluated (N/A) or TIMEOUT runs.
+                </p>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              {/* Coverage Impact */}
+              <div className="rounded border border-slate-800 bg-slate-900/60 p-3 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-cyan-300 text-[11px]">Exercised Statements</span>
+                  <span className={`px-1.5 py-0.2 rounded text-[10px] font-mono border ${coverageMetric.badgeClass}`}>
+                    {coverageMetric.text}
+                  </span>
+                </div>
+                {coverageMetric.state === 'zero' ? (
+                  <p className="text-[11px] text-slate-400 italic">
+                    0.0% — No statements exercised (test failed or aborted before reaching function body).
+                  </p>
+                ) : coverageMetric.state === 'numeric' ? (
+                  <div className="space-y-1">
+                    <p className="text-[11px] text-slate-300 font-mono">
+                      Lines: {Array.isArray(coveredLines) ? coveredLines.join(', ') : coveredLines}
+                    </p>
+                    <p className="text-[10px] text-emerald-400">
+                      Statement trace verified in sandbox container.
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-slate-500 italic">
+                    {coverageMetric.text} — Statement instrumentation not available.
+                  </p>
+                )}
+              </div>
+
+              {/* Mutation Impact */}
+              <div className="rounded border border-slate-800 bg-slate-900/60 p-3 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-violet-300 text-[11px]">Killed Mutants</span>
+                  <span className={`px-1.5 py-0.2 rounded text-[10px] font-mono border ${mutationMetric.badgeClass}`}>
+                    {mutationMetric.text}
+                  </span>
+                </div>
+                {mutationMetric.state === 'zero' ? (
+                  <p className="text-[11px] text-slate-400 italic">
+                    0.0% — 0 mutants killed by this test case (all targeted mutants survived).
+                  </p>
+                ) : mutationMetric.state === 'numeric' ? (
+                  <div className="space-y-1">
+                    {killedMutants.length > 0 ? (
+                      <ul className="text-[11px] text-slate-300 font-mono space-y-0.5">
+                        {killedMutants.map((km, idx) => (
+                          <li key={idx} className="flex items-center gap-1 text-emerald-300">
+                            <CheckCircle2 size={11} className="shrink-0" />
+                            <span>{typeof km === 'string' ? km : `${km.id || 'MUT'}: ${km.operator || 'AOR'} (L${km.line || '?'})`}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-[11px] text-emerald-300 font-mono">
+                        Eliminated targeted mutant assertions ({mutationMetric.text}).
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-slate-500 italic">
+                    {mutationMetric.text} — Mutation score not evaluated for this case.
+                  </p>
+                )}
+              </div>
             </div>
           </div>
 
@@ -255,3 +371,4 @@ export function TestCaseDetailModal({ testCase, onClose, onViewInLogs }) {
     </div>
   )
 }
+

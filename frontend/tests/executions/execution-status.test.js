@@ -3,9 +3,11 @@ import {
   formatDuration,
   formatMetricState,
   isCancellable,
+  calculateLineCoverage,
+  calculateMutationScore,
 } from '../../src/features/executions/execution-status'
 
-describe('execution-status utility (UC-08)', () => {
+describe('execution-status utility (UC-08 / UC-10)', () => {
   describe('isCancellable', () => {
     it('returns true for eligible statuses: QUEUED, PENDING, RUNNING', () => {
       expect(isCancellable('QUEUED')).toBe(true)
@@ -25,6 +27,50 @@ describe('execution-status utility (UC-08)', () => {
       expect(isCancellable(null)).toBe(false)
       expect(isCancellable(undefined)).toBe(false)
       expect(isCancellable('')).toBe(false)
+    })
+  })
+
+  describe('calculateLineCoverage (UC-10 DoD)', () => {
+    it('calculates coverage percentage according to equation', () => {
+      expect(calculateLineCoverage(18, 20)).toBe(90.0)
+      expect(calculateLineCoverage(10, 20)).toBe(50.0)
+      expect(calculateLineCoverage(20, 20)).toBe(100.0)
+    })
+
+    it('returns true numeric 0 when 0 lines covered (distinct from N/A)', () => {
+      const res = calculateLineCoverage(0, 25)
+      expect(res).toBe(0)
+      expect(typeof res).toBe('number')
+    })
+
+    it('returns N/A for invalid or zero total lines without fabricating values', () => {
+      expect(calculateLineCoverage(0, 0)).toBe('N/A')
+      expect(calculateLineCoverage(null, 20)).toBe('N/A')
+      expect(calculateLineCoverage(10, null)).toBe('N/A')
+      expect(calculateLineCoverage('10', 20)).toBe('N/A')
+    })
+  })
+
+  describe('calculateMutationScore (UC-10 DoD)', () => {
+    it('calculates mutation score percentage according to equation', () => {
+      // 15 killed out of 20 total = 75.0%
+      expect(calculateMutationScore(15, 20)).toBe(75.0)
+      // 18 killed out of 22 total with 2 equivalent = 18 / 20 = 90.0%
+      expect(calculateMutationScore(18, 22, 2)).toBe(90.0)
+    })
+
+    it('returns true numeric 0 when 0 mutants killed (distinct from N/A)', () => {
+      const res = calculateMutationScore(0, 15)
+      expect(res).toBe(0)
+      expect(typeof res).toBe('number')
+    })
+
+    it('returns N/A for non-viable pools or missing data without fabricating values', () => {
+      expect(calculateMutationScore(0, 0)).toBe('N/A')
+      expect(calculateMutationScore(null, 10)).toBe('N/A')
+      expect(calculateMutationScore(5, null)).toBe('N/A')
+      // equivalent equals total
+      expect(calculateMutationScore(0, 5, 5)).toBe('N/A')
     })
   })
 
