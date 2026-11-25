@@ -29,6 +29,7 @@ HTTP_STATUS: dict[ErrorCode, int] = {
     ErrorCode.PROMPT_NOT_APPROVED: 409,
     ErrorCode.SNAPSHOT_IMMUTABLE: 409,
     ErrorCode.PROVIDER_UNSUPPORTED: 422,
+    ErrorCode.EXPERIMENT_RUN_LIMIT: 422,
 }
 
 # Request-shape errors use the module's own SRS code; first matching prefix wins.

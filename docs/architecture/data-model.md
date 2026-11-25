@@ -1,8 +1,11 @@
 # Data model (early draft)
 
 Current implementation: `users`, one-time `auth_tokens`, revocable `auth_sessions`,
-`projects`, immutable `project_history` revisions, `sources`, and immutable
-`source_versions` have Alembic migrations.
+`projects`, immutable `project_history` revisions, `sources`, immutable
+`source_versions`, `datasets`, immutable `dataset_versions`, encrypted
+`provider_credentials` (`20261125_0006`), `prompt_templates` + immutable
+`prompt_versions` (`20261125_0007`), and `experiments` + append-only
+`experiment_snapshots` / `experiment_snapshot_runs` (`20261125_0008`) have Alembic migrations.
 `users.auth_epoch` invalidates old sessions after password reset, even when
 session creation overlaps the reset.
 `users.display_name` (optional) comes from UC-01 registration. `audit_events`
