@@ -4,11 +4,15 @@ import {
   Ban,
   CheckCircle2,
   Cpu,
+  Dna,
   Eye,
+  FileCode,
   HardDrive,
+  Layers,
   Network,
   Search,
   ShieldCheck,
+  Terminal,
   Timer,
   X,
   Slash,
@@ -17,10 +21,12 @@ import { ExecutionStatusBadge } from './ExecutionStatusBadge'
 import { ExecutionMetricBadge } from './ExecutionMetricBadge'
 import { SafeLogViewer } from './SafeLogViewer'
 import { TestCaseDetailModal } from './TestCaseDetailModal'
+import { QualityEvaluationView } from './QualityEvaluationView'
 import { formatDuration, isCancellable } from './execution-status'
 import { formatDate } from '../../lib/format-date'
 
 export function ExecutionDetailModal({ execution, onClose, onCancelClick }) {
+  const [activeTab, setActiveTab] = useState('all') // 'all' | 'quality' | 'cases' | 'logs'
   const [testCaseFilter, setTestCaseFilter] = useState('all') // 'all' | 'PASSED' | 'FAILED' | 'TIMEOUT'
   const [testCaseSearch, setTestCaseSearch] = useState('')
   const [selectedTestCase, setSelectedTestCase] = useState(null)
@@ -109,6 +115,62 @@ export function ExecutionDetailModal({ execution, onClose, onCancelClick }) {
                 <X size={20} />
               </button>
             </div>
+          </div>
+
+          {/* Navigation Sub-Tabs */}
+          <div className="flex items-center gap-1 px-6 pt-3 border-b border-slate-800 bg-slate-950/20 text-xs">
+            <button
+              type="button"
+              data-testid="tab-all-overview"
+              onClick={() => setActiveTab('all')}
+              className={`flex items-center gap-1.5 px-3 py-2 border-b-2 font-medium transition cursor-pointer ${
+                activeTab === 'all'
+                  ? 'border-indigo-500 text-white bg-slate-800/40'
+                  : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/20'
+              }`}
+            >
+              <Layers size={13} />
+              <span>All Overview</span>
+            </button>
+            <button
+              type="button"
+              data-testid="tab-quality-evaluation"
+              onClick={() => setActiveTab('quality')}
+              className={`flex items-center gap-1.5 px-3 py-2 border-b-2 font-medium transition cursor-pointer ${
+                activeTab === 'quality'
+                  ? 'border-cyan-500 text-white bg-slate-800/40'
+                  : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/20'
+              }`}
+            >
+              <Dna size={13} className="text-violet-400" />
+              <span>Quality Evaluation (UC-10)</span>
+            </button>
+            <button
+              type="button"
+              data-testid="tab-test-cases"
+              onClick={() => setActiveTab('cases')}
+              className={`flex items-center gap-1.5 px-3 py-2 border-b-2 font-medium transition cursor-pointer ${
+                activeTab === 'cases'
+                  ? 'border-emerald-500 text-white bg-slate-800/40'
+                  : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/20'
+              }`}
+            >
+              <FileCode size={13} className="text-emerald-400" />
+              <span>Test Cases ({cases.length})</span>
+            </button>
+            <button
+              type="button"
+              data-testid="tab-safe-logs"
+              onClick={() => setActiveTab('logs')}
+              className={`flex items-center gap-1.5 px-3 py-2 border-b-2 font-medium transition cursor-pointer ${
+                activeTab === 'logs'
+                  ? 'border-amber-500 text-white bg-slate-800/40'
+                  : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/20'
+              }`}
+            >
+              <Terminal size={13} className="text-amber-400" />
+              <span>Safe Logs ({logs.length})</span>
+            </button>
           </div>
 
           {/* Scrollable Content */}
@@ -225,212 +287,227 @@ export function ExecutionDetailModal({ execution, onClose, onCancelClick }) {
               </div>
             </div>
 
-            {/* Test Cases Section with Pass/Fail UX */}
-            <div className="space-y-3">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
-                  Executed Test Cases ({cases.length})
-                </h4>
+            {/* Quality Evaluation View (UC-10) */}
+            {(activeTab === 'all' || activeTab === 'quality') && (
+              <QualityEvaluationView
+                execution={execution}
+                onInspectCase={(caseName) => {
+                  const targetCase = cases.find((c) => c.name === caseName)
+                  if (targetCase) setSelectedTestCase(targetCase)
+                }}
+              />
+            )}
+
+            {/* Test Cases Section with Pass/Fail UX (UC-09) */}
+            {(activeTab === 'all' || activeTab === 'cases') && (
+              <div className="space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                    Executed Test Cases ({cases.length})
+                  </h4>
+                  {cases.length > 0 && (
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="text-slate-400">Pass Rate:</span>
+                      <span className="font-mono font-semibold text-emerald-400">
+                        {caseCounts.passRate}%
+                      </span>
+                      <span className="text-slate-500">
+                        ({caseCounts.passed}/{caseCounts.total})
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Pass/Fail Progress Bar */}
                 {cases.length > 0 && (
-                  <div className="flex items-center gap-2 text-xs">
-                    <span className="text-slate-400">Pass Rate:</span>
-                    <span className="font-mono font-semibold text-emerald-400">
-                      {caseCounts.passRate}%
-                    </span>
-                    <span className="text-slate-500">
-                      ({caseCounts.passed}/{caseCounts.total})
-                    </span>
+                  <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden flex">
+                    <div
+                      style={{ width: `${(caseCounts.passed / caseCounts.total) * 100}%` }}
+                      className="bg-emerald-500 h-full transition-all"
+                      title={`Passed: ${caseCounts.passed}`}
+                    />
+                    <div
+                      style={{ width: `${(caseCounts.failed / caseCounts.total) * 100}%` }}
+                      className="bg-rose-500 h-full transition-all"
+                      title={`Failed: ${caseCounts.failed}`}
+                    />
+                    <div
+                      style={{ width: `${(caseCounts.timeout / caseCounts.total) * 100}%` }}
+                      className="bg-red-600 h-full transition-all"
+                      title={`Timeout: ${caseCounts.timeout}`}
+                    />
+                  </div>
+                )}
+
+                {/* Filter Pills and Search for Test Cases */}
+                {cases.length > 0 && (
+                  <div className="flex flex-wrap items-center justify-between gap-2 p-2 rounded-lg bg-slate-950/60 border border-slate-800">
+                    <div className="flex items-center gap-1 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => setTestCaseFilter('all')}
+                        className={`px-2.5 py-1 rounded font-medium transition cursor-pointer ${
+                          testCaseFilter === 'all'
+                            ? 'bg-slate-700 text-white'
+                            : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                        }`}
+                      >
+                        All ({caseCounts.total})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTestCaseFilter('PASSED')}
+                        className={`px-2.5 py-1 rounded font-medium transition cursor-pointer ${
+                          testCaseFilter === 'PASSED'
+                            ? 'bg-emerald-800 text-white'
+                            : 'text-slate-400 hover:text-emerald-300 hover:bg-slate-800'
+                        }`}
+                      >
+                        Passed ({caseCounts.passed})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTestCaseFilter('FAILED')}
+                        className={`px-2.5 py-1 rounded font-medium transition cursor-pointer ${
+                          testCaseFilter === 'FAILED'
+                            ? 'bg-rose-800 text-white'
+                            : 'text-slate-400 hover:text-rose-300 hover:bg-slate-800'
+                        }`}
+                      >
+                        Failed ({caseCounts.failed})
+                      </button>
+                      {caseCounts.timeout > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setTestCaseFilter('TIMEOUT')}
+                          className={`px-2.5 py-1 rounded font-medium transition cursor-pointer ${
+                            testCaseFilter === 'TIMEOUT'
+                              ? 'bg-red-800 text-white'
+                              : 'text-slate-400 hover:text-red-300 hover:bg-slate-800'
+                          }`}
+                        >
+                          Timeout ({caseCounts.timeout})
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="relative">
+                      <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="Filter test cases..."
+                        value={testCaseSearch}
+                        onChange={(e) => setTestCaseSearch(e.target.value)}
+                        className="w-44 pl-8 pr-6 py-1 bg-slate-900 border border-slate-700 rounded text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                      />
+                      {testCaseSearch && (
+                        <button
+                          type="button"
+                          onClick={() => setTestCaseSearch('')}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                          aria-label="Clear test case search"
+                        >
+                          <X size={12} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Test Cases Table */}
+                {cases.length === 0 ? (
+                  <div className="p-4 rounded-lg border border-slate-800 bg-slate-950/40 text-center text-xs text-slate-500 italic">
+                    No individual test cases recorded for this run.
+                  </div>
+                ) : filteredCases.length === 0 ? (
+                  <div className="p-4 rounded-lg border border-slate-800 bg-slate-950/40 text-center text-xs text-slate-500 italic">
+                    No test cases match filter &quot;{testCaseFilter}&quot; / &quot;{testCaseSearch}&quot;.
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-slate-800 overflow-hidden">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-950/80 text-slate-400 border-b border-slate-800">
+                        <tr>
+                          <th className="px-3.5 py-2 font-medium">Test Case</th>
+                          <th className="px-3 py-2 font-medium">Status</th>
+                          <th className="px-3 py-2 font-medium">Duration</th>
+                          <th className="px-3 py-2 font-medium">Coverage</th>
+                          <th className="px-3 py-2 font-medium">Mutation</th>
+                          <th className="px-3 py-2 font-medium">Details / Error</th>
+                          <th className="px-3 py-2 font-medium text-right">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800/80 font-mono text-[11px]">
+                        {filteredCases.map((c) => (
+                          <tr
+                            key={c.id}
+                            className="hover:bg-slate-800/30 transition group"
+                          >
+                            <td className="px-3.5 py-2 text-white font-medium">
+                              <span className="font-semibold">{c.name}</span>
+                            </td>
+                            <td className="px-3 py-2">
+                              {c.status === 'PASSED' && (
+                                <span className="text-emerald-400 inline-flex items-center gap-1 font-semibold">
+                                  <CheckCircle2 size={12} /> PASSED
+                                </span>
+                              )}
+                              {c.status === 'FAILED' && (
+                                <span className="text-rose-400 inline-flex items-center gap-1 font-semibold">
+                                  <AlertOctagon size={12} /> FAILED
+                                </span>
+                              )}
+                              {c.status === 'TIMEOUT' && (
+                                <span className="text-red-400 inline-flex items-center gap-1 font-semibold">
+                                  <Timer size={12} /> TIMEOUT
+                                </span>
+                              )}
+                              {c.status !== 'PASSED' && c.status !== 'FAILED' && c.status !== 'TIMEOUT' && (
+                                <span className="text-zinc-400 inline-flex items-center gap-1 font-semibold">
+                                  <Slash size={12} /> {c.status || 'SKIPPED'}
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2 text-slate-300">{formatDuration(c.duration_ms)}</td>
+                            <td className="px-3 py-2">
+                              <ExecutionMetricBadge value={c.coverage} isRate={true} />
+                            </td>
+                            <td className="px-3 py-2">
+                              <ExecutionMetricBadge value={c.mutation_score} isRate={true} />
+                            </td>
+                            <td className="px-3 py-2 text-slate-400 truncate max-w-[200px]" title={c.error || ''}>
+                              {c.error ? <span className="text-rose-300 font-sans">{c.error}</span> : '—'}
+                            </td>
+                            <td className="px-3 py-2 text-right">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedTestCase(c)}
+                                data-testid={`inspect-case-btn-${c.id}`}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-slate-700 bg-slate-800 text-[11px] text-slate-300 hover:text-white hover:bg-slate-700 transition cursor-pointer"
+                                title="Inspect test case details, input/output, and traceback"
+                              >
+                                <Eye size={11} />
+                                <span>Details</span>
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </div>
-
-              {/* Pass/Fail Progress Bar */}
-              {cases.length > 0 && (
-                <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden flex">
-                  <div
-                    style={{ width: `${(caseCounts.passed / caseCounts.total) * 100}%` }}
-                    className="bg-emerald-500 h-full transition-all"
-                    title={`Passed: ${caseCounts.passed}`}
-                  />
-                  <div
-                    style={{ width: `${(caseCounts.failed / caseCounts.total) * 100}%` }}
-                    className="bg-rose-500 h-full transition-all"
-                    title={`Failed: ${caseCounts.failed}`}
-                  />
-                  <div
-                    style={{ width: `${(caseCounts.timeout / caseCounts.total) * 100}%` }}
-                    className="bg-red-600 h-full transition-all"
-                    title={`Timeout: ${caseCounts.timeout}`}
-                  />
-                </div>
-              )}
-
-              {/* Filter Pills and Search for Test Cases */}
-              {cases.length > 0 && (
-                <div className="flex flex-wrap items-center justify-between gap-2 p-2 rounded-lg bg-slate-950/60 border border-slate-800">
-                  <div className="flex items-center gap-1 text-xs">
-                    <button
-                      type="button"
-                      onClick={() => setTestCaseFilter('all')}
-                      className={`px-2.5 py-1 rounded font-medium transition cursor-pointer ${
-                        testCaseFilter === 'all'
-                          ? 'bg-slate-700 text-white'
-                          : 'text-slate-400 hover:text-white hover:bg-slate-800'
-                      }`}
-                    >
-                      All ({caseCounts.total})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setTestCaseFilter('PASSED')}
-                      className={`px-2.5 py-1 rounded font-medium transition cursor-pointer ${
-                        testCaseFilter === 'PASSED'
-                          ? 'bg-emerald-800 text-white'
-                          : 'text-slate-400 hover:text-emerald-300 hover:bg-slate-800'
-                      }`}
-                    >
-                      Passed ({caseCounts.passed})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setTestCaseFilter('FAILED')}
-                      className={`px-2.5 py-1 rounded font-medium transition cursor-pointer ${
-                        testCaseFilter === 'FAILED'
-                          ? 'bg-rose-800 text-white'
-                          : 'text-slate-400 hover:text-rose-300 hover:bg-slate-800'
-                      }`}
-                    >
-                      Failed ({caseCounts.failed})
-                    </button>
-                    {caseCounts.timeout > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => setTestCaseFilter('TIMEOUT')}
-                        className={`px-2.5 py-1 rounded font-medium transition cursor-pointer ${
-                          testCaseFilter === 'TIMEOUT'
-                            ? 'bg-red-800 text-white'
-                            : 'text-slate-400 hover:text-red-300 hover:bg-slate-800'
-                        }`}
-                      >
-                        Timeout ({caseCounts.timeout})
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="relative">
-                    <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="text"
-                      placeholder="Filter test cases..."
-                      value={testCaseSearch}
-                      onChange={(e) => setTestCaseSearch(e.target.value)}
-                      className="w-44 pl-8 pr-6 py-1 bg-slate-900 border border-slate-700 rounded text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-                    />
-                    {testCaseSearch && (
-                      <button
-                        type="button"
-                        onClick={() => setTestCaseSearch('')}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
-                        aria-label="Clear test case search"
-                      >
-                        <X size={12} />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Test Cases Table */}
-              {cases.length === 0 ? (
-                <div className="p-4 rounded-lg border border-slate-800 bg-slate-950/40 text-center text-xs text-slate-500 italic">
-                  No individual test cases recorded for this run.
-                </div>
-              ) : filteredCases.length === 0 ? (
-                <div className="p-4 rounded-lg border border-slate-800 bg-slate-950/40 text-center text-xs text-slate-500 italic">
-                  No test cases match filter &quot;{testCaseFilter}&quot; / &quot;{testCaseSearch}&quot;.
-                </div>
-              ) : (
-                <div className="rounded-lg border border-slate-800 overflow-hidden">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-950/80 text-slate-400 border-b border-slate-800">
-                      <tr>
-                        <th className="px-3.5 py-2 font-medium">Test Case</th>
-                        <th className="px-3 py-2 font-medium">Status</th>
-                        <th className="px-3 py-2 font-medium">Duration</th>
-                        <th className="px-3 py-2 font-medium">Coverage</th>
-                        <th className="px-3 py-2 font-medium">Mutation</th>
-                        <th className="px-3 py-2 font-medium">Details / Error</th>
-                        <th className="px-3 py-2 font-medium text-right">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-800/80 font-mono text-[11px]">
-                      {filteredCases.map((c) => (
-                        <tr
-                          key={c.id}
-                          className="hover:bg-slate-800/30 transition group"
-                        >
-                          <td className="px-3.5 py-2 text-white font-medium">
-                            <span className="font-semibold">{c.name}</span>
-                          </td>
-                          <td className="px-3 py-2">
-                            {c.status === 'PASSED' && (
-                              <span className="text-emerald-400 inline-flex items-center gap-1 font-semibold">
-                                <CheckCircle2 size={12} /> PASSED
-                              </span>
-                            )}
-                            {c.status === 'FAILED' && (
-                              <span className="text-rose-400 inline-flex items-center gap-1 font-semibold">
-                                <AlertOctagon size={12} /> FAILED
-                              </span>
-                            )}
-                            {c.status === 'TIMEOUT' && (
-                              <span className="text-red-400 inline-flex items-center gap-1 font-semibold">
-                                <Timer size={12} /> TIMEOUT
-                              </span>
-                            )}
-                            {c.status !== 'PASSED' && c.status !== 'FAILED' && c.status !== 'TIMEOUT' && (
-                              <span className="text-zinc-400 inline-flex items-center gap-1 font-semibold">
-                                <Slash size={12} /> {c.status || 'SKIPPED'}
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-3 py-2 text-slate-300">{formatDuration(c.duration_ms)}</td>
-                          <td className="px-3 py-2">
-                            <ExecutionMetricBadge value={c.coverage} isRate={true} />
-                          </td>
-                          <td className="px-3 py-2">
-                            <ExecutionMetricBadge value={c.mutation_score} isRate={true} />
-                          </td>
-                          <td className="px-3 py-2 text-slate-400 truncate max-w-[200px]" title={c.error || ''}>
-                            {c.error ? <span className="text-rose-300 font-sans">{c.error}</span> : '—'}
-                          </td>
-                          <td className="px-3 py-2 text-right">
-                            <button
-                              type="button"
-                              onClick={() => setSelectedTestCase(c)}
-                              data-testid={`inspect-case-btn-${c.id}`}
-                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-slate-700 bg-slate-800 text-[11px] text-slate-300 hover:text-white hover:bg-slate-700 transition cursor-pointer"
-                              title="Inspect test case details, input/output, and traceback"
-                            >
-                              <Eye size={11} />
-                              <span>Details</span>
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
+            )}
 
             {/* Safe Log Viewer with Diagnostic Explanations */}
-            <SafeLogViewer
-              logs={logs}
-              activeCaseFilter={logCaseFilter}
-              onClearCaseFilter={() => setLogCaseFilter(null)}
-              title="Sandbox Execution Logs"
-            />
+            {(activeTab === 'all' || activeTab === 'logs') && (
+              <SafeLogViewer
+                logs={logs}
+                activeCaseFilter={logCaseFilter}
+                onClearCaseFilter={() => setLogCaseFilter(null)}
+                title="Sandbox Execution Logs"
+              />
+            )}
           </div>
 
           {/* Footer */}
@@ -460,3 +537,4 @@ export function ExecutionDetailModal({ execution, onClose, onCancelClick }) {
     </>
   )
 }
+
