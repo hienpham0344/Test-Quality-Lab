@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
@@ -96,10 +96,21 @@ def update_project(
 @router.get("/{project_id}/history", response_model=list[HistoryOutput])
 def project_history(
     project_id: uuid.UUID,
+    changed_from: str | None = Query(default=None, alias="from"),
+    changed_to: str | None = Query(default=None, alias="to"),
+    limit: int = Query(default=100, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    history = ProjectService(db).history(user.id, project_id)
+    history = ProjectService(db).history(
+        user.id,
+        project_id,
+        changed_from=changed_from,
+        changed_to=changed_to,
+        limit=limit,
+        offset=offset,
+    )
     if history is None:
         raise HTTPException(status_code=404, detail="Project not found")
     return history
