@@ -17,6 +17,7 @@ from app.infrastructure.llm.base import (
 )
 from app.infrastructure.llm.gemini import GeminiAdapter
 from app.infrastructure.llm.groq import GroqAdapter
+from app.infrastructure.llm.mock import MockLLMAdapter
 from app.infrastructure.llm.openrouter import OpenRouterAdapter
 
 
@@ -56,6 +57,7 @@ __all__ = [
     "LLMRequest",
     "LLMResponse",
     "LLMUsage",
+    "MockLLMAdapter",
     "OpenRouterAdapter",
     "ProviderAdapter",
     "ProviderDescriptor",

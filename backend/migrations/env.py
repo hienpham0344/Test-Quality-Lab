@@ -14,8 +14,12 @@ from app.modules.experiments.models import (  # noqa: F401 — register metadata
     ExperimentSnapshot,
     ExperimentSnapshotRun,
 )
+from app.modules.generation.models import GenerationJob, GenerationRun  # noqa: F401
 from app.modules.projects.models import Project, ProjectHistory  # noqa: F401 — register metadata
-from app.modules.prompts.models import PromptTemplate, PromptVersion  # noqa: F401 — register metadata
+from app.modules.prompts.models import (  # noqa: F401 — register metadata
+    PromptTemplate,
+    PromptVersion,
+)
 from app.modules.sources.models import Source, SourceVersion  # noqa: F401 — register metadata
 
 config = context.config

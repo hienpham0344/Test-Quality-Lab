@@ -9,6 +9,9 @@ from app.infrastructure.database.session import get_db
 from app.modules.auth.dependencies import current_user
 from app.modules.auth.models import User
 from app.modules.prompts.schemas import (
+    PromptBundleFinalizeInput,
+    PromptBundleFinalizeOutput,
+    PromptReadinessOutput,
     PromptRenderInput,
     PromptRenderOutput,
     PromptTemplateSummary,
@@ -27,6 +30,25 @@ def list_prompt_strategies(
     db: Session = Depends(get_db),
 ) -> list[PromptTemplateSummary]:
     return PromptRegistryService(db).list_strategies(user.id, project_id)
+
+
+@router.get("/readiness", response_model=PromptReadinessOutput)
+def get_prompt_readiness(
+    project_id: uuid.UUID,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+) -> PromptReadinessOutput:
+    return PromptRegistryService(db).get_readiness(user.id, project_id)
+
+
+@router.post("/bundles/finalize", response_model=PromptBundleFinalizeOutput)
+def finalize_prompt_bundle(
+    project_id: uuid.UUID,
+    payload: PromptBundleFinalizeInput,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+) -> PromptBundleFinalizeOutput:
+    return PromptRegistryService(db).finalize_bundle(user.id, project_id, payload)
 
 
 @router.get("/{strategy}/versions", response_model=list[PromptVersionOutput])
