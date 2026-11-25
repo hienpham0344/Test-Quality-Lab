@@ -220,6 +220,17 @@ export async function getGenerationProgress(accessToken, projectId, signal) {
   return data
 }
 
+export async function getGenerationArtifacts(accessToken, projectId, runId, signal) {
+  const project = encodeURIComponent(projectId)
+  const run = encodeURIComponent(runId)
+  const data = await request(`/projects/${project}/generation/runs/${run}/artifacts`, { accessToken, signal })
+  if (!data || !['raw_response', 'parsed_test'].every((field) =>
+    data[field] === null || typeof data[field] === 'string')) {
+    throw new Error('Invalid generation artifacts response')
+  }
+  return data
+}
+
 export function startGeneration(accessToken, projectId, snapshotId, requestId) {
   return request(`/projects/${encodeURIComponent(projectId)}/generation`, {
     accessToken, method: 'POST', body: { snapshot_id: snapshotId, request_id: requestId },
