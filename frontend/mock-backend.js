@@ -854,6 +854,56 @@ const server = http.createServer(async (req, res) => {
     return
   }
 
+  // Sources: List (GET /api/v1/projects/:projectId/sources)
+  const sourcesListMatch = path.match(/^\/api\/v1\/projects\/([^/]+)\/sources$/)
+  if (sourcesListMatch && req.method === 'GET') {
+    sendJson(res, 200, [
+      {
+        id: 'src-sample-1',
+        filename: 'math_utils.py',
+        current_revision: 2,
+        created_at: new Date(Date.now() - 86400000).toISOString(),
+      },
+      {
+        id: 'src-sample-2',
+        filename: 'string_parser.py',
+        current_revision: 1,
+        created_at: new Date(Date.now() - 43200000).toISOString(),
+      },
+    ])
+    return
+  }
+
+  // Sources: Get Version (GET /api/v1/projects/:projectId/sources/:sourceId/versions/:revision)
+  const sourceVerMatch = path.match(/^\/api\/v1\/projects\/([^/]+)\/sources\/([^/]+)\/versions\/(\d+)$/)
+  if (sourceVerMatch && req.method === 'GET') {
+    const sourceId = sourceVerMatch[2]
+    if (sourceId === 'src-sample-1') {
+      sendJson(res, 200, {
+        id: 'src-sample-1',
+        filename: 'math_utils.py',
+        current_revision: 2,
+        functions: [
+          { name: 'calculate_tax', line: 12 },
+          { name: 'format_currency', line: 28 },
+          { name: 'apply_discount', line: 45 },
+          { name: 'sum_line_items', line: 62 },
+        ],
+      })
+      return
+    }
+    sendJson(res, 200, {
+      id: sourceId,
+      filename: 'string_parser.py',
+      current_revision: 1,
+      functions: [
+        { name: 'parse_tokens', line: 8 },
+        { name: 'sanitize_identifier', line: 24 },
+      ],
+    })
+    return
+  }
+
   // Fallback 404
   sendJson(res, 404, { detail: { message: `Not found: ${req.method} ${path}` } })
 })
