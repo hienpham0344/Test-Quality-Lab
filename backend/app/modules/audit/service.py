@@ -25,6 +25,7 @@ class AuditAction(StrEnum):
     EXPERIMENT_SNAPSHOT_FROZEN = "experiment.snapshot_frozen"
     GENERATION_STARTED = "generation.started"
     GENERATION_CANCELLED = "generation.cancelled"
+    EVALUATION_ASSERTION_REVIEWED = "evaluation.assertion_reviewed"
 
 
 class AuditService:
