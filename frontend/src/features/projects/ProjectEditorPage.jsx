@@ -14,6 +14,7 @@ import { ProjectBackLink } from '../../components/projects/ProjectBackLink'
 import { ProjectHistoryList } from '../../components/projects/ProjectHistoryList'
 import { DatasetsManager } from '../datasets'
 import { ExecutionsManager } from '../executions'
+import { ResultsDashboardPage } from '../reports'
 import { formatDate } from '../../lib/format-date'
 
 const projectTabs = [
@@ -21,6 +22,7 @@ const projectTabs = [
   ['history', 'History'],
   ['datasets', 'Datasets (CSV)'],
   ['executions', 'Executions (UC-08)'],
+  ['results', 'Results & Reports (FR-RPT)'],
 ]
 
 function UnsavedChangesDialog({ onKeepEditing, onDiscard }) {
@@ -392,6 +394,14 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
             />
           </div>
         </section>
+      )}
+
+      {/* Tab: Results & Reports (FR-RPT) */}
+      {mode === 'edit' && activeTab === 'results' && (
+        <ResultsDashboardPage
+          session={session}
+          onExpire={onExpire}
+        />
       )}
 
       {/* Tab: Settings (or create mode) */}
