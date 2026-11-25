@@ -209,10 +209,23 @@ async function run() {
     // Close modal
     console.log('Closing drilldown modal...');
     await evaluate(`(() => {
-      const closeBtn = document.querySelector('[data-testid="close-detail-modal-btn"]');
+      const closeBtn = document.querySelector('button[aria-label="Close dialog"]') ||
+        Array.from(document.querySelectorAll('button')).find(b => b.textContent.trim() === 'Close');
       if (closeBtn) closeBtn.click();
     })()`);
-    await delay(1000);
+    await delay(1200);
+
+    // Verify modal is closed
+    const modalStillOpen = await evaluate(`Boolean(document.querySelector('button[aria-label="Close dialog"]'))`);
+    if (modalStillOpen) {
+      console.log('Modal still open, forcing close...');
+      await evaluate(`(() => {
+        const btns = Array.from(document.querySelectorAll('button'));
+        const close = btns.find(b => b.textContent.trim() === 'Close');
+        if (close) close.click();
+      })()`);
+      await delay(1000);
+    }
 
     // Switch to Strategy Comparison tab (FR-RPT-004 / FR-RPT-005)
     console.log('Switching to Strategy Comparison tab...');
