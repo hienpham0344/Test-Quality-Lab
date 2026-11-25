@@ -12,8 +12,9 @@ import { ProjectsPage } from '../features/projects/ProjectsPage'
 import { ProjectEditorPage } from '../features/projects/ProjectEditorPage'
 import { PythonSourcePage } from '../features/sources/PythonSourcePage'
 import { ProviderConfigurationPage } from '../features/ai-config/ProviderConfigurationPage'
+import { ExperimentSetupPage } from '../features/experiments/ExperimentSetupPage'
 
-const workspacePaths = ['/workspace', '/projects', '/projects/:id', '/projects/:id/sources/new', '/projects/:id/ai-config']
+const workspacePaths = ['/workspace', '/projects', '/projects/:id', '/projects/:id/sources/new', '/projects/:id/ai-config', '/projects/:id/experiments/new']
 
 function WorkspaceRedirect() {
   const target = useLocation().state?.returnTo
@@ -35,6 +36,7 @@ export default function AppRoutes({ session, expired, logoutNotice, signingOut, 
           <Route path="/projects" element={<ProjectsPage session={session} onExpire={onExpire} />} />
           <Route path="/projects/:projectId/sources/new" element={<PythonSourcePage session={session} onExpire={onExpire} />} />
           <Route path="/projects/:projectId/ai-config" element={<ProviderConfigurationPage />} />
+          <Route path="/projects/:projectId/experiments/new" element={<ExperimentSetupPage session={session} onExpire={onExpire} />} />
           <Route path="/projects/new" element={<ProjectEditorPage session={session} onExpire={onExpire} mode="create" />} />
           <Route path="/projects/:projectId" element={<ProjectEditorPage session={session} onExpire={onExpire} mode="edit" />} />
         </Route>
