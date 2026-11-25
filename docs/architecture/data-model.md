@@ -1,23 +1,11 @@
-# Data model (early draft)
+# Data model
 
-Current implementation: `users`, one-time `auth_tokens`, revocable `auth_sessions`,
-`projects`, immutable `project_history` revisions, `sources`, immutable
-`source_versions`, `datasets`, immutable `dataset_versions`, encrypted
-`provider_credentials` (`20261125_0006`), `prompt_templates` + immutable
-`prompt_versions` (`20261125_0007`), and `experiments` + append-only
-`experiment_snapshots` / `experiment_snapshot_runs` (`20261125_0008`) have Alembic migrations.
-`users.auth_epoch` invalidates old sessions after password reset, even when
-session creation overlaps the reset.
-`users.display_name` (optional) comes from UC-01 registration. `audit_events`
-records authentication actions (SRS 4.8) with `user_id` (nullable, `SET NULL` on user
-delete), `action` and `created_at`; it never stores emails, tokens or passwords.
-Apply Alembic revision `20261108_0003` in each environment before using the
-authentication and project APIs.
+Current implementation (`20261108_0001` through `20261126_0011` linear Alembic chain):
+- **Identity & access (`0001`–`0003`)**: `users` (`auth_epoch` invalidates old sessions on password reset; optional `display_name`), one-time `auth_tokens`, revocable `auth_sessions`, and `audit_events` (`user_id` nullable `SET NULL` on user delete, `action`, `created_at` — never stores emails, tokens, API keys, or passwords).
+- **Projects & inputs (`0002`, `0004`, `0005`)**: `projects`, immutable `project_history` revisions, `sources` + immutable `source_versions` (SHA-256), and `datasets` + immutable `dataset_versions` (SHA-256).
+- **AI configs, prompts & experiments (`0006`–`0008`)**: AES-256-GCM encrypted `provider_credentials` (`20261125_0006`), `prompt_templates` + immutable `prompt_versions` (`20261125_0007`, default `L1`–`L5` slots remain `UNAPPROVED` per SRS `TBD-04`), and `experiments` + append-only `experiment_snapshots` / `experiment_snapshot_runs` (`20261125_0008`).
+- **Generation queue (`20261126_0009`)**: `generation_jobs` (`UNIQUE(project_id, request_id)` idempotency, `QUEUED | RUNNING | COMPLETED | FAILED | CANCELLED`) and `generation_runs` (`UNIQUE(job_id, ordinal)`, `QUEUED | RUNNING | COMPLETED | FAILED | TIMEOUT | CANCELLED`, redacted `.py` artifact relative path + `artifact_sha256` + sanitized `error_info`).
+- **Evaluation metrics & rubric (`20261126_0010`)**: `metric_records` (`UNIQUE(run_id, metric_name)`, `state` in `MEASURED | N/A | FAILED | TIMEOUT` preserving finite `0.0` distinct from `None`, `source_sha256`, structured `details`) and `assertion_reviews` (`UNIQUE(run_id, assertion_id)`, human rubric labels `EFFECTIVE | WEAK | TRIVIAL | INCORRECT | N/A`).
+- **Reporting & audit (`20261126_0011`)**: `report_runs` standalone/evaluated run summaries unified alongside `generation_runs` + `metric_records` + `assertion_reviews`. On-disk artifacts reside strictly under `settings.artifact_dir/<project_id>/...` with anti-symlink + `is_relative_to` traversal guards and SHA-256 integrity verification (`IntegrityService` / `BackupService`, which strictly omits `provider_credentials`).
 
-Remaining planned entities: datasets/row_versions,
-experiments/snapshots, runs, prompt_versions, provider_configs, artifacts,
-metric_records.
-
-Project history records metadata changes only. Experiment snapshots remain outside
-this feature. Use foreign keys and owner checks; snapshots must be immutable.
-Exact schemas must be approved feature by feature against SRS 1.2.
+Use foreign keys and `404` owner checks across all project-scoped resources; frozen snapshots and versioned inputs remain immutable against SRS v1.2.

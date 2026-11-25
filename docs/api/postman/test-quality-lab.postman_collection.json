@@ -1028,6 +1028,71 @@
               }
             }
           ]
+        },
+        {
+          "name": "GET /projects/{{project_id}}/prompts/readiness",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/projects/{{project_id}}/prompts/readiness",
+            "description": "FR-PRM-004 (#38). Checks whether all L1-L5 prompt strategies have approved versions.\n\nContract: docs/api/contracts/prompts.md"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('returns readiness summary', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body).to.have.property('all_approved');",
+                  "  pm.expect(body.approved_strategies).to.be.an('array');",
+                  "  pm.expect(body.missing_strategies).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /projects/{{project_id}}/prompts/bundles/finalize",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/projects/{{project_id}}/prompts/bundles/finalize",
+            "description": "FR-PRM-004 (#38). Atomically registers and approves reviewed L1-L5 prompt templates.\n\nIMPORTANT (SRS TBD-04): Payloads are clearly labeled non-official test examples strictly for manual API verification.\n\nContract: docs/api/contracts/prompts.md",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"strategies\": [\n    {\n      \"strategy\": \"L1\",\n      \"system_template\": \"Non-official test example only (SRS TBD-04 official L1-L5 templates remain unapproved).\",\n      \"user_template\": \"[NON-OFFICIAL TEST EXAMPLE - SRS TBD-04 L1] Generate pytest tests for {function_name}:\\n{function_code}\",\n      \"review_notes\": \"NON-OFFICIAL TEST EXAMPLE ONLY for L1 (SRS TBD-04 compliant manual QA fixture).\",\n      \"placeholder_verified\": true\n    },\n    {\n      \"strategy\": \"L2\",\n      \"system_template\": \"Non-official test example only (SRS TBD-04 official L1-L5 templates remain unapproved).\",\n      \"user_template\": \"[NON-OFFICIAL TEST EXAMPLE - SRS TBD-04 L2] Generate pytest tests for {function_name}:\\n{function_code}\",\n      \"review_notes\": \"NON-OFFICIAL TEST EXAMPLE ONLY for L2 (SRS TBD-04 compliant manual QA fixture).\",\n      \"placeholder_verified\": true\n    },\n    {\n      \"strategy\": \"L3\",\n      \"system_template\": \"Non-official test example only (SRS TBD-04 official L1-L5 templates remain unapproved).\",\n      \"user_template\": \"[NON-OFFICIAL TEST EXAMPLE - SRS TBD-04 L3] Generate pytest tests for {function_name}:\\n{function_code}\",\n      \"review_notes\": \"NON-OFFICIAL TEST EXAMPLE ONLY for L3 (SRS TBD-04 compliant manual QA fixture).\",\n      \"placeholder_verified\": true\n    },\n    {\n      \"strategy\": \"L4\",\n      \"system_template\": \"Non-official test example only (SRS TBD-04 official L1-L5 templates remain unapproved).\",\n      \"user_template\": \"[NON-OFFICIAL TEST EXAMPLE - SRS TBD-04 L4] Generate pytest tests for {function_name}:\\n{function_code}\",\n      \"review_notes\": \"NON-OFFICIAL TEST EXAMPLE ONLY for L4 (SRS TBD-04 compliant manual QA fixture).\",\n      \"placeholder_verified\": true\n    },\n    {\n      \"strategy\": \"L5\",\n      \"system_template\": \"Non-official test example only (SRS TBD-04 official L1-L5 templates remain unapproved).\",\n      \"user_template\": \"[NON-OFFICIAL TEST EXAMPLE - SRS TBD-04 L5] Generate pytest tests for {function_name}:\\n{function_code}\",\n      \"review_notes\": \"NON-OFFICIAL TEST EXAMPLE ONLY for L5 (SRS TBD-04 compliant manual QA fixture).\",\n      \"placeholder_verified\": true\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('approves all 5 strategies with bundle hash', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.bundle_sha256).to.match(/^[a-f0-9]{64}$/);",
+                  "  pm.expect(body.versions).to.have.lengthOf(5);",
+                  "});"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
@@ -1236,6 +1301,503 @@
                   "  pm.expect(body.id).to.eql(pm.environment.get('snapshot_id'));",
                   "  pm.expect(JSON.stringify(body.frozen_models)).to.not.include('api_key');",
                   "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "generation",
+      "description": "Sprint 4 idempotent generation queue launch, dashboard polling, and active job cancellation (docs/api/contracts/generation.md).",
+      "item": [
+        {
+          "name": "GET /projects/{{project_id}}/generation",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/projects/{{project_id}}/generation",
+            "description": "UC-07/08 (#37). Lists approved snapshots, generation jobs, and per-run statuses.\n\nContract: docs/api/contracts/generation.md"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('contains dashboard keys', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body).to.include.all.keys('launch_enabled', 'approved_snapshots', 'jobs', 'runs');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /projects/{{project_id}}/generation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/projects/{{project_id}}/generation",
+            "description": "FR-GEN (#37). Idempotently enqueues a generation job for a frozen snapshot using (project_id, request_id).\n\nContract: docs/api/contracts/generation.md",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"snapshot_id\": \"{{snapshot_id}}\",\n  \"request_id\": \"postman-gen-request-001\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 202', () => pm.response.to.have.status(202));",
+                  "const body = pm.response.json();",
+                  "if (body.job && body.job.id) pm.environment.set('job_id', body.job.id);",
+                  "if (body.runs && body.runs.length > 0) pm.environment.set('run_id', body.runs[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /projects/{{project_id}}/generation/jobs/{{job_id}}/cancel",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/projects/{{project_id}}/generation/jobs/{{job_id}}/cancel",
+            "description": "UC-08 (#37). Cancels an active QUEUED/RUNNING generation job and remaining QUEUED runs.\n\nContract: docs/api/contracts/generation.md",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Manual cancellation check\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200 or 409 if already terminal', () => {",
+                  "  pm.expect([200, 409]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "evaluations",
+      "description": "Sprint 6 static AST evaluation, fail-closed sandbox gating (0.0 vs N/A/FAILED/TIMEOUT), snapshot generation-success, and human assertion rubric workflow (docs/api/contracts/evaluations.md).",
+      "item": [
+        {
+          "name": "POST /projects/{{project_id}}/evaluations/runs/{{run_id}}/evaluate",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/projects/{{project_id}}/evaluations/runs/{{run_id}}/evaluate",
+            "description": "FR-EVL-001/004/005/007 (#52, #54, #55, #56). Evaluates a GenerationRun (or explicit payload) without untrusted code execution.\n\nContract: docs/api/contracts/evaluations.md",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('returns metric_records and assertion_details', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.metric_records).to.be.an('array');",
+                  "  pm.expect(body).to.have.property('assertion_details');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /projects/{{project_id}}/evaluations/runs/{{run_id}}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/projects/{{project_id}}/evaluations/runs/{{run_id}}",
+            "description": "UC-09/10 (#56). Retrieves persisted evaluation metrics and AST assertion evidence for a run.\n\nContract: docs/api/contracts/evaluations.md"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /projects/{{project_id}}/evaluations/snapshots/{{snapshot_id}}/generation-success",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/projects/{{project_id}}/evaluations/snapshots/{{snapshot_id}}/generation-success",
+            "description": "FR-EVL-005 (#55). Computes snapshot-level generation_success preserving 0.0% vs N/A.\n\nContract: docs/api/contracts/evaluations.md",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PUT /projects/{{project_id}}/evaluations/runs/{{run_id}}/assertion-reviews",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/projects/{{project_id}}/evaluations/runs/{{run_id}}/assertion-reviews",
+            "description": "FR-EVL-007 (#56). Upserts human rubric reviews (EFFECTIVE | WEAK | TRIVIAL | INCORRECT | N/A) and records evaluation.assertion_reviewed.\n\nContract: docs/api/contracts/evaluations.md",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reviews\": [\n    {\n      \"assertion_id\": \"AST-01\",\n      \"rubric_label\": \"EFFECTIVE\",\n      \"notes\": \"Checks exact return value.\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /projects/{{project_id}}/evaluations/runs/{{run_id}}/assertion-reviews",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/projects/{{project_id}}/evaluations/runs/{{run_id}}/assertion-reviews",
+            "description": "FR-EVL-007 (#56). Lists human assertion rubric reviews for a run.\n\nContract: docs/api/contracts/evaluations.md"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "reports",
+      "description": "Sprint 7 live campaign summary, filtered results, formula-safe RFC 4180 CSV exports, and safe run result deletion (docs/api/contracts/reports.md).",
+      "item": [
+        {
+          "name": "GET /projects/{{project_id}}/reports/summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/projects/{{project_id}}/reports/summary",
+            "description": "FR-RPT-001/004 (#62). Live KPI summary and strategy comparability matrix.\n\nContract: docs/api/contracts/reports.md"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('has total_runs and strategy_comparisons', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body).to.include.all.keys('total_runs', 'strategy_comparisons');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /projects/{{project_id}}/reports/results",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/projects/{{project_id}}/reports/results?sort_by=date&sort_dir=desc",
+            "description": "FR-RPT-002/003 (#62). Filtered and sorted run results preserving 0.0 vs N/A/FAILED/TIMEOUT.\n\nContract: docs/api/contracts/reports.md"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /projects/{{project_id}}/reports/exports/runs.csv",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/projects/{{project_id}}/reports/exports/runs.csv",
+            "description": "FR-RPT-005 (#62). Sanitized RFC 4180 runs CSV export with full SHA-256 provenance and formula neutralization.\n\nContract: docs/api/contracts/reports.md"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200 CSV', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.headers.get('Content-Type')).to.include('text/csv');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /projects/{{project_id}}/reports/exports/strategy-comparison.csv",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/projects/{{project_id}}/reports/exports/strategy-comparison.csv",
+            "description": "FR-RPT-005 (#62). Sanitized RFC 4180 strategy comparison CSV export.\n\nContract: docs/api/contracts/reports.md"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200 CSV', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.headers.get('Content-Type')).to.include('text/csv');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DELETE /projects/{{project_id}}/reports/runs/{{run_id}}",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/projects/{{project_id}}/reports/runs/{{run_id}}",
+            "description": "FR-RPT-006 (#62). Deletes an owned run result, associated metrics/reviews, and verified on-disk artifact, returning recomputed summary.\n\nContract: docs/api/contracts/reports.md"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "audit",
+      "description": "Sprint 7 owner-scoped audit trail, SHA-256 integrity verification, safe orphan cleanup, and secret-free JSON backup/restore (docs/operations/backup-restore.md).",
+      "item": [
+        {
+          "name": "GET /audit-events",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/audit-events?limit=50&offset=0",
+            "description": "NFR-OBS (#63). Lists authenticated user's own audit events newest-first.\n\nRunbook: docs/operations/backup-restore.md"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('returns array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /projects/{{project_id}}/audit/integrity",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/projects/{{project_id}}/audit/integrity",
+            "description": "NFR-DAT (#63). Recomputes SHA-256 across project sources, datasets, prompts, snapshots, and artifacts.\n\nRunbook: docs/operations/backup-restore.md"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('integrity ok boolean', () => pm.expect(pm.response.json().ok).to.be.a('boolean'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /projects/{{project_id}}/audit/cleanup-orphans",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/projects/{{project_id}}/audit/cleanup-orphans?dry_run=true",
+            "description": "NFR-DAT (#63). Scans project artifact directory safely (rejecting symlinks) for unreferenced files.\n\nRunbook: docs/operations/backup-restore.md"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /projects/{{project_id}}/audit/backup-export",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/projects/{{project_id}}/audit/backup-export",
+            "description": "NFR-DAT (#63). Exports deterministic v1.0 JSON backup bundle strictly omitting provider_credentials.\n\nRunbook: docs/operations/backup-restore.md"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('omits provider_credentials', () => pm.expect(body).to.not.have.property('provider_credentials'));",
+                  "pm.environment.set('backup_bundle_json', JSON.stringify(body));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /audit/backup-restore",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/audit/backup-restore",
+            "description": "NFR-DAT (#63). Verifies bundle_sha256 and inner entity SHA-256 digests before restoring into a new owned project.\n\nRunbook: docs/operations/backup-restore.md",
+            "body": {
+              "mode": "raw",
+              "raw": "{{backup_bundle_json}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));"
                 ]
               }
             }
