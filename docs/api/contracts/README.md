@@ -5,6 +5,7 @@ for frontend integration (see the coding rules, section 7.4).
 |---|---|---|
 | auth | [auth.md](auth.md) | `docs/api/postman/` folder `auth` |
 | ai-configs (Encrypted provider credentials & LLM adapters — FR-AIC) | [ai-config.md](ai-config.md) | `backend/tests/unit/test_credential_vault.py`, `backend/tests/unit/test_llm_adapters.py`, `backend/tests/integration/test_ai_config_api.py` |
+| prompts (Versioned L1–L5 prompt registry & rendering — FR-PRM) | [prompts.md](prompts.md) | `backend/tests/unit/test_prompt_renderer.py`, `backend/tests/integration/test_prompts_api.py` |
 | datasets (CSV preview/import, mapping, rows and selections) | [datasets.md](datasets.md) | `backend/tests/unit/test_csv_import.py`, `backend/tests/integration/test_datasets_api.py` |
 | executions (Execution status & cancellation — UC-08) | [executions.md](executions.md) | `frontend/tests/executions/ExecutionsManager.test.jsx`, `frontend/tests/executions/execution-status.test.js` |
 | generation (UC-07/08 frontend integration) | [generation.md](generation.md) | `frontend/tests/generation/GenerationProgressPage.test.jsx` |
