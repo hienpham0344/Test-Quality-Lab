@@ -5,6 +5,7 @@ import { Link, useParams } from 'react-router-dom'
 import { ProjectBackLink } from '../../components/projects/ProjectBackLink'
 import { AuthApiError, getPythonSource, listPythonSources } from '../../services/api'
 import { storedFilename } from '../sources/UploadedFiles'
+import { ExperimentMatrixPreview } from './ExperimentMatrixPreview'
 
 const strategies = ['L1', 'L2', 'L3', 'L4', 'L5']
 const steps = [
@@ -94,7 +95,9 @@ function ExperimentWizard({ projectId, session, onExpire }) {
   const repeatsValid = Number.isSafeInteger(repeats) && repeats > 0 && repeats <= runLimit
   const expectedRuns = repeatsValid ? selectedFunctions.length * models.length * chosenStrategies.length * repeats : 0
   const sourceReady = sources.isSuccess && Boolean(selectedFile) && sourceVersion.isSuccess && selectedFunctions.length > 0
-  const configurationReady = models.length > 0 && models.every((model) => model.length <= 120)
+  const modelsTooLong = models.some((model) => model.length > 120)
+  const modelsValid = models.length > 0 && !modelsTooLong
+  const configurationReady = modelsValid
     && chosenStrategies.length > 0 && repeatsValid && expectedRuns <= runLimit
 
   function goTo(next) {
@@ -129,9 +132,19 @@ function ExperimentWizard({ projectId, session, onExpire }) {
     }
     if (!configurationReady) {
       setStep(1)
-      setFeedback(expectedRuns > runLimit
-        ? 'The matrix exceeds 1,000 runs. Reduce the number of selections or repeats.'
-        : 'Enter model identifiers, select at least one strategy, and use a whole repeat count from 1 to 1,000.')
+      if (expectedRuns > runLimit) {
+        setFeedback('The matrix exceeds 1,000 runs. Reduce the number of selections or repeats.')
+      } else if (models.length === 0) {
+        setFeedback('Enter at least one model identifier (up to 120 characters each).')
+      } else if (modelsTooLong) {
+        setFeedback('Each model identifier must be 120 characters or fewer.')
+      } else if (chosenStrategies.length === 0) {
+        setFeedback('Select at least one prompt strategy (L1–L5).')
+      } else if (!repeatsValid) {
+        setFeedback('Enter a whole repeat count from 1 to 1,000.')
+      } else {
+        setFeedback('Enter model identifiers, select at least one strategy, and use a whole repeat count from 1 to 1,000.')
+      }
       return
     }
     if (step === 1) {
@@ -272,26 +285,38 @@ function ExperimentWizard({ projectId, session, onExpire }) {
                 </div>
               )}
               {step === 2 && (
-                <dl className="divide-y divide-slate-800 rounded-lg border border-slate-800 bg-slate-950/30 text-sm">
-                  {[
-                    ['Source', selectedFile ? `${sourceLabel(selectedFile)} · Revision ${selectedSource.revision}` : 'Unavailable'],
-                    ['Functions', selectedFunctions.map(({ name, line }) => `${name} (line ${line})`).join(', ')],
-                    ['Models', models.join(', ')],
-                    ['Strategies', chosenStrategies.join(', ')],
-                    ['Repeats per combination', repeats],
-                  ].map(([label, value]) => (
-                    <div key={label} className="grid gap-1 px-4 py-3 sm:grid-cols-[11rem_minmax(0,1fr)] sm:gap-x-6">
-                      <dt className="text-slate-400">{label}</dt><dd className="min-w-0 break-words text-slate-100">{value}</dd>
-                    </div>
-                  ))}
-                </dl>
+                <div className="space-y-6">
+                  <ExperimentMatrixPreview
+                    source={selectedSource}
+                    sourceLabel={selectedFile ? sourceLabel(selectedFile) : ''}
+                    functions={selectedFunctions}
+                    models={models}
+                    strategies={chosenStrategies}
+                    repeats={repeatsValid ? repeats : 0}
+                    runLimit={runLimit}
+                    onEditStep={(targetStep) => goTo(targetStep)}
+                  />
+                  <dl className="divide-y divide-slate-800 rounded-lg border border-slate-800 bg-slate-950/30 text-sm">
+                    {[
+                      ['Source', selectedFile ? `${sourceLabel(selectedFile)} · Revision ${selectedSource.revision}` : 'Unavailable'],
+                      ['Functions', selectedFunctions.map(({ name, line }) => `${name} (line ${line})`).join(', ')],
+                      ['Models', models.join(', ')],
+                      ['Strategies', chosenStrategies.join(', ')],
+                      ['Repeats per combination', repeats],
+                    ].map(([label, value]) => (
+                      <div key={label} className="grid gap-1 px-4 py-3 sm:grid-cols-[11rem_minmax(0,1fr)] sm:gap-x-6">
+                        <dt className="text-slate-400">{label}</dt><dd className="min-w-0 break-words text-slate-100">{value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
               )}
               {feedback && <p role="alert" className="flex items-start gap-2 rounded-lg border border-rose-800/80 bg-rose-950/40 p-3 text-sm text-rose-300"><AlertCircle size={16} aria-hidden="true" className="mt-0.5 shrink-0" />{feedback}</p>}
               {saved && <p role="status" className="flex items-center gap-2 rounded-lg border border-emerald-800/80 bg-emerald-950/40 p-3 text-sm text-emerald-300"><CircleCheck size={16} aria-hidden="true" />Draft saved in this tab.</p>}
             </div>
             <footer className="mt-auto flex flex-wrap justify-end gap-2 border-t border-slate-800 bg-slate-950/25 px-4 py-3 sm:px-6">
               {step > 0 && <button type="button" className={secondary} onClick={() => goTo(step - 1)}><ArrowLeft size={16} aria-hidden="true" /> Previous</button>}
-              <button type="submit" className={primary} disabled={step === 0 && !selectedFile}>
+              <button type="submit" className={primary} disabled={(step === 0 && !selectedFile) || (step === 2 && (!configurationReady || !sourceReady))}>
                 {step === 2 ? <><Save size={16} aria-hidden="true" /> Save draft</> : <>Continue <ArrowRight size={16} aria-hidden="true" /></>}
               </button>
             </footer>

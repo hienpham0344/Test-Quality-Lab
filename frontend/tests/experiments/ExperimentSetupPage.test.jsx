@@ -139,6 +139,70 @@ describe('Experiment setup (#36)', () => {
     expect(button('Continue').disabled).toBe(true)
   })
 
+  it('previews experiment matrix with configured functions, L1-L5 options, models, and repetitions in Step 2 (#69)', async () => {
+    await renderWizard()
+    await selectSource(source.id)
+    await act(async () => button('Select all functions').click())
+    await act(async () => button('Continue').click())
+
+    await setInput('#experiment-models', 'gpt-4o\nclaude-3-5')
+    await setInput('#experiment-repeats', '2')
+    const choices = container.querySelectorAll('input[type=checkbox]')
+    await act(async () => {
+      choices[0].click() // L1
+      choices[1].click() // L2
+    })
+    expect(get('[aria-live="polite"]').textContent).toBe('16')
+
+    await act(async () => button('Continue').click())
+
+    // Review / Matrix Preview step
+    expect(get('[data-testid="experiment-matrix-preview"]')).not.toBeNull()
+    expect(get('[data-testid="matrix-total-runs"]').textContent).toBe('16')
+    expect(get('[data-testid="matrix-functions-count"]').textContent).toBe('2')
+    expect(get('[data-testid="matrix-models-count"]').textContent).toBe('2')
+    expect(get('[data-testid="matrix-status-valid"]').textContent).toContain('Valid Configuration')
+
+    // Check Matrix Grid view
+    expect(get('[data-testid="matrix-grid-view"]')).not.toBeNull()
+
+    // Switch to Planned Runs list
+    await act(async () => get('[data-testid="tab-matrix-plan"]').click())
+    expect(get('[data-testid="matrix-plan-view"]')).not.toBeNull()
+    expect(container.querySelectorAll('tbody tr')).toHaveLength(16)
+  })
+
+  it('rejects invalid configuration when model identifier exceeds 120 characters (#69)', async () => {
+    await renderWizard()
+    await selectSource(source.id)
+    await act(async () => button('Select all functions').click())
+    await act(async () => button('Continue').click())
+
+    const longModel = 'a'.repeat(121)
+    await setInput('#experiment-models', longModel)
+    await setInput('#experiment-repeats', '2')
+    await act(async () => container.querySelector('input[type=checkbox]').click())
+
+    await act(async () => button('Continue').click())
+    expect(get('[role=alert]').textContent).toContain('120 characters or fewer')
+    expect(button('Save draft')).toBeUndefined()
+  })
+
+  it('rejects invalid configuration when no prompt strategies are selected (#69)', async () => {
+    await renderWizard()
+    await selectSource(source.id)
+    await act(async () => button('Select all functions').click())
+    await act(async () => button('Continue').click())
+
+    await setInput('#experiment-models', 'gpt-4o')
+    await setInput('#experiment-repeats', '2')
+    // No checkboxes checked
+
+    await act(async () => button('Continue').click())
+    expect(get('[role=alert]').textContent).toContain('Select at least one prompt strategy')
+    expect(button('Save draft')).toBeUndefined()
+  })
+
   it('retries a source list error and handles an expired session', async () => {
     fetchMock.mockResolvedValueOnce(new Response(null, { status: 503 }))
     fetchMock.mockResolvedValueOnce(new Response(null, { status: 401 }))

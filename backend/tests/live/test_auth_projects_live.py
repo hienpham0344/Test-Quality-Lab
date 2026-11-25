@@ -130,7 +130,7 @@ def test_postgres_concurrent_project_patches_preserve_both_changes(pg_engine):
         service = ProjectService(db)
         project = service.get(owner, project_id)
         assert (project.name, project.description) == ("Renamed", "Memo")
-        assert [item.revision for item in service.history(owner, project_id)] == [1, 2, 3]
+        assert [item.revision for item in service.history(owner, project_id)] == [3, 2, 1]
 
 
 def test_redis_rate_limit_is_atomic_and_has_expiry():

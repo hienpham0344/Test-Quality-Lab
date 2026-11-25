@@ -41,3 +41,22 @@ Untrusted Python execution remains strictly disabled: generated `.py` test candi
   - HTTP `429`, `502`, `503`, `504` and transient transport errors retry up to `max_attempts`, resetting the in-flight run to `QUEUED` with sanitized `error_info` until retries are exhausted (`FAILED`).
   - Upstream timeouts transition the run to `TIMEOUT` (`PROVIDER_TIMEOUT`).
   - Permanent auth/input/upstream errors (e.g., `400`, `401`, `403`) transition the run to `FAILED` with all reflected keys or headers scrubbed to `[REDACTED]`.
+
+The frontend retries an uncertain start using the same request ID. It
+does not synthesize runs or infer approval from a browser draft.
+`401` expires the session. `403`, `404`, `409`, and `422` refresh
+eligibility and display the server rejection.
+
+## Read artifacts (UC-09)
+
+Proposed `GET /api/v1/projects/{project_id}/generation/runs/{run_id}/artifacts`.
+The server must verify ownership of the project and membership of the run
+in that project before returning any content. A successful response returns
+both fields: `raw_response` (model response text) and `parsed_test` (extracted
+Python test source). Each field is a string or `null` when unavailable. For
+a parse failure, return the available raw response with `parsed_test: null`.
+
+A known run with no artifacts yet can return both fields as `null`. Return
+`401` for an expired session, `403` for denied access, and `404` for a missing
+run. Responses must exclude credentials and use `Cache-Control: no-store`.
+The viewer renders both artifacts as text. FastAPI integration is pending.
