@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, useSearchParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
   AlertCircle,
+  BarChart3,
   CheckCircle2,
   Folder,
+  History,
   Loader2,
   RefreshCw,
   TrendingUp,
@@ -12,19 +14,36 @@ import {
 } from 'lucide-react'
 import { AuthApiError, getProject, listExecutions } from '../../services/api'
 import {
+  assessComparability,
+  computeStrategyComparison,
   downloadBlob,
   exportResultsToCSV,
   exportResultsToJSON,
+  exportStrategyComparisonToCSV,
   filterResults,
   sortResults,
 } from './report-metrics'
 import { ResultsProgressOverview } from './ResultsProgressOverview'
 import { ResultsFiltersBar } from './ResultsFiltersBar'
 import { ResultsHistoryTable } from './ResultsHistoryTable'
+import { StrategyComparisonView } from './StrategyComparisonView'
 import { ExecutionDetailModal } from '../executions/ExecutionDetailModal'
 
 export function ResultsDashboardPage({ session, onExpire }) {
   const { projectId } = useParams()
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  // Tab State: 'history' (FR-RPT-001/002/003) or 'comparison' (FR-RPT-004/005)
+  const activeTab = searchParams.get('tab') === 'comparison' ? 'comparison' : 'history'
+
+  const handleTabChange = (newTab) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      if (newTab === 'comparison') next.set('tab', 'comparison')
+      else next.delete('tab')
+      return next
+    })
+  }
 
   // Filters State (FR-RPT-003)
   const [filters, setFilters] = useState({
@@ -156,6 +175,25 @@ export function ResultsDashboardPage({ session, onExpire }) {
     }
   }
 
+  function handleExportComparisonCSV() {
+    try {
+      const comp = computeStrategyComparison(runs)
+      const audit = assessComparability(runs, comp.strategies)
+      const csv = exportStrategyComparisonToCSV(comp, audit)
+      const filename = `strategy-comparison-${projectId}-${new Date().toISOString().slice(0, 10)}.csv`
+      downloadBlob(csv, filename, 'text/csv;charset=utf-8;')
+      setFeedback({
+        type: 'success',
+        message: `Successfully exported strategy benchmark comparison to ${filename}.`,
+      })
+    } catch (err) {
+      setFeedback({
+        type: 'error',
+        message: `Failed to export strategy comparison CSV: ${err.message}`,
+      })
+    }
+  }
+
   return (
     <div className="space-y-6 p-4 sm:p-6 lg:p-8" data-testid="results-dashboard-page">
       {/* Top Breadcrumb & Page Header */}
@@ -177,7 +215,7 @@ export function ResultsDashboardPage({ session, onExpire }) {
                 Results Dashboard & History
               </h1>
               <p className="text-xs text-slate-400">
-                Evaluation results, quality metrics history, and filtering for project {projectName} (FR-RPT-001/002/003).
+                Evaluation results, quality metrics history, and filtering for project {projectName} (FR-RPT-001/002/003/004/005).
               </p>
             </div>
           </div>
@@ -207,6 +245,40 @@ export function ResultsDashboardPage({ session, onExpire }) {
             <span>Project Editor</span>
           </Link>
         </div>
+      </div>
+
+      {/* Navigation Tabs: History & Runs vs Strategy Comparison */}
+      <div className="flex border-b border-slate-800 gap-1" data-testid="dashboard-view-tabs">
+        <button
+          type="button"
+          data-testid="tab-history-btn"
+          onClick={() => handleTabChange('history')}
+          className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-medium transition cursor-pointer ${
+            activeTab === 'history'
+              ? 'border-indigo-500 text-indigo-400 font-semibold bg-indigo-950/20'
+              : 'border-transparent text-slate-400 hover:border-slate-700 hover:text-slate-200'
+          }`}
+        >
+          <History size={15} />
+          <span>Execution History & Runs</span>
+          <span className="rounded-full bg-slate-800 px-1.5 py-0.2 text-[10px] font-mono text-slate-300">
+            {runs.length}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          data-testid="tab-comparison-btn"
+          onClick={() => handleTabChange('comparison')}
+          className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-medium transition cursor-pointer ${
+            activeTab === 'comparison'
+              ? 'border-indigo-500 text-indigo-400 font-semibold bg-indigo-950/20'
+              : 'border-transparent text-slate-400 hover:border-slate-700 hover:text-slate-200'
+          }`}
+        >
+          <BarChart3 size={15} />
+          <span>Strategy Comparison & Charts (FR-RPT-004/005)</span>
+        </button>
       </div>
 
       {/* Toast Feedback Notification */}
@@ -260,6 +332,14 @@ export function ResultsDashboardPage({ session, onExpire }) {
             <RefreshCw size={14} /> Retry
           </button>
         </div>
+      ) : activeTab === 'comparison' ? (
+        /* FR-RPT-004 & FR-RPT-005: Strategy Comparison Charts, Matrix & Export View */
+        <StrategyComparisonView
+          runs={runs}
+          projectId={projectId}
+          projectName={projectName}
+          onFeedback={setFeedback}
+        />
       ) : (
         <>
           {/* FR-RPT-001: Progress and KPI Summary Overview */}
@@ -288,6 +368,7 @@ export function ResultsDashboardPage({ session, onExpire }) {
             onResetFilters={handleResetFilters}
             onExportCSV={handleExportCSV}
             onExportJSON={handleExportJSON}
+            onExportComparisonCSV={handleExportComparisonCSV}
             totalFiltered={sortedAndFilteredRuns.length}
             totalUnfiltered={runs.length}
           />

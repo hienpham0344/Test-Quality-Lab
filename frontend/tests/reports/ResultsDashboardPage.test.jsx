@@ -274,4 +274,64 @@ describe('ResultsDashboardPage integration (FR-RPT-001, FR-RPT-002, FR-RPT-003)'
       expect(onExpire).toHaveBeenCalled()
     })
   })
+
+  it('switches between History and Strategy Comparison tabs and exports comparison CSV (FR-RPT-004/005)', async () => {
+    fetchMock.mockImplementation(async (url) => {
+      if (url.includes('/api/v1/projects/proj-123/executions')) {
+        return { ok: true, json: async () => mockRuns }
+      }
+      if (url.includes('/api/v1/projects/proj-123')) {
+        return { ok: true, json: async () => mockProject }
+      }
+      return { ok: true, json: async () => ({}) }
+    })
+
+    const origCreate = global.URL.createObjectURL
+    const origRevoke = global.URL.revokeObjectURL
+    global.URL.createObjectURL = vi.fn(() => 'blob:mock-comparison-url')
+    global.URL.revokeObjectURL = vi.fn()
+
+    await renderPage()
+
+    await vi.waitFor(() => {
+      expect(container.textContent).toContain('HumanEval Baseline Run')
+    })
+
+    // Click Strategy Comparison Tab
+    const compTabBtn = container.querySelector('[data-testid="tab-comparison-btn"]')
+    expect(compTabBtn).toBeTruthy()
+
+    await act(async () => {
+      compTabBtn.click()
+    })
+
+    // Strategy Comparison View should be rendered
+    expect(container.querySelector('[data-testid="strategy-comparison-view"]')).toBeTruthy()
+    expect(container.querySelector('[data-testid="comparability-notice-banner"]')).toBeTruthy()
+    expect(container.querySelector('[data-testid="strategy-comparison-charts"]')).toBeTruthy()
+    expect(container.querySelector('[data-testid="strategy-comparison-matrix"]')).toBeTruthy()
+
+    // Click Export Comparison CSV button in comparison view
+    const exportCompBtn = container.querySelector('[data-testid="export-comparison-csv-top-btn"]')
+    expect(exportCompBtn).toBeTruthy()
+
+    await act(async () => {
+      exportCompBtn.click()
+    })
+
+    const feedback = container.querySelector('[data-testid="dashboard-feedback"]')
+    expect(feedback).toBeTruthy()
+    expect(feedback.textContent).toContain('Successfully exported strategy benchmark comparison to strategy-comparison-proj-123')
+
+    // Switch back to History Tab
+    const historyTabBtn = container.querySelector('[data-testid="tab-history-btn"]')
+    await act(async () => {
+      historyTabBtn.click()
+    })
+
+    expect(container.querySelector('[data-testid="results-history-table"]')).toBeTruthy()
+
+    global.URL.createObjectURL = origCreate
+    global.URL.revokeObjectURL = origRevoke
+  })
 })

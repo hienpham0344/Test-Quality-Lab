@@ -407,6 +407,601 @@ export function exportResultsToJSON(runs = []) {
 }
 
 /**
+ * Strategy Taxonomy Constants (FR-RPT-004)
+ */
+export const STRATEGY_TAXONOMY = [
+  { key: 'L1', label: 'L1: Zero-shot', shortName: 'Zero-shot', color: '#6366f1' }, // Indigo
+  { key: 'L2', label: 'L2: Few-shot', shortName: 'Few-shot', color: '#06b6d4' },   // Cyan
+  { key: 'L3', label: 'L3: Chain-of-thought', shortName: 'Chain-of-thought', color: '#8b5cf6' }, // Purple
+  { key: 'L4', label: 'L4: Self-consistency', shortName: 'Self-consistency', color: '#10b981' }, // Emerald
+  { key: 'L5', label: 'L5: Hybrid', shortName: 'Hybrid', color: '#f59e0b' },       // Amber
+]
+
+/**
+ * Normalize strategy string into canonical taxonomy key (L1, L2, L3, L4, L5)
+ *
+ * @param {string} strategyStr
+ * @returns {string} Key like 'L1', 'L2' or 'OTHER'
+ */
+export function normalizeStrategyKey(strategyStr) {
+  if (!strategyStr || typeof strategyStr !== 'string') return 'OTHER'
+  const upper = strategyStr.toUpperCase()
+  if (upper.includes('L1') || upper.includes('ZERO-SHOT') || upper.includes('ZERO SHOT')) return 'L1'
+  if (upper.includes('L2') || upper.includes('FEW-SHOT') || upper.includes('FEW SHOT')) return 'L2'
+  if (upper.includes('L3') || upper.includes('CHAIN-OF-THOUGHT') || upper.includes('CHAIN OF THOUGHT') || upper.includes('COT')) return 'L3'
+  if (upper.includes('L4') || upper.includes('SELF-CONSISTENCY') || upper.includes('SELF CONSISTENCY')) return 'L4'
+  if (upper.includes('L5') || upper.includes('HYBRID')) return 'L5'
+  return 'OTHER'
+}
+
+/**
+ * Compute Strategy Comparison Aggregations across runs (FR-RPT-004).
+ *
+ * @param {Array<object>} runs List of execution run objects
+ * @param {object} options { model?: string, baselineKey?: string, selectedKeys?: string[] }
+ * @returns {object} Comparison results { strategies, baselineKey, bestPerformers, modelFilter }
+ */
+export function computeStrategyComparison(runs = [], options = {}) {
+  const {
+    model = 'ALL',
+    baselineKey = 'L1',
+    selectedKeys = ['L1', 'L2', 'L3', 'L4', 'L5'],
+  } = options
+
+  // Filter runs by model if specified
+  const eligibleRuns = (runs || []).filter((r) => {
+    if (model !== 'ALL') {
+      const runModel = r.model || ''
+      if (!runModel.toLowerCase().includes(model.toLowerCase())) return false
+    }
+    return true
+  })
+
+  // Map each strategy to its bucket
+  const strategyBuckets = {}
+  for (const item of STRATEGY_TAXONOMY) {
+    strategyBuckets[item.key] = {
+      key: item.key,
+      label: item.label,
+      shortName: item.shortName,
+      color: item.color,
+      runs: [],
+      models: new Set(),
+      datasets: new Set(),
+      sources: new Set(),
+      sourceHashes: new Set(),
+      coverages: [],
+      mutationScores: [],
+      assertionScores: [],
+      durations: [],
+      totalCases: 0,
+      completedCases: 0,
+      passedCases: 0,
+      failedCases: 0,
+      timeoutCases: 0,
+      activeRunCount: 0,
+      completedRunCount: 0,
+      failedRunCount: 0,
+      timeoutRunCount: 0,
+      cancelledRunCount: 0,
+    }
+  }
+
+  // Populate buckets
+  for (const run of eligibleRuns) {
+    const key = normalizeStrategyKey(run.strategy)
+    if (!strategyBuckets[key]) continue
+
+    const bucket = strategyBuckets[key]
+    bucket.runs.push(run)
+
+    if (run.model) bucket.models.add(run.model)
+    if (run.dataset_name) bucket.datasets.add(run.dataset_name)
+    else if (run.dataset_id) bucket.datasets.add(run.dataset_id)
+
+    if (run.source_name) bucket.sources.add(run.source_name)
+    if (run.source_sha256) bucket.sourceHashes.add(run.source_sha256)
+
+    const status = (run.status || 'UNKNOWN').toUpperCase()
+    if (status === 'COMPLETED') bucket.completedRunCount++
+    else if (['RUNNING', 'QUEUED', 'PENDING', 'CANCELLING'].includes(status)) bucket.activeRunCount++
+    else if (status === 'FAILED') bucket.failedRunCount++
+    else if (status === 'TIMEOUT') bucket.timeoutRunCount++
+    else if (status === 'CANCELLED') bucket.cancelledRunCount++
+
+    // Cases
+    const runTotal = Number(run.total_cases) || 0
+    const runCompleted = Number(run.completed_cases) || 0
+    const runPassed = Number(run.passed_cases) || 0
+    const runFailed = Number(run.failed_cases) || 0
+    const runTimeout = Number(run.timeout_cases) || 0
+
+    bucket.totalCases += runTotal
+    bucket.completedCases += runCompleted
+    bucket.passedCases += runPassed
+    bucket.failedCases += runFailed
+    bucket.timeoutCases += runTimeout
+
+    // Metrics
+    const cov = run.metrics?.coverage
+    if (typeof cov === 'number' && Number.isFinite(cov)) bucket.coverages.push(cov)
+
+    const mut = run.metrics?.mutation_score
+    if (typeof mut === 'number' && Number.isFinite(mut)) bucket.mutationScores.push(mut)
+
+    const ast = run.metrics?.assertion_score ?? run.assertion_details?.score
+    if (typeof ast === 'number' && Number.isFinite(ast)) bucket.assertionScores.push(ast)
+
+    const dur = calculateDurationMs(run)
+    if (typeof dur === 'number' && dur > 0) bucket.durations.push(dur)
+  }
+
+  // Calculate final aggregated values for each strategy
+  const strategies = STRATEGY_TAXONOMY.map((tax) => {
+    const bucket = strategyBuckets[tax.key]
+    const runCount = bucket.runs.length
+    const isSelected = selectedKeys.includes(tax.key)
+
+    // Pass rate: passed / completed (strictly null if no completed cases)
+    const passRate = bucket.completedCases > 0
+      ? Math.round((bucket.passedCases / bucket.completedCases) * 1000) / 10
+      : null
+
+    const avgCoverage = calculateAverage(bucket.coverages)
+    const avgMutationScore = calculateAverage(bucket.mutationScores)
+    const avgAssertionScore = calculateAverage(bucket.assertionScores)
+    const avgDurationMs = calculateAverage(bucket.durations)
+
+    // Metric States (distinguishing numeric zero from N/A, TIMEOUT, FAILED)
+    const getMetricState = (avgVal, rawScores, runsList, metricKey) => {
+      if (avgVal !== null) return avgVal // Number (including 0.0)
+      if (runsList.length === 0) return 'N/A'
+      // Check if runs had TIMEOUT or FAILED
+      const hasTimeout = runsList.some((r) => r.metrics?.[metricKey] === 'TIMEOUT' || r.status === 'TIMEOUT')
+      if (hasTimeout) return 'TIMEOUT'
+      const hasFailed = runsList.some((r) => r.metrics?.[metricKey] === 'FAILED' || r.status === 'FAILED')
+      if (hasFailed) return 'FAILED'
+      return 'N/A'
+    }
+
+    return {
+      key: tax.key,
+      label: tax.label,
+      shortName: tax.shortName,
+      color: tax.color,
+      isSelected,
+      runCount,
+      completedRunCount: bucket.completedRunCount,
+      activeRunCount: bucket.activeRunCount,
+      failedRunCount: bucket.failedRunCount,
+      timeoutRunCount: bucket.timeoutRunCount,
+      cancelledRunCount: bucket.cancelledRunCount,
+      totalCases: bucket.totalCases,
+      completedCases: bucket.completedCases,
+      passedCases: bucket.passedCases,
+      failedCases: bucket.failedCases,
+      timeoutCases: bucket.timeoutCases,
+      passRate,
+      avgCoverage,
+      avgMutationScore,
+      avgAssertionScore,
+      avgDurationMs,
+      coverageState: getMetricState(avgCoverage, bucket.coverages, bucket.runs, 'coverage'),
+      mutationState: getMetricState(avgMutationScore, bucket.mutationScores, bucket.runs, 'mutation_score'),
+      assertionState: getMetricState(avgAssertionScore, bucket.assertionScores, bucket.runs, 'assertion_score'),
+      models: Array.from(bucket.models),
+      datasets: Array.from(bucket.datasets),
+      sources: Array.from(bucket.sources),
+      sourceHashes: Array.from(bucket.sourceHashes),
+      runs: bucket.runs,
+    }
+  })
+
+  // Baseline Comparison Deltas (FR-RPT-004)
+  const baseline = strategies.find((s) => s.key === baselineKey) || strategies[0]
+  for (const s of strategies) {
+    if (s.key === baseline.key) {
+      s.isBaseline = true
+      s.deltas = {
+        passRate: 0,
+        coverage: 0,
+        mutationScore: 0,
+        assertionScore: 0,
+        durationMs: 0,
+      }
+    } else {
+      s.isBaseline = false
+      s.deltas = {
+        passRate: typeof s.passRate === 'number' && typeof baseline.passRate === 'number'
+          ? Math.round((s.passRate - baseline.passRate) * 10) / 10
+          : null,
+        coverage: typeof s.avgCoverage === 'number' && typeof baseline.avgCoverage === 'number'
+          ? Math.round((s.avgCoverage - baseline.avgCoverage) * 10) / 10
+          : null,
+        mutationScore: typeof s.avgMutationScore === 'number' && typeof baseline.avgMutationScore === 'number'
+          ? Math.round((s.avgMutationScore - baseline.avgMutationScore) * 10) / 10
+          : null,
+        assertionScore: typeof s.avgAssertionScore === 'number' && typeof baseline.avgAssertionScore === 'number'
+          ? Math.round((s.avgAssertionScore - baseline.avgAssertionScore) * 10) / 10
+          : null,
+        durationMs: typeof s.avgDurationMs === 'number' && typeof baseline.avgDurationMs === 'number'
+          ? Math.round(s.avgDurationMs - baseline.avgDurationMs)
+          : null,
+      }
+    }
+  }
+
+  // Find Best Performers among evaluated strategies
+  const evaluatedStrategies = strategies.filter((s) => s.runCount > 0)
+  const bestPerformers = {
+    passRate: null,
+    coverage: null,
+    mutationScore: null,
+    assertionScore: null,
+    duration: null,
+  }
+
+  if (evaluatedStrategies.length > 0) {
+    // Highest pass rate
+    const withPassRate = evaluatedStrategies.filter((s) => typeof s.passRate === 'number')
+    if (withPassRate.length > 0) {
+      bestPerformers.passRate = withPassRate.reduce((max, s) => (s.passRate > max.passRate ? s : max), withPassRate[0]).key
+    }
+    // Highest coverage
+    const withCoverage = evaluatedStrategies.filter((s) => typeof s.avgCoverage === 'number')
+    if (withCoverage.length > 0) {
+      bestPerformers.coverage = withCoverage.reduce((max, s) => (s.avgCoverage > max.avgCoverage ? s : max), withCoverage[0]).key
+    }
+    // Highest mutation score
+    const withMutation = evaluatedStrategies.filter((s) => typeof s.avgMutationScore === 'number')
+    if (withMutation.length > 0) {
+      bestPerformers.mutationScore = withMutation.reduce((max, s) => (s.avgMutationScore > max.avgMutationScore ? s : max), withMutation[0]).key
+    }
+    // Highest assertion score
+    const withAssertion = evaluatedStrategies.filter((s) => typeof s.avgAssertionScore === 'number')
+    if (withAssertion.length > 0) {
+      bestPerformers.assertionScore = withAssertion.reduce((max, s) => (s.avgAssertionScore > max.avgAssertionScore ? s : max), withAssertion[0]).key
+    }
+    // Fastest duration
+    const withDuration = evaluatedStrategies.filter((s) => typeof s.avgDurationMs === 'number' && s.avgDurationMs > 0)
+    if (withDuration.length > 0) {
+      bestPerformers.duration = withDuration.reduce((min, s) => (s.avgDurationMs < min.avgDurationMs ? s : min), withDuration[0]).key
+    }
+  }
+
+  return {
+    strategies,
+    baselineKey: baseline.key,
+    baselineLabel: baseline.label,
+    bestPerformers,
+    modelFilter: model,
+    totalEligibleRuns: eligibleRuns.length,
+  }
+}
+
+/**
+ * Assess statistical and experimental comparability across compared strategies (FR-RPT-004).
+ * Evaluates dataset uniformity, source hash consistency, model confounding, sample size balance, and execution health.
+ *
+ * @param {Array<object>} runs All runs in current context
+ * @param {Array<object>} strategies List of strategy objects from computeStrategyComparison
+ * @param {string} [modelFilter='ALL']
+ * @returns {object} Comparability assessment object with status, checks list, and recommendations
+ */
+export function assessComparability(_runs = [], strategies = [], modelFilter = 'ALL') {
+  // Focus on active/evaluated strategies with at least 1 run
+  const activeStrategies = strategies.filter((s) => s.isSelected && s.runCount > 0)
+
+  const checks = []
+
+  if (activeStrategies.length <= 1) {
+    return {
+      status: 'INSUFFICIENT_DATA',
+      label: 'Insufficient Data for Comparison',
+      badgeClass: 'border-slate-700 bg-slate-800 text-slate-300',
+      summary: 'At least two prompt strategies with executed runs are required to perform a meaningful comparative evaluation.',
+      checks: [
+        {
+          id: 'min_strategies',
+          name: 'Strategy Count',
+          status: 'INFO',
+          message: `Currently ${activeStrategies.length} strategy evaluated. Select or execute more strategies.`,
+          recommendation: 'Run test generation using additional prompt levels (e.g. L1 vs L2/L3).',
+        },
+      ],
+      isComparable: false,
+    }
+  }
+
+  // 1. Dataset Consistency Check
+  const allDatasets = new Set()
+  for (const s of activeStrategies) {
+    for (const d of s.datasets) allDatasets.add(d)
+  }
+  const datasetsList = Array.from(allDatasets)
+  if (datasetsList.length > 1) {
+    checks.push({
+      id: 'dataset_consistency',
+      name: 'Benchmark Dataset Consistency',
+      status: 'FAIL',
+      message: `Compared strategies were evaluated across multiple distinct datasets: [${datasetsList.join(', ')}].`,
+      recommendation: 'Ensure all strategies are evaluated against the identical dataset snapshot to avoid benchmark drift.',
+    })
+  } else {
+    checks.push({
+      id: 'dataset_consistency',
+      name: 'Benchmark Dataset Consistency',
+      status: 'PASS',
+      message: `All compared strategies evaluated the identical dataset: "${datasetsList[0] || 'Default'}".`,
+      recommendation: null,
+    })
+  }
+
+  // 2. Source Code Revision (SHA-256) Check
+  const allSourceHashes = new Set()
+  for (const s of activeStrategies) {
+    for (const h of s.sourceHashes) allSourceHashes.add(h)
+  }
+  const hashesList = Array.from(allSourceHashes)
+  if (hashesList.length > 1) {
+    checks.push({
+      id: 'source_consistency',
+      name: 'Source Code Revision (Provenance)',
+      status: 'FAIL',
+      message: `Compared strategies evaluated divergent source code revisions (${hashesList.length} distinct SHA-256 hashes detected).`,
+      recommendation: 'Run evaluations against the exact same source code commit or snapshot to eliminate target divergence.',
+    })
+  } else {
+    checks.push({
+      id: 'source_consistency',
+      name: 'Source Code Revision (Provenance)',
+      status: 'PASS',
+      message: hashesList.length === 1
+        ? `All strategies evaluated against verified source revision: ${hashesList[0].slice(0, 10)}...`
+        : 'Source code provenance is consistent across evaluated test suites.',
+      recommendation: null,
+    })
+  }
+
+  // 3. Model Confounding Check
+  const allModels = new Set()
+  for (const s of activeStrategies) {
+    for (const m of s.models) allModels.add(m)
+  }
+  const modelsList = Array.from(allModels)
+  if (modelFilter === 'ALL' && modelsList.length > 1) {
+    checks.push({
+      id: 'model_consistency',
+      name: 'LLM Model Confounding Factor',
+      status: 'WARNING',
+      message: `Mixed LLM models detected across runs (${modelsList.join(', ')}). Quality differences may stem from model capabilities rather than prompt engineering strategies alone.`,
+      recommendation: 'Filter by a specific LLM model to isolate prompt strategy effects in controlled laboratory conditions.',
+    })
+  } else {
+    checks.push({
+      id: 'model_consistency',
+      name: 'LLM Model Confounding Factor',
+      status: 'PASS',
+      message: modelFilter !== 'ALL'
+        ? `Controlled under model filter "${modelFilter}".`
+        : `Uniform model "${modelsList[0] || 'Default'}" across all compared strategies.`,
+      recommendation: null,
+    })
+  }
+
+  // 4. Sample Size Balance Check
+  const caseCounts = activeStrategies.map((s) => s.totalCases)
+  const minCases = Math.min(...caseCounts)
+  const maxCases = Math.max(...caseCounts)
+  if (minCases === 0) {
+    checks.push({
+      id: 'sample_size_balance',
+      name: 'Test Case Sample Balance',
+      status: 'WARNING',
+      message: `Some strategies have 0 executed test cases (range: ${minCases} to ${maxCases} cases).`,
+      recommendation: 'Execute test suites for all selected strategies to gather sufficient sample cases.',
+    })
+  } else if (maxCases / minCases > 2.5) {
+    checks.push({
+      id: 'sample_size_balance',
+      name: 'Test Case Sample Balance',
+      status: 'WARNING',
+      message: `Significant sample size disparity detected (ratio: ${(maxCases / minCases).toFixed(1)}x, ${minCases} vs ${maxCases} cases).`,
+      recommendation: 'Use balanced test batches with equal test case numbers to prevent statistical skew.',
+    })
+  } else {
+    checks.push({
+      id: 'sample_size_balance',
+      name: 'Test Case Sample Balance',
+      status: 'PASS',
+      message: `Sample sizes are balanced across strategies (range: ${minCases} to ${maxCases} cases).`,
+      recommendation: null,
+    })
+  }
+
+  // 5. Execution Health & Incomplete Runs
+  const totalActive = activeStrategies.reduce((sum, s) => sum + s.activeRunCount, 0)
+  const totalFailed = activeStrategies.reduce((sum, s) => sum + s.failedRunCount, 0)
+  const totalTimeout = activeStrategies.reduce((sum, s) => sum + s.timeoutRunCount, 0)
+  if (totalActive > 0 || totalFailed > 0 || totalTimeout > 0) {
+    const issues = []
+    if (totalActive > 0) issues.push(`${totalActive} active/running`)
+    if (totalFailed > 0) issues.push(`${totalFailed} failed`)
+    if (totalTimeout > 0) issues.push(`${totalTimeout} timed out`)
+    checks.push({
+      id: 'execution_health',
+      name: 'Execution State Completeness',
+      status: 'WARNING',
+      message: `Some runs have incomplete or abnormal states: ${issues.join(', ')}.`,
+      recommendation: 'Allow running executions to complete and investigate failed/timeout runs before finalizing benchmark comparisons.',
+    })
+  } else {
+    checks.push({
+      id: 'execution_health',
+      name: 'Execution State Completeness',
+      status: 'PASS',
+      message: 'All runs in compared strategies completed normally.',
+      recommendation: null,
+    })
+  }
+
+  // Overall Status Determination
+  const hasFail = checks.some((c) => c.status === 'FAIL')
+  const hasWarning = checks.some((c) => c.status === 'WARNING')
+
+  if (hasFail) {
+    return {
+      status: 'INCOMPARABLE',
+      label: 'Direct Comparison Inadvisable',
+      badgeClass: 'border-rose-800/80 bg-rose-950/60 text-rose-300',
+      summary: 'Critical experimental divergences detected (different datasets or source revisions). Comparative metrics may be misleading.',
+      checks,
+      isComparable: false,
+    }
+  }
+
+  if (hasWarning) {
+    return {
+      status: 'CAUTION',
+      label: 'Comparability Notice — Confounding Factors',
+      badgeClass: 'border-amber-800/80 bg-amber-950/60 text-amber-300',
+      summary: 'Potential confounding variables detected (mixed models, sample size imbalances, or pending runs). Review audit details.',
+      checks,
+      isComparable: true,
+    }
+  }
+
+  return {
+    status: 'COMPATIBLE',
+    label: 'Fully Comparable Benchmark',
+    badgeClass: 'border-emerald-800/80 bg-emerald-950/60 text-emerald-300',
+    summary: 'All experimental controls verified: identical dataset, consistent source provenance, uniform model, and balanced sample sizes.',
+    checks,
+    isComparable: true,
+  }
+}
+
+/**
+ * Export strategy comparison matrix to sanitized CSV string (FR-RPT-005).
+ *
+ * @param {object} comparison Computed comparison object from computeStrategyComparison
+ * @param {object} comparability Comparability audit assessment
+ * @returns {string} Sanitized RFC 4180 CSV
+ */
+export function exportStrategyComparisonToCSV(comparison, comparability) {
+  const {
+    strategies = [],
+    baselineKey = 'L1',
+    baselineLabel = 'L1: Zero-shot',
+    modelFilter = 'ALL',
+  } = comparison || {}
+
+  const escapeCSV = (val) => {
+    if (val === null || val === undefined) return '""'
+    const str = String(val).replace(/"/g, '""')
+    return `"${str}"`
+  }
+
+  const formatDelta = (val) => {
+    if (val === null || val === undefined) return 'N/A'
+    if (val === 0) return '0.0 pp'
+    return `${val > 0 ? '+' : ''}${val.toFixed(1)} pp`
+  }
+
+  const formatDurationDelta = (val) => {
+    if (val === null || val === undefined) return 'N/A'
+    if (val === 0) return '0 ms'
+    return `${val > 0 ? '+' : ''}${val} ms`
+  }
+
+  const metaRows = [
+    ['# LLM Test Quality Lab — Strategy Comparison Benchmark Report (FR-RPT-004/005)'],
+    [`# Generated At: ${new Date().toISOString()}`],
+    [`# Baseline Strategy: ${baselineLabel} (${baselineKey})`],
+    [`# Model Filter: ${modelFilter}`],
+    [`# Comparability Status: ${comparability?.label || 'N/A'} [${comparability?.status || 'N/A'}]`],
+    [`# Comparability Summary: ${comparability?.summary || 'N/A'}`],
+    [''],
+  ].map((r) => r.map(escapeCSV).join(','))
+
+  const headers = [
+    'Strategy Key',
+    'Strategy Label',
+    'Is Baseline',
+    'Selected Models',
+    'Selected Datasets',
+    'Run Count',
+    'Completed Runs',
+    'Active Runs',
+    'Failed Runs',
+    'Total Cases',
+    'Completed Cases',
+    'Passed Cases',
+    'Pass Rate (%)',
+    'Pass Rate Delta vs Baseline (pp)',
+    'Line Coverage (%)',
+    'Line Coverage Delta vs Baseline (pp)',
+    'Mutation Score (%)',
+    'Mutation Score Delta vs Baseline (pp)',
+    'Assertion Quality Score (%)',
+    'Assertion Score Delta vs Baseline (pp)',
+    'Average Duration (ms)',
+    'Duration Delta vs Baseline (ms)',
+  ]
+
+  const dataRows = strategies.map((s) => {
+    const passRateStr = formatMetricPercent(s.passRate)
+    const covStr = formatMetricPercent(s.avgCoverage ?? s.coverageState)
+    const mutStr = formatMetricPercent(s.avgMutationScore ?? s.mutationState)
+    const astStr = formatMetricPercent(s.avgAssertionScore ?? s.assertionState)
+    const durStr = typeof s.avgDurationMs === 'number' ? Math.round(s.avgDurationMs) : 'N/A'
+
+    return [
+      escapeCSV(s.key),
+      escapeCSV(s.label),
+      escapeCSV(s.isBaseline ? 'YES' : 'NO'),
+      escapeCSV(s.models.join('; ') || 'N/A'),
+      escapeCSV(s.datasets.join('; ') || 'N/A'),
+      escapeCSV(s.runCount),
+      escapeCSV(s.completedRunCount),
+      escapeCSV(s.activeRunCount),
+      escapeCSV(s.failedRunCount),
+      escapeCSV(s.totalCases),
+      escapeCSV(s.completedCases),
+      escapeCSV(s.passedCases),
+      escapeCSV(passRateStr),
+      escapeCSV(formatDelta(s.deltas?.passRate)),
+      escapeCSV(covStr),
+      escapeCSV(formatDelta(s.deltas?.coverage)),
+      escapeCSV(mutStr),
+      escapeCSV(formatDelta(s.deltas?.mutationScore)),
+      escapeCSV(astStr),
+      escapeCSV(formatDelta(s.deltas?.assertionScore)),
+      escapeCSV(durStr),
+      escapeCSV(formatDurationDelta(s.deltas?.durationMs)),
+    ].join(',')
+  })
+
+  // Add Comparability Audit Details at bottom
+  const auditSection = [
+    '',
+    '# Comparability Audit Checks',
+    'Check ID,Check Name,Status,Findings,Recommendation',
+    ...(comparability?.checks || []).map((c) =>
+      [
+        escapeCSV(c.id),
+        escapeCSV(c.name),
+        escapeCSV(c.status),
+        escapeCSV(c.message),
+        escapeCSV(c.recommendation || 'None'),
+      ].join(',')
+    ),
+  ]
+
+  return [...metaRows, headers.join(','), ...dataRows, ...auditSection].join('\r\n')
+}
+
+/**
  * Trigger client-side file download for CSV/JSON exports.
  */
 export function downloadBlob(content, filename, mimeType = 'text/plain;charset=utf-8;') {
