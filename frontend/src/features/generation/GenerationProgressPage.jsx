@@ -1,7 +1,7 @@
 import { Activity, AlertCircle, Play, RefreshCw } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { ProjectBackLink } from '../../components/projects/ProjectBackLink'
 import { formatDate } from '../../lib/format-date'
 import { AuthApiError, getGenerationProgress, startGeneration } from '../../services/api'
@@ -143,7 +143,7 @@ function GenerationDashboard({ projectId, session, onExpire }) {
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[42rem] text-left text-sm">
                   <thead className="border-b border-slate-800 text-xs text-slate-400">
-                    <tr>{['Run', 'Configuration', 'Status', 'Error'].map((label) => <th key={label} scope="col" className="px-4 py-3 font-medium">{label}</th>)}</tr>
+                    <tr>{['Run', 'Configuration', 'Status', 'Error', 'Artifacts'].map((label) => <th key={label} scope="col" className="px-4 py-3 font-medium">{label}</th>)}</tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800">
                     {runs.map((run) => {
@@ -164,6 +164,12 @@ function GenerationDashboard({ projectId, session, onExpire }) {
                                 {run.error.occurred_at && <time dateTime={run.error.occurred_at} className="block text-xs text-slate-400">{formatDate(run.error.occurred_at)}</time>}
                               </div>
                             ) : <span className="text-slate-400">—</span>}
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-3">
+                            <Link to={`runs/${encodeURIComponent(run.id)}`} aria-label={`View artifacts for run ${run.id}`}
+                              className="inline-flex min-h-8 items-center rounded text-indigo-300 hover:underline focus-visible:outline-2 focus-visible:outline-indigo-300">
+                              View artifacts
+                            </Link>
                           </td>
                         </tr>
                       )

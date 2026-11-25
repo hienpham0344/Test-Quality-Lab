@@ -47,7 +47,7 @@ export default function WorkspaceLayout({ session, signingOut, onSignOut }) {
                 <WorkspaceLink to={projectPath + '/sources/new'} end icon={Braces}>Python source</WorkspaceLink>
                 <WorkspaceLink to={projectPath + '/ai-config'} end icon={Settings2}>AI configuration</WorkspaceLink>
                 <WorkspaceLink to={projectPath + '/experiments/new'} end icon={FlaskConical}>Set up experiment</WorkspaceLink>
-                <WorkspaceLink to={projectPath + '/generation'} end icon={Activity}>Generation</WorkspaceLink>
+                <WorkspaceLink to={projectPath + '/generation'} icon={Activity}>Generation</WorkspaceLink>
                 <WorkspaceLink to={projectPath + '/results'} end icon={TrendingUp}>Results & Reports</WorkspaceLink>
               </div>
             </div>
