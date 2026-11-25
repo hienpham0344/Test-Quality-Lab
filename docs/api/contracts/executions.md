@@ -1,6 +1,6 @@
-# Execution Status and Cancellation API — UC-08 (Sprint 5)
+# Execution Status, Test Case Details & Safe Logs API — UC-08 / UC-09 (Sprint 5)
 
-Issue #50 implements the execution status and cancellation UI.
+Issues #50 & #51 implement the execution status, test case inspection, and safe logs UX.
 All endpoints require authentication and an owned project context.
 
 ## Sandbox Security & Execution Policy
@@ -54,10 +54,34 @@ Base path: `/api/v1/projects/{project_id}/executions`
   ```
 - Returns: `201 Created` with initial execution object (status: `QUEUED`).
 
-### 3. Get single execution
+### 3. Get single execution (UC-09 Details & Safe Logs)
 `GET /api/v1/projects/{project_id}/executions/{execution_id}`
 - Headers: `Authorization: Bearer <token>`
-- Returns: `200 OK` with full execution object including `cases`, `logs`, `metrics`, and `sandbox_policy`.
+- Returns: `200 OK` with full execution object including individual test `cases`, `logs`, `metrics`, and `sandbox_policy`.
+
+#### Individual Test Case Schema (`cases` array element):
+```json
+{
+  "id": "case-3",
+  "name": "test_edge_cases",
+  "status": "FAILED",
+  "duration_ms": 45,
+  "coverage": 0,
+  "mutation_score": "FAILED",
+  "error": "AssertionError: expected 1 got 0",
+  "input": { "a": 0, "b": 1, "edge_mode": true },
+  "expected_output": 1,
+  "actual_output": 0,
+  "traceback": "Traceback (most recent call last):\n  File \"solution_v1.py\", line 18, in test_edge_cases\n    assert solution(0, 1) == 1\nAssertionError: expected 1 got 0"
+}
+```
+
+#### Safe Log Format & Classification:
+Log entries can be string lines or structured objects with stream classification:
+- Streams: `stdout`, `stderr`, `system`
+- Levels: `INFO`, `PASS`, `FAIL`, `WARN`, `SECURITY`
+- Security guarantees: All logs are sanitized against XSS, credentials/tokens are redacted, and host paths are masked into sandbox paths.
+- Diagnostic explanations: System classifies error types (`AssertionError`, `ZeroDivisionError`, `IndexError`, `TypeError`, `TimeoutExpired`, `SecurityBoundary`) and provides actionable recommendations.
 
 ### 4. Cancel execution
 `POST /api/v1/projects/{project_id}/executions/{execution_id}/cancel`

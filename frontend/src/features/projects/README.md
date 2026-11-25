@@ -11,7 +11,8 @@ Project management views and editor screens for Sprint 1 (FR-PRJ-001 / FR-PRJ-00
   - Project actions open settings or copy metadata into the create form. Delete is unavailable until the project API supports it.
   - "+ New project" action and "Create your first project" empty state CTA.
   - Handles loading (`Checking access to your projects…`), empty (`You don’t have any projects yet.`), and error states with manual retry.
-  - Integrates `ProjectCreateModal` for inline project creation.
+  - Creates projects through `ProjectCreateModal`. Validation keeps server field errors beside the inputs and preserves edits after a failed request.
+  - A successful create updates the list and opens Project details with a success toast.
   - Session termination handling: Automatically triggers `onExpire` on 401 unauthorized responses.
 - `/projects/:projectId` (`ProjectEditorPage.jsx`):
   - Project editor screen for viewing and updating project metadata.
@@ -26,7 +27,7 @@ Project management views and editor screens for Sprint 1 (FR-PRJ-001 / FR-PRJ-00
 ## Shared Components (`src/components/projects/`)
 
 - `ProjectCard.jsx`: Project card and table views with shared links, description action, and overflow menu.
-- `ProjectCreateModal.jsx`: Accessible modal dialog for creating a project with keyboard escape support and field validation.
+- `ProjectCreateModal.jsx`: Native modal dialog with a live trimmed-name count, keyboard focus containment, Escape dismissal, and focus restoration.
 - `ProjectHistoryList.jsx`: Timeline of revisions showing revision numbers, snapshot name/description, and formatted timestamps.
 
 ## API Integration (`src/services/api.js`)

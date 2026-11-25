@@ -1,6 +1,6 @@
-import { ArrowLeft, Braces, FlaskConical, History, Info, Plus, RotateCcw, Save, Settings2 } from 'lucide-react'
+import { ArrowLeft, Braces, Check, FlaskConical, History, Info, Plus, RotateCcw, Save, Settings2, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   AuthApiError,
@@ -20,7 +20,15 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
   const { projectId } = useParams()
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
+  const { pathname, search, hash, state } = useLocation()
+  const showCreatedNotice = Boolean(projectId && state?.createdProjectId === projectId)
   const queryClient = useQueryClient()
+
+  useEffect(() => {
+    if (!showCreatedNotice) return
+    const timer = setTimeout(() => navigate({ pathname, search, hash }, { replace: true, state: null }), 6000)
+    return () => clearTimeout(timer)
+  }, [showCreatedNotice, navigate, pathname, search, hash])
 
   const rawTab = searchParams.get('tab')
   const currentTab = rawTab === 'datasets' || rawTab === 'executions' ? rawTab : 'settings'
@@ -228,6 +236,17 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
   return (
     <section className={'mx-auto space-y-6 px-4 py-7 sm:px-8 lg:py-10 ' + (project ? 'max-w-7xl' : 'max-w-3xl')}>
       <ProjectBackLink />
+      {showCreatedNotice && (
+        <div className="fixed right-4 bottom-4 z-30 flex max-w-[calc(100%-2rem)] items-center gap-3 rounded-xl border border-emerald-700/60 bg-slate-900 py-2 pr-2 pl-4 text-sm text-emerald-200 shadow-lg sm:right-8 sm:bottom-8">
+          <Check size={17} aria-hidden="true" />
+          <span role="status">Project created successfully.</span>
+          <button type="button" aria-label="Dismiss success message"
+            onClick={() => navigate({ pathname, search, hash }, { replace: true, state: null })}
+            className="grid size-9 place-items-center rounded-lg text-slate-300 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-indigo-300">
+            <X size={16} aria-hidden="true" />
+          </button>
+        </div>
+      )}
 
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div className="min-w-0 space-y-2">

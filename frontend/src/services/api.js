@@ -207,7 +207,8 @@ export function listPythonSources(accessToken, projectId, signal) {
 
 export function getPythonSource(accessToken, projectId, source, signal) {
   return request(`/projects/${encodeURIComponent(projectId)}/sources/${source.id}/versions/${source.current_revision}`, {
-    accessToken, signal,
+    accessToken,
+    signal,
   })
 }
 
