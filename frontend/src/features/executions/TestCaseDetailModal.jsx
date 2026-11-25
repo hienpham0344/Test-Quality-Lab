@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import {
   AlertOctagon,
+  AlertTriangle,
   Check,
   CheckCircle2,
   Copy,
   Dna,
   ExternalLink,
+  FileCheck,
   FileCode,
   Info,
   ShieldCheck,
@@ -15,7 +17,14 @@ import {
   Slash,
 } from 'lucide-react'
 import { ExecutionMetricBadge } from './ExecutionMetricBadge'
-import { formatDuration, formatMetricState, MUTANT_STATUS_DEFINITIONS, MUTATION_OPERATORS } from './execution-status'
+import {
+  formatDuration,
+  formatMetricState,
+  MUTANT_STATUS_DEFINITIONS,
+  MUTATION_OPERATORS,
+  ASSERTION_STATUS_DEFINITIONS,
+  ASSERTION_TYPES,
+} from './execution-status'
 import { explainTestCase, sanitizeLog } from './log-sanitizer'
 
 export function TestCaseDetailModal({ testCase, onClose, onViewInLogs }) {
@@ -31,6 +40,8 @@ export function TestCaseDetailModal({ testCase, onClose, onViewInLogs }) {
 
   const coverageMetric = formatMetricState(testCase.coverage, { isRate: true })
   const mutationMetric = formatMetricState(testCase.mutation_score, { isRate: true })
+  const assertionMetric = formatMetricState(testCase.assertion_score, { isRate: true })
+  const testCaseAssertions = testCase.assertions || []
 
   // Per-test coverage lines
   const coveredLines = testCase.covered_lines || (
@@ -179,13 +190,14 @@ export function TestCaseDetailModal({ testCase, onClose, onViewInLogs }) {
               <div className="rounded border border-cyan-900/50 bg-cyan-950/30 p-2.5 text-[11px] text-cyan-200/90 space-y-1 font-mono">
                 <p>Coverage = (Lines Exercised by Test / Total Executable Lines) &times; 100</p>
                 <p>Mutation Score = (Mutants Killed by Test / Target Viable Mutants) &times; 100</p>
+                <p>Assertion Quality = (Effective Assertions / Total Assertions) &times; 100</p>
                 <p className="font-sans text-slate-400 text-[10px] pt-1">
                   Provenance verified without synthetic values. Numeric 0 distinguishes genuine unreached code from unevaluated (N/A) or TIMEOUT runs.
                 </p>
               </div>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
               {/* Coverage Impact */}
               <div className="rounded border border-slate-800 bg-slate-900/60 p-3 space-y-1.5">
                 <div className="flex items-center justify-between">
@@ -249,7 +261,68 @@ export function TestCaseDetailModal({ testCase, onClose, onViewInLogs }) {
                   </p>
                 )}
               </div>
+
+              {/* Assertion Quality Impact */}
+              <div className="rounded border border-slate-800 bg-slate-900/60 p-3 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-emerald-300 text-[11px]">Assertion Verification</span>
+                  <span className={`px-1.5 py-0.2 rounded text-[10px] font-mono border ${assertionMetric.badgeClass}`}>
+                    {assertionMetric.text}
+                  </span>
+                </div>
+                {assertionMetric.state === 'zero' ? (
+                  <p className="text-[11px] text-slate-400 italic">
+                    0.0% — 0 effective assertions verified for this case.
+                  </p>
+                ) : assertionMetric.state === 'numeric' ? (
+                  <div className="space-y-1">
+                    <p className="text-[11px] text-emerald-300 font-mono">
+                      {testCaseAssertions.length > 0
+                        ? `${testCaseAssertions.length} invariant assertion${testCaseAssertions.length > 1 ? 's' : ''} verified`
+                        : `Verified with ${assertionMetric.text} quality score`}
+                    </p>
+                    <p className="text-[10px] text-slate-400">
+                      AST invariant validation recorded.
+                    </p>
+                  </div>
+                ) : testCase.assertions_count === 0 || (testCaseAssertions.length === 0 && !testCase.assertion_score) ? (
+                  <p className="text-[11px] text-amber-400/90 italic">
+                    Assertion-less: 0 assertions detected in this test case.
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-slate-500 italic">
+                    {assertionMetric.text} — Assertion metrics not evaluated for this case.
+                  </p>
+                )}
+              </div>
             </div>
+
+            {/* Evaluated Assertions Evidence List if present */}
+            {testCaseAssertions.length > 0 && (
+              <div className="space-y-1.5 pt-2 border-t border-slate-800/80">
+                <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">
+                  Evaluated Assertions ({testCaseAssertions.length})
+                </span>
+                <div className="space-y-1.5 font-mono text-[11px]">
+                  {testCaseAssertions.map((ast, idx) => {
+                    const stmt = typeof ast === 'string' ? ast : ast.statement
+                    const st = typeof ast === 'object' ? ast.status || 'VERIFIED' : 'VERIFIED'
+                    const statusMeta = ASSERTION_STATUS_DEFINITIONS[st] || ASSERTION_STATUS_DEFINITIONS.UNCHECKED
+                    return (
+                      <div
+                        key={idx}
+                        className="flex flex-wrap items-center justify-between gap-2 p-2 rounded bg-slate-950/70 border border-slate-800"
+                      >
+                        <code className="text-slate-200">{stmt}</code>
+                        <span className={`px-2 py-0.5 rounded text-[10px] border ${statusMeta.badgeClass}`}>
+                          {statusMeta.label}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Inputs & Parameters */}

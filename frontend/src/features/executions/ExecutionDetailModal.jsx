@@ -228,7 +228,7 @@ export function ExecutionDetailModal({ execution, onClose, onCancelClick }) {
             </div>
 
             {/* Key Metrics Breakdown */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 rounded-lg border border-slate-800 bg-slate-950/60">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 p-4 rounded-lg border border-slate-800 bg-slate-950/60">
               <ExecutionMetricBadge
                 label="Line Coverage"
                 value={execution.metrics?.coverage}
@@ -237,6 +237,11 @@ export function ExecutionDetailModal({ execution, onClose, onCancelClick }) {
               <ExecutionMetricBadge
                 label="Mutation Score"
                 value={execution.metrics?.mutation_score}
+                isRate={true}
+              />
+              <ExecutionMetricBadge
+                label="Assertion Quality"
+                value={execution.metrics?.assertion_score}
                 isRate={true}
               />
               <ExecutionMetricBadge

@@ -33,7 +33,24 @@ const mockCompleteExecution = {
   metrics: {
     coverage: 75.0,
     mutation_score: 66.7,
+    assertion_score: 85.0,
     validity: 'PASSED',
+  },
+  assertion_details: {
+    score: 85.0,
+    summary: {
+      total: 3,
+      verified: 3,
+      failed: 0,
+      ineffective: 0,
+      pass_rate: 100.0,
+      density: 1.5,
+      assertion_less_cases: 0,
+    },
+    assertions: [
+      { id: 'AST-01', test_case: 'test_add', statement: 'assert add(2, 3) == 5', type: 'EQUALITY', line: 12, status: 'VERIFIED', strength: 'HIGH' },
+    ],
+    unavailable_reason: null,
   },
   coverage_details: {
     covered_lines: 18,
@@ -297,6 +314,22 @@ describe('Quality Evaluation & Visualization Components (UC-10)', () => {
       expect(container.textContent).toContain('snap-202611-001')
       expect(container.textContent).toContain('Network Disabled · Read-only Rootfs')
       expect(container.textContent).toContain('without simulated or fabricated runtime scores')
+    })
+  })
+
+  describe('QualityEvaluationView (Full UC-10 Suite)', () => {
+    it('renders coverage, mutation, assertion quality, and provenance audit cards together', async () => {
+      await act(async () => {
+        root.render(<QualityEvaluationView execution={mockCompleteExecution} onInspectCase={vi.fn()} />)
+      })
+
+      expect(container.querySelector('[data-testid="coverage-visualization-card"]')).not.toBeNull()
+      expect(container.querySelector('[data-testid="mutation-visualization-card"]')).not.toBeNull()
+      expect(container.querySelector('[data-testid="assertion-quality-card"]')).not.toBeNull()
+      expect(container.querySelector('[data-testid="provenance-audit-card"]')).not.toBeNull()
+      expect(container.textContent).toContain('Assertion Quality & Invariant Verification (UC-10)')
+      expect(container.textContent).toContain('Line Coverage Visualization (UC-10)')
+      expect(container.textContent).toContain('Mutation Testing & Fault Injection Analysis (UC-10)')
     })
   })
 
