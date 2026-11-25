@@ -16,6 +16,43 @@ import { DatasetsManager } from '../datasets'
 import { ExecutionsManager } from '../executions'
 import { formatDate } from '../../lib/format-date'
 
+const projectTabs = [
+  ['settings', 'Project settings'],
+  ['datasets', 'Datasets (CSV)'],
+  ['executions', 'Executions (UC-08)'],
+]
+
+function UnsavedChangesDialog({ onKeepEditing, onDiscard }) {
+  const dialog = useRef(null)
+  const keepEditing = useRef(null)
+
+  useEffect(() => {
+    const element = dialog.current
+    const previous = document.activeElement
+    element.showModal()
+    keepEditing.current.focus()
+    return () => {
+      element.close()
+      if (previous?.isConnected) previous.focus()
+    }
+  }, [])
+
+  return (
+    <dialog ref={dialog} role="dialog" aria-modal="true" aria-labelledby="unsaved-heading"
+      aria-describedby="unsaved-description" onCancel={(event) => { event.preventDefault(); onKeepEditing() }}
+      className="fixed inset-0 m-auto w-[calc(100%-2rem)] max-w-md rounded-xl border border-slate-700 bg-slate-900 p-5 text-slate-100 shadow-xl backdrop:bg-slate-950/80 sm:p-6">
+      <h2 id="unsaved-heading" className="text-base font-semibold text-white">Discard unsaved changes?</h2>
+      <p id="unsaved-description" className="mt-2 text-sm text-slate-300">Your edits to this project have not been saved.</p>
+      <div className="mt-5 flex flex-wrap justify-end gap-2">
+        <button ref={keepEditing} type="button" onClick={onKeepEditing}
+          className="min-h-11 rounded-lg border border-slate-700 px-3 text-sm font-medium hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-indigo-300">Keep editing</button>
+        <button type="button" onClick={onDiscard}
+          className="min-h-11 rounded-lg bg-rose-700 px-3 text-sm font-medium text-white hover:bg-rose-600 focus-visible:outline-2 focus-visible:outline-rose-300">Discard changes</button>
+      </div>
+    </dialog>
+  )
+}
+
 export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
   const { projectId } = useParams()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -31,23 +68,8 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
   }, [showCreatedNotice, navigate, pathname, search, hash])
 
   const rawTab = searchParams.get('tab')
-  const currentTab = rawTab === 'datasets' || rawTab === 'executions' ? rawTab : 'settings'
-  const [activeTab, setActiveTab] = useState(currentTab)
-
-  useEffect(() => {
-    const raw = searchParams.get('tab')
-    const tabFromUrl = raw === 'datasets' || raw === 'executions' ? raw : 'settings'
-    setActiveTab(tabFromUrl)
-  }, [searchParams])
-
-  function handleTabChange(tab) {
-    setActiveTab(tab)
-    if (tab === 'datasets' || tab === 'executions') {
-      setSearchParams({ tab })
-    } else {
-      setSearchParams({})
-    }
-  }
+  const activeTab = projectTabs.some(([id]) => id === rawTab) ? rawTab : 'settings'
+  const [pendingNavigation, setPendingNavigation] = useState(null)
 
   // Form state
   const [name, setName] = useState('')
@@ -121,6 +143,41 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
   const isChanged = mode === 'edit' && projectQuery.data
     ? trimmedName !== projectQuery.data.name || (description.trim() || null) !== (projectQuery.data.description || null)
     : true
+  const guardEdits = mode === 'edit' && Boolean(projectQuery.data) && isChanged
+
+  useEffect(() => {
+    if (!guardEdits) return
+    function warnBeforeUnload(event) {
+      event.preventDefault()
+      event.returnValue = true
+    }
+    function guardLink(event) {
+      if (event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return
+      const link = event.target.closest?.('a[href]')
+      if (!link || (link.target && link.target !== '_self') || link.hasAttribute('download')) return
+      const target = new URL(link.href, window.location.href)
+      if (target.origin !== window.location.origin || (target.pathname === pathname && target.search === search)) return
+      event.preventDefault()
+      setPendingNavigation({ to: target.pathname + target.search + target.hash })
+    }
+    window.addEventListener('beforeunload', warnBeforeUnload)
+    document.addEventListener('click', guardLink, true)
+    return () => {
+      window.removeEventListener('beforeunload', warnBeforeUnload)
+      document.removeEventListener('click', guardLink, true)
+    }
+  }, [guardEdits, pathname, search])
+
+  function selectTab(tab) {
+    if (tab === 'settings') setSearchParams({})
+    else setSearchParams({ tab })
+  }
+
+  function handleTabChange(tab) {
+    if (tab === activeTab) return
+    if (guardEdits) setPendingNavigation({ tab })
+    else selectTab(tab)
+  }
 
   async function handleSubmit(event) {
     event.preventDefault()
@@ -183,6 +240,14 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
     }
   }
 
+  function discardChanges() {
+    const action = pendingNavigation
+    handleReset()
+    setPendingNavigation(null)
+    if (action.tab) selectTab(action.tab)
+    else navigate(action.to)
+  }
+
   // Edit mode loading & error views
   if (mode === 'edit') {
     if (projectQuery.isPending || expired) {
@@ -236,6 +301,7 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
   return (
     <section className={'mx-auto space-y-6 px-4 py-7 sm:px-8 lg:py-10 ' + (project ? 'max-w-7xl' : 'max-w-3xl')}>
       <ProjectBackLink />
+      {pendingNavigation && <UnsavedChangesDialog onKeepEditing={() => setPendingNavigation(null)} onDiscard={discardChanges} />}
       {showCreatedNotice && (
         <div className="fixed right-4 bottom-4 z-30 flex max-w-[calc(100%-2rem)] items-center gap-3 rounded-xl border border-emerald-700/60 bg-slate-900 py-2 pr-2 pl-4 text-sm text-emerald-200 shadow-lg sm:right-8 sm:bottom-8">
           <Check size={17} aria-hidden="true" />
@@ -281,40 +347,15 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
 
       {/* Mode navigation tabs for edit mode */}
       {mode === 'edit' && (
-        <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
-          <button
-            type="button"
-            onClick={() => handleTabChange('settings')}
-            className={`min-h-10 px-4 py-2 text-sm font-medium rounded-lg transition cursor-pointer ${
-              activeTab === 'settings'
-                ? 'bg-slate-800 text-white border border-slate-700 shadow-sm'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
-            }`}
-          >
-            Project settings
-          </button>
-          <button
-            type="button"
-            onClick={() => handleTabChange('datasets')}
-            className={`min-h-10 px-4 py-2 text-sm font-medium rounded-lg transition cursor-pointer ${
-              activeTab === 'datasets'
-                ? 'bg-slate-800 text-white border border-slate-700 shadow-sm'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
-            }`}
-          >
-            Datasets (CSV)
-          </button>
-          <button
-            type="button"
-            onClick={() => handleTabChange('executions')}
-            className={`min-h-10 px-4 py-2 text-sm font-medium rounded-lg transition cursor-pointer ${
-              activeTab === 'executions'
-                ? 'bg-slate-800 text-white border border-slate-700 shadow-sm'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
-            }`}
-          >
-            Executions (UC-08)
-          </button>
+        <div className="flex flex-wrap items-center gap-2 border-b border-slate-800 pb-2">
+          {projectTabs.map(([tab, label]) => (
+            <button key={tab} type="button" onClick={() => handleTabChange(tab)} aria-pressed={activeTab === tab}
+              className={`min-h-10 cursor-pointer rounded-lg px-4 py-2 text-sm font-medium transition focus-visible:outline-2 focus-visible:outline-indigo-300 ${
+                activeTab === tab ? 'border border-slate-700 bg-slate-800 text-white shadow-sm' : 'text-slate-400 hover:bg-slate-900/60 hover:text-slate-200'
+              }`}>
+              {label}
+            </button>
+          ))}
         </div>
       )}
 
@@ -336,7 +377,7 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
         />
       )}
 
-      {/* Tab: Settings & Revision History (or create mode) */}
+      {/* Tab: Settings (or create mode) */}
       {(mode === 'create' || activeTab === 'settings') && (
         <div className={project ? 'grid items-start gap-5 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]' : ''}>
           <section aria-labelledby="project-settings-title" className="min-w-0 rounded-xl border border-slate-800 bg-slate-900">
@@ -414,6 +455,12 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
                   )}
                 </div>
 
+                {mode === 'edit' && (
+                  <p className="flex items-start gap-2 text-xs text-slate-400">
+                    <Info size={15} aria-hidden="true" className="shrink-0 text-indigo-300" />
+                    Editing project metadata does not change existing experiment snapshots.
+                  </p>
+                )}
                 <div className="flex flex-wrap items-center justify-end gap-3 border-t border-slate-800 pt-4">
                   {mode === 'edit' ? (
                     <button
@@ -479,6 +526,7 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
                   />
                 </div>
               </section>
+
             </div>
           )}
         </div>

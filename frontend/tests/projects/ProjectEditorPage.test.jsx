@@ -6,6 +6,9 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ProjectEditorPage } from '../../src/features/projects/ProjectEditorPage'
 
+HTMLDialogElement.prototype.showModal ??= function () { this.open = true }
+HTMLDialogElement.prototype.close ??= function () { this.open = false }
+
 let container
 let root
 let fetchMock
@@ -39,6 +42,7 @@ async function renderEditor(initialPath = '/projects/p-1', mode = 'edit') {
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[initialPath]}>
         <Routes>
+          <Route path="/projects" element={<h1>Projects registry</h1>} />
           <Route
             path="/projects/:projectId"
             element={<ProjectEditorPage session={session} onExpire={onExpire} mode={mode} />}
@@ -125,8 +129,45 @@ describe('ProjectEditorPage', () => {
     expect(descInput.value).toBe('Testing models')
 
     expect(container.textContent).toContain('Revision 2')
+    expect(container.textContent).toContain('Editing project metadata does not change existing experiment snapshots.')
     expect(container.textContent).toContain('Revision history')
     expect(container.textContent).toContain('LLM Evaluator (Draft)')
+    expect([...container.querySelectorAll('button')].some((button) => button.textContent === 'History')).toBe(false)
+  })
+
+  it('keeps edits on dismissal and discards only after confirming a tab switch', async () => {
+    fetchMock.mockImplementation(async (url) => Response.json(url.endsWith('/history') ? mockHistory : url.endsWith('/datasets') ? [] : mockProject))
+    await renderEditor()
+    await vi.waitFor(() => expect(container.querySelector('#edit-project-name')?.value).toBe(mockProject.name))
+    const name = container.querySelector('#edit-project-name')
+    const button = (label) => [...container.querySelectorAll('button')].find((item) => item.textContent.trim() === label)
+    await act(async () => setInputValue(name, 'Unsaved name'))
+    const unload = new Event('beforeunload', { cancelable: true })
+    expect(window.dispatchEvent(unload)).toBe(false)
+    await act(async () => button('Datasets (CSV)').click())
+    expect(container.querySelector('dialog').open).toBe(true)
+    expect(document.activeElement).toBe(button('Keep editing'))
+    await act(async () => button('Keep editing').click())
+    expect(name.value).toBe('Unsaved name')
+    await act(async () => button('Datasets (CSV)').click())
+    await act(async () => button('Discard changes').click())
+    expect(container.querySelector('dialog')).toBeNull()
+    expect(button('Datasets (CSV)').getAttribute('aria-pressed')).toBe('true')
+    await act(async () => button('Project settings').click())
+    expect(container.querySelector('#edit-project-name').value).toBe(mockProject.name)
+    expect(window.dispatchEvent(new Event('beforeunload', { cancelable: true }))).toBe(true)
+  })
+
+  it('guards Back to projects and follows it after discard', async () => {
+    fetchMock.mockImplementation(async (url) => Response.json(url.endsWith('/history') ? mockHistory : mockProject))
+    await renderEditor()
+    await vi.waitFor(() => expect(container.querySelector('#edit-project-name')?.value).toBe(mockProject.name))
+    await act(async () => setInputValue(container.querySelector('#edit-project-name'), 'Unsaved name'))
+    await act(async () => container.querySelector('a[href="/projects"]').click())
+    const dialog = container.querySelector('dialog')
+    expect(dialog).not.toBeNull()
+    await act(async () => dialog.querySelector('button:last-child').click())
+    expect(container.querySelector('h1').textContent).toBe('Projects registry')
   })
 
   it('allows editing fields, validates them, and saves changes', async () => {

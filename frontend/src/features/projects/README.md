@@ -20,7 +20,8 @@ Project management views and editor screens for Sprint 1 (FR-PRJ-001 / FR-PRJ-00
   - `?edit=description` focuses the description field from the registry.
   - In-place form validation and dirty checking (disables saving when inputs are untouched or invalid).
   - Handles 404 (project not found / unauthorized) gracefully without disclosing private resources.
-  - Revision history timeline (`ProjectHistoryList.jsx`): Displays an immutable audit trail of past project revisions with revision badges and timestamps.
+  - **Project settings** displays the edit form and the existing revision history timeline together.
+  - Pending edits prompt for confirmation before switching project tabs or following same-origin navigation links. Reloading or closing the document uses the browser warning.
 - `/projects/new` (`ProjectEditorPage.jsx` in `create` mode):
   - Standalone project creation screen.
 
