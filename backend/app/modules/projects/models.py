@@ -1,9 +1,10 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, Uuid
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, Uuid, event
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.core.exceptions import AppError, ErrorCode
 from app.infrastructure.database.base import Base
 
 
@@ -29,3 +30,13 @@ class ProjectHistory(Base):
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     changed_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+
+@event.listens_for(ProjectHistory, "before_update")
+@event.listens_for(ProjectHistory, "before_delete")
+def _forbid_project_history_mutation(
+    _mapper: object,
+    _connection: object,
+    _target: ProjectHistory,
+) -> None:
+    raise AppError(ErrorCode.ACCESS_DENIED, "Project history is append-only")
