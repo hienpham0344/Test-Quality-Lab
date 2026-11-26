@@ -34,6 +34,8 @@ class AuditAction(StrEnum):
     EXPERIMENT_SNAPSHOT_FROZEN = "experiment.snapshot_frozen"
     GENERATION_STARTED = "generation.started"
     GENERATION_CANCELLED = "generation.cancelled"
+    EXECUTION_STARTED = "execution.started"
+    EXECUTION_CANCELLED = "execution.cancelled"
     EVALUATION_ASSERTION_REVIEWED = "evaluation.assertion_reviewed"
     REPORT_RESULT_DELETED = "report.result_deleted"
     SYSTEM_ARTIFACT_CLEANUP = "system.artifact_cleanup"

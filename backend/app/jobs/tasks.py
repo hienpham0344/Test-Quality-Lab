@@ -11,6 +11,7 @@ from app.infrastructure.llm import ProviderRegistry
 from app.infrastructure.queue.celery_app import celery_app
 from app.modules.auth.link_service import AuthLinkService, LinkKind
 from app.modules.auth.session_service import SessionService
+from app.modules.execution.service import ExecutionWorker
 from app.modules.generation.service import GenerationExecutionService, TransientGenerationError
 
 
@@ -82,3 +83,11 @@ def execute_generation_job(self: Any, job_id: str) -> dict[str, str]:
             argsrepr=f"({job_id!r},)",
             kwargsrepr="{}",
         ) from None
+
+
+@celery_app.task(name="execution.run", acks_late=True)
+def run_execution(execution_id: str) -> dict[str, str]:
+    """FR-EXE-001..004: one sandbox execution. The default launcher is disabled (no code runs)."""
+    with SessionLocal() as db:
+        finished = ExecutionWorker(db, settings=_worker_settings()).run(uuid.UUID(execution_id))
+        return {"execution_id": str(finished.id), "status": finished.status}

@@ -2798,6 +2798,338 @@
           ]
         }
       ]
+    },
+    {
+      "name": "executions",
+      "item": [
+        {
+          "name": "POST /projects/{{project_id}}/executions",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/projects/{{project_id}}/executions",
+            "description": "FR-EXE-001 (#45): queues the newest eligible generated artifact (or `generation_run_id`). The sandbox is disabled pending the security review, so the worker records BLOCKED / SANDBOX_DISABLED.\n\nContract: docs/api/contracts/executions.md",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"suite_name\": \"Divide suite\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.environment.set('execution_id', body.id);",
+                  "pm.test('queued with policy', () => { pm.expect(body.status).to.eql('QUEUED'); pm.expect(body.sandbox_policy.network).to.eql('none'); });"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/projects/{{project_id}}/executions",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"suite_name\": \"Divide suite\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": \"00000000-0000-0000-0000-0000000000e1\",\n  \"project_id\": \"00000000-0000-0000-0000-000000000002\",\n  \"suite_name\": \"Divide suite\",\n  \"status\": \"QUEUED\",\n  \"generation_run_id\": \"00000000-0000-0000-0000-0000000000a1\",\n  \"source_id\": \"00000000-0000-0000-0000-000000000003\",\n  \"source_name\": \"Source r1\",\n  \"source_sha256\": \"1111111111111111111111111111111111111111111111111111111111111111\",\n  \"dataset_id\": null,\n  \"dataset_name\": null,\n  \"dataset_sha256\": null,\n  \"artifact_sha256\": \"2222222222222222222222222222222222222222222222222222222222222222\",\n  \"total_cases\": 2,\n  \"completed_cases\": 0,\n  \"passed_cases\": 0,\n  \"failed_cases\": 0,\n  \"error_cases\": 0,\n  \"skipped_cases\": 0,\n  \"timeout_cases\": 0,\n  \"duration_ms\": null,\n  \"metrics\": null,\n  \"cases\": [],\n  \"logs\": [\n    {\n      \"stream\": \"system\",\n      \"level\": \"INFO\",\n      \"message\": \"Execution queued\"\n    }\n  ],\n  \"oracle\": {\n    \"rows\": [],\n    \"summary\": {\n      \"DATASET_VERIFIED\": 0,\n      \"DATASET_UNVERIFIED\": 0,\n      \"REFERENCE_OBSERVED\": 0,\n      \"QUARANTINED\": 0,\n      \"UNAVAILABLE\": 0\n    },\n    \"reference_run\": false\n  },\n  \"sandbox_policy\": {\n    \"cpus\": 1.0,\n    \"memory_bytes\": 1073741824,\n    \"memory\": \"1 GiB\",\n    \"pids_limit\": 128,\n    \"timeout_seconds\": 60,\n    \"tmpfs_bytes\": 67108864,\n    \"log_limit_bytes\": 1048576,\n    \"user\": \"65534:65534\",\n    \"network\": \"none\",\n    \"read_only_root\": true,\n    \"drop_capabilities\": [\n      \"ALL\"\n    ],\n    \"security_opts\": [\n      \"no-new-privileges:true\"\n    ],\n    \"ulimits\": [\n      \"nofile=256:256\",\n      \"nproc=128:128\",\n      \"fsize=16777216:16777216\"\n    ],\n    \"env\": {\n      \"HOME\": \"/tmp\",\n      \"PYTHONDONTWRITEBYTECODE\": \"1\",\n      \"PYTHONHASHSEED\": \"0\"\n    }\n  },\n  \"error\": null,\n  \"cancel_reason\": null,\n  \"cancelled_at\": null,\n  \"started_at\": null,\n  \"completed_at\": null,\n  \"created_at\": \"2026-11-27T09:00:00\",\n  \"updated_at\": \"2026-11-27T09:00:00\"\n}"
+            },
+            {
+              "name": "422 no eligible artifact",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/projects/{{project_id}}/executions",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"suite_name\": \"Divide suite\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"detail\": {\n    \"code\": \"INPUT_INVALID\",\n    \"message\": \"No eligible generated test artifact\",\n    \"fields\": {\n      \"generation_run_id\": \"Generate tests that pass every static check first\"\n    }\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "GET /projects/{{project_id}}/executions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/projects/{{project_id}}/executions",
+            "description": "Executions newest first; list items omit cases, logs and oracle.\n\nContract: docs/api/contracts/executions.md"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/projects/{{project_id}}/executions"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "[\n  {\n    \"id\": \"00000000-0000-0000-0000-0000000000e1\",\n    \"project_id\": \"00000000-0000-0000-0000-000000000002\",\n    \"suite_name\": \"Divide suite\",\n    \"status\": \"BLOCKED\",\n    \"generation_run_id\": \"00000000-0000-0000-0000-0000000000a1\",\n    \"source_id\": \"00000000-0000-0000-0000-000000000003\",\n    \"source_name\": \"Source r1\",\n    \"source_sha256\": \"1111111111111111111111111111111111111111111111111111111111111111\",\n    \"dataset_id\": null,\n    \"dataset_name\": null,\n    \"dataset_sha256\": null,\n    \"artifact_sha256\": \"2222222222222222222222222222222222222222222222222222222222222222\",\n    \"total_cases\": 2,\n    \"completed_cases\": 0,\n    \"passed_cases\": 0,\n    \"failed_cases\": 0,\n    \"error_cases\": 0,\n    \"skipped_cases\": 0,\n    \"timeout_cases\": 0,\n    \"duration_ms\": null,\n    \"metrics\": null,\n    \"cases\": [],\n    \"logs\": [],\n    \"oracle\": null,\n    \"sandbox_policy\": {\n      \"cpus\": 1.0,\n      \"memory_bytes\": 1073741824,\n      \"memory\": \"1 GiB\",\n      \"pids_limit\": 128,\n      \"timeout_seconds\": 60,\n      \"tmpfs_bytes\": 67108864,\n      \"log_limit_bytes\": 1048576,\n      \"user\": \"65534:65534\",\n      \"network\": \"none\",\n      \"read_only_root\": true,\n      \"drop_capabilities\": [\n        \"ALL\"\n      ],\n      \"security_opts\": [\n        \"no-new-privileges:true\"\n      ],\n      \"ulimits\": [\n        \"nofile=256:256\",\n        \"nproc=128:128\",\n        \"fsize=16777216:16777216\"\n      ],\n      \"env\": {\n        \"HOME\": \"/tmp\",\n        \"PYTHONDONTWRITEBYTECODE\": \"1\",\n        \"PYTHONHASHSEED\": \"0\"\n      }\n    },\n    \"error\": {\n      \"stage\": \"sandbox\",\n      \"code\": \"SANDBOX_DISABLED\",\n      \"message\": \"Sandbox execution is disabled until the sandbox security review passes\",\n      \"occurred_at\": \"2026-11-27T09:00:01Z\"\n    },\n    \"cancel_reason\": null,\n    \"cancelled_at\": null,\n    \"started_at\": \"2026-11-27T09:00:01\",\n    \"completed_at\": \"2026-11-27T09:00:01\",\n    \"created_at\": \"2026-11-27T09:00:00\",\n    \"updated_at\": \"2026-11-27T09:00:00\"\n  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "GET /projects/{{project_id}}/executions/{{execution_id}}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/projects/{{project_id}}/executions/{{execution_id}}",
+            "description": "Detail with cases, safe logs (1 MiB cap), oracle provenance (FR-EVL-002) and sandbox policy.\n\nContract: docs/api/contracts/executions.md"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('never invents results', () => { const b = pm.response.json(); if (b.status === 'BLOCKED') pm.expect(b.passed_cases).to.eql(0); });"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 BLOCKED",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/projects/{{project_id}}/executions/{{execution_id}}"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": \"00000000-0000-0000-0000-0000000000e1\",\n  \"project_id\": \"00000000-0000-0000-0000-000000000002\",\n  \"suite_name\": \"Divide suite\",\n  \"status\": \"BLOCKED\",\n  \"generation_run_id\": \"00000000-0000-0000-0000-0000000000a1\",\n  \"source_id\": \"00000000-0000-0000-0000-000000000003\",\n  \"source_name\": \"Source r1\",\n  \"source_sha256\": \"1111111111111111111111111111111111111111111111111111111111111111\",\n  \"dataset_id\": null,\n  \"dataset_name\": null,\n  \"dataset_sha256\": null,\n  \"artifact_sha256\": \"2222222222222222222222222222222222222222222222222222222222222222\",\n  \"total_cases\": 2,\n  \"completed_cases\": 0,\n  \"passed_cases\": 0,\n  \"failed_cases\": 0,\n  \"error_cases\": 0,\n  \"skipped_cases\": 0,\n  \"timeout_cases\": 0,\n  \"duration_ms\": null,\n  \"metrics\": null,\n  \"cases\": [],\n  \"logs\": [\n    {\n      \"stream\": \"system\",\n      \"level\": \"INFO\",\n      \"message\": \"Execution queued\"\n    },\n    {\n      \"stream\": \"system\",\n      \"level\": \"SECURITY\",\n      \"message\": \"Sandbox execution is disabled until the sandbox security review passes\"\n    }\n  ],\n  \"oracle\": {\n    \"rows\": [],\n    \"summary\": {\n      \"DATASET_VERIFIED\": 0,\n      \"DATASET_UNVERIFIED\": 0,\n      \"REFERENCE_OBSERVED\": 0,\n      \"QUARANTINED\": 0,\n      \"UNAVAILABLE\": 0\n    },\n    \"reference_run\": false\n  },\n  \"sandbox_policy\": {\n    \"cpus\": 1.0,\n    \"memory_bytes\": 1073741824,\n    \"memory\": \"1 GiB\",\n    \"pids_limit\": 128,\n    \"timeout_seconds\": 60,\n    \"tmpfs_bytes\": 67108864,\n    \"log_limit_bytes\": 1048576,\n    \"user\": \"65534:65534\",\n    \"network\": \"none\",\n    \"read_only_root\": true,\n    \"drop_capabilities\": [\n      \"ALL\"\n    ],\n    \"security_opts\": [\n      \"no-new-privileges:true\"\n    ],\n    \"ulimits\": [\n      \"nofile=256:256\",\n      \"nproc=128:128\",\n      \"fsize=16777216:16777216\"\n    ],\n    \"env\": {\n      \"HOME\": \"/tmp\",\n      \"PYTHONDONTWRITEBYTECODE\": \"1\",\n      \"PYTHONHASHSEED\": \"0\"\n    }\n  },\n  \"error\": {\n    \"stage\": \"sandbox\",\n    \"code\": \"SANDBOX_DISABLED\",\n    \"message\": \"Sandbox execution is disabled until the sandbox security review passes\",\n    \"occurred_at\": \"2026-11-27T09:00:01Z\"\n  },\n  \"cancel_reason\": null,\n  \"cancelled_at\": null,\n  \"started_at\": \"2026-11-27T09:00:01\",\n  \"completed_at\": \"2026-11-27T09:00:01\",\n  \"created_at\": \"2026-11-27T09:00:00\",\n  \"updated_at\": \"2026-11-27T09:00:00\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "POST /projects/{{project_id}}/executions/{{execution_id}}/cancel",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/projects/{{project_id}}/executions/{{execution_id}}/cancel",
+            "description": "FR-EXE-004 (#49): QUEUED/PENDING cancel now; RUNNING becomes CANCELLING until the worker confirms. Terminal runs return 409.\n\nContract: docs/api/contracts/executions.md",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Not needed\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 or 409', () => pm.expect(pm.response.code).to.be.oneOf([200, 409]));",
+                  "if (pm.response.code === 409) pm.test('code', () => pm.expect(pm.response.json().detail.code).to.eql('EXECUTION_CANNOT_BE_CANCELLED'));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 CANCELLED",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/projects/{{project_id}}/executions/{{execution_id}}/cancel",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"reason\": \"Not needed\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": \"00000000-0000-0000-0000-0000000000e1\",\n  \"project_id\": \"00000000-0000-0000-0000-000000000002\",\n  \"suite_name\": \"Divide suite\",\n  \"status\": \"CANCELLED\",\n  \"generation_run_id\": \"00000000-0000-0000-0000-0000000000a1\",\n  \"source_id\": \"00000000-0000-0000-0000-000000000003\",\n  \"source_name\": \"Source r1\",\n  \"source_sha256\": \"1111111111111111111111111111111111111111111111111111111111111111\",\n  \"dataset_id\": null,\n  \"dataset_name\": null,\n  \"dataset_sha256\": null,\n  \"artifact_sha256\": \"2222222222222222222222222222222222222222222222222222222222222222\",\n  \"total_cases\": 2,\n  \"completed_cases\": 0,\n  \"passed_cases\": 0,\n  \"failed_cases\": 0,\n  \"error_cases\": 0,\n  \"skipped_cases\": 0,\n  \"timeout_cases\": 0,\n  \"duration_ms\": null,\n  \"metrics\": null,\n  \"cases\": [],\n  \"logs\": [\n    {\n      \"stream\": \"system\",\n      \"level\": \"INFO\",\n      \"message\": \"Execution queued\"\n    }\n  ],\n  \"oracle\": {\n    \"rows\": [],\n    \"summary\": {\n      \"DATASET_VERIFIED\": 0,\n      \"DATASET_UNVERIFIED\": 0,\n      \"REFERENCE_OBSERVED\": 0,\n      \"QUARANTINED\": 0,\n      \"UNAVAILABLE\": 0\n    },\n    \"reference_run\": false\n  },\n  \"sandbox_policy\": {\n    \"cpus\": 1.0,\n    \"memory_bytes\": 1073741824,\n    \"memory\": \"1 GiB\",\n    \"pids_limit\": 128,\n    \"timeout_seconds\": 60,\n    \"tmpfs_bytes\": 67108864,\n    \"log_limit_bytes\": 1048576,\n    \"user\": \"65534:65534\",\n    \"network\": \"none\",\n    \"read_only_root\": true,\n    \"drop_capabilities\": [\n      \"ALL\"\n    ],\n    \"security_opts\": [\n      \"no-new-privileges:true\"\n    ],\n    \"ulimits\": [\n      \"nofile=256:256\",\n      \"nproc=128:128\",\n      \"fsize=16777216:16777216\"\n    ],\n    \"env\": {\n      \"HOME\": \"/tmp\",\n      \"PYTHONDONTWRITEBYTECODE\": \"1\",\n      \"PYTHONHASHSEED\": \"0\"\n    }\n  },\n  \"error\": null,\n  \"cancel_reason\": \"Not needed\",\n  \"cancelled_at\": \"2026-11-27T09:00:02\",\n  \"started_at\": null,\n  \"completed_at\": null,\n  \"created_at\": \"2026-11-27T09:00:00\",\n  \"updated_at\": \"2026-11-27T09:00:00\"\n}"
+            },
+            {
+              "name": "409 already finished",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/projects/{{project_id}}/executions/{{execution_id}}/cancel",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"reason\": \"Not needed\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Conflict",
+              "code": 409,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"detail\": {\n    \"code\": \"EXECUTION_CANNOT_BE_CANCELLED\",\n    \"message\": \"Execution run cannot be cancelled because it is already in state 'BLOCKED'.\",\n    \"fields\": {}\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "GET /projects/{{project_id}}/executions/:randomId - not found (404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/projects/{{project_id}}/executions/{{$randomUUID}}",
+            "description": "Missing or foreign executions return the same 404.\n\nContract: docs/api/contracts/executions.md"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('NOT_FOUND', () => pm.expect(pm.response.json().detail.code).to.eql('NOT_FOUND'));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "404 NOT_FOUND",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/projects/{{project_id}}/executions/{{$randomUUID}}"
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"detail\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Execution not found\",\n    \"fields\": {}\n  }\n}"
+            }
+          ]
+        }
+      ]
     }
   ]
 }

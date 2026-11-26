@@ -10,7 +10,7 @@ Tracks release acceptance criteria from initial scaffold baseline through Sprint
 - [x] FastAPI serves `/health`, `/ready`, `/docs`, and `/openapi.json`.
 - [x] PostgreSQL 16 + Redis 7 start locally and `/ready` verifies both connections.
 - [x] Celery worker and beat services boot cleanly.
-- [x] All Alembic migrations (`20261029_0001` through `20261127_0013`) apply cleanly to head.
+- [x] All Alembic migrations (`20261029_0001` through `20261127_0014`) apply cleanly to head.
 - [x] CI lint, unit test, build, dependency audit, and Compose smoke checks pass.
 - [x] Sandbox fails closed (`sandbox/runner/main.py` exits with non-zero status) and provides **no** untrusted-code execution route.
 

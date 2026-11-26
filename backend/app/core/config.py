@@ -22,6 +22,12 @@ class Settings(BaseSettings):
     gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta"
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
     llm_timeout_seconds: float = 30.0
+    # Sandbox execution (FR-EXE, NFR-SEC-002). Disabled until the sandbox security review passes:
+    # running needs BOTH the flag and a recorded review ID, and a dedicated launcher service.
+    sandbox_execution_enabled: bool = False
+    sandbox_security_review_id: str | None = None
+    sandbox_image: str = "tql-sandbox:unreviewed"
+    sandbox_workdir: str = "/app/sandbox-work"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

@@ -5,7 +5,11 @@ All endpoints require authentication and an owned project context.
 
 ## Sandbox Security & Execution Policy
 
-Untrusted Python execution remains **DISABLED** pending sandbox security signoff (see `infra/security/sandbox-policy.md`). Runs operate under policy-enforced sandbox simulations with strict isolation targets:
+Untrusted Python execution remains **DISABLED** pending sandbox security signoff (see `infra/security/sandbox-policy.md`).
+The backend (#45-#49) records executions and hands a read-only workspace to a launcher. The default launcher is **disabled**:
+every run ends `BLOCKED` with `error.code = "SANDBOX_DISABLED"`, no cases and no metrics. Nothing is simulated or invented.
+Running needs both `SANDBOX_EXECUTION_ENABLED=true` and `SANDBOX_SECURITY_REVIEW_ID`, a dedicated launcher service (API and worker never mount the Docker socket), and a reviewed runner image. The current runner (`sandbox/runner/main.py`) still fails closed with exit 78, which is also recorded as `BLOCKED`.
+Isolation applied by the launcher (`app/infrastructure/sandbox/policy.py`, stored per run as `sandbox_policy`):
 - Network: Disabled
 - Root filesystem: Read-only
 - Resource limits: 1 CPU core, 1 GiB memory
@@ -23,6 +27,12 @@ Untrusted Python execution remains **DISABLED** pending sandbox security signoff
 | `COMPLETED` | No (terminal) | All cases completed successfully |
 | `FAILED` | No (terminal) | Execution terminated with test failure errors |
 | `TIMEOUT` | No (terminal) | Exceeded sandbox 60s hard timeout limit |
+| `BLOCKED` | No (terminal) | Sandbox disabled pending the security review; nothing was executed (`SANDBOX_DISABLED`) |
+
+`COMPLETED` means the runner finished (pytest exit 0 or 1); individual tests can still be `FAILED`. Runner problems never become results:
+no structured report or pytest exit 2/3/4 -> `FAILED` `RUNNER_ERROR`; exit 5 -> `FAILED` `NO_TESTS_COLLECTED`; over 60 s -> `TIMEOUT` `RUNNER_TIMEOUT`
+with every collected test marked `TIMEOUT`; cancelled -> `CANCELLED`. A cancel of a `RUNNING` run returns `CANCELLING` and becomes
+`CANCELLED` only after the worker confirms the stop (SRS 3.13). Container and workspace cleanup always runs; a cleanup problem is logged as a `SECURITY` incident.
 
 ## Metric States & DoD Verification
 
@@ -52,7 +62,9 @@ Base path: `/api/v1/projects/{project_id}/executions`
 ### 1. List executions
 `GET /api/v1/projects/{project_id}/executions`
 - Headers: `Authorization: Bearer <token>`
-- Returns: `200 OK` with JSON array of execution summary objects.
+- Returns: `200 OK` with JSON array of execution summary objects, newest first. List items have `cases: []`, `logs: []` and `oracle: null`; the detail endpoint returns them.
+- Execution object fields: `id`, `project_id`, `suite_name`, `status`, `generation_run_id`, `source_id`, `source_name`, `source_sha256`, `dataset_id`, `dataset_name`, `dataset_sha256`, `artifact_sha256`, `total_cases`, `completed_cases`, `passed_cases`, `failed_cases`, `error_cases`, `skipped_cases`, `timeout_cases`, `duration_ms`, `metrics` (always `null` here; evaluation computes metrics), `cases`, `logs`, `oracle`, `sandbox_policy`, `error {stage, code, message, occurred_at}`, `cancel_reason`, `cancelled_at`, `started_at`, `completed_at`, `created_at`, `updated_at`.
+- Errors: `401`; `404 NOT_FOUND` for a missing or foreign project.
 
 ### 2. Trigger execution
 `POST /api/v1/projects/{project_id}/executions`
@@ -65,7 +77,15 @@ Base path: `/api/v1/projects/{project_id}/executions`
     "source_id": "src-uuid-optional"
   }
   ```
-- Returns: `201 Created` with initial execution object (status: `QUEUED`).
+- Optional `generation_run_id`: the generated test artifact to run. It must belong to the project and have `validation.eligible = true` (FR-GEN-004). When omitted, the newest eligible completed run of the project is used.
+- `source_id` / `dataset_id` override the snapshot's frozen source/dataset (current revision; must be owned, else `404`).
+- Returns: `201 Created` with the initial execution object (status: `QUEUED`), `total_cases` = statically collected tests, `sandbox_policy`, and `oracle` (below).
+- Errors: `401`; `404 NOT_FOUND` (project, run, source or dataset missing or foreign); `422 INPUT_INVALID` with `fields.generation_run_id` when no eligible artifact exists or the chosen one is not eligible, or for unknown body fields.
+
+#### Oracle (`oracle`, FR-EVL-002, #48)
+`{"rows": [...], "summary": {"DATASET_VERIFIED": n, "DATASET_UNVERIFIED": n, "REFERENCE_OBSERVED": n, "QUARANTINED": n, "UNAVAILABLE": n}, "reference_run": false}`.
+Each row: `row_number`, `task_id`, `function_name`, `input_data`, `expected_output` (usable value or `null`), `dataset_expected_output`, `reference_observed_output`, `source`, `usable`, `is_ground_truth`, `verified`, `reason`, `provenance {expected_from, dataset_id, dataset_revision, dataset_sha256, row_number, reference_source_sha256}`.
+Rules: dataset expected + reference agrees -> `DATASET_VERIFIED`; disagrees or the reference fails -> `QUARANTINED` (row isolated, no guessed answer); no reference run yet -> `DATASET_UNVERIFIED`; no expected + reference observed -> `REFERENCE_OBSERVED` (never ground truth); neither -> `UNAVAILABLE` (`ORACLE_UNAVAILABLE`, no pass/mutation from it). While the sandbox is disabled there is no reference run, so rows are `DATASET_UNVERIFIED` or `UNAVAILABLE`.
 
 ### 3. Get single execution (UC-09 Details & UC-10 Quality Evaluation)
 `GET /api/v1/projects/{project_id}/executions/{execution_id}`
@@ -189,7 +209,8 @@ Log entries can be string lines or structured objects with stream classification
   }
   ```
 - Success: `200 OK` with updated execution object (status: `CANCELLED`, `cancelled_at`, `cancel_reason`).
-- Conflict Error: `409 Conflict` if the run is already in a non-cancellable state (`COMPLETED`, `CANCELLED`, `FAILED`, `TIMEOUT`):
+- `QUEUED`/`PENDING` -> `CANCELLED` immediately. `RUNNING` -> `CANCELLING`; the worker stops the container and records `CANCELLED` with the logs up to the stop.
+- Conflict Error: `409 Conflict` if the run is already in a non-cancellable state (`CANCELLING`, `COMPLETED`, `CANCELLED`, `FAILED`, `TIMEOUT`, `BLOCKED`):
   ```json
   {
     "detail": {
@@ -198,3 +219,9 @@ Log entries can be string lines or structured objects with stream classification
     }
   }
   ```
+
+## Safe logs (FR-EXE-003, #49)
+Entries `{stream: stdout|stderr|system, level: INFO|PASS|FAIL|WARN|SECURITY, message}`. Runner output is redacted (`redact_secrets`), host workspace paths are masked to `/workspace`, control characters are removed, the JUnit report is not repeated, and the total is capped at **1 MiB per run** with a final `[log truncated at 1 MiB]` entry. Logs stay attached to their own execution.
+
+## Runner results (FR-EXE-002, #47)
+The runner prints a JUnit XML report between `<<<TQL-JUNIT-BEGIN>>>` and `<<<TQL-JUNIT-END>>>`. The backend rejects reports over 2 MiB or with `DOCTYPE`/`ENTITY`, keeps at most 5000 cases, and records one case per `<testcase>`: `{id, name, node_id, status: PASSED|FAILED|ERROR|SKIPPED|TIMEOUT, duration_ms, traceback}`. If the number of cases differs from the statically collected tests, a `WARN` log explains the mismatch.

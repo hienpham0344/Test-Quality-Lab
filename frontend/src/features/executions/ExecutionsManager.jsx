@@ -89,7 +89,7 @@ export function ExecutionsManager({ session, projectId, onExpire }) {
       } else if (filterTab === 'CANCELLED') {
         if (exec.status !== 'CANCELLED') return false
       } else if (filterTab === 'FAILED') {
-        if (!['FAILED', 'TIMEOUT'].includes(exec.status)) return false
+        if (!['FAILED', 'TIMEOUT', 'BLOCKED'].includes(exec.status)) return false
       }
 
       // Text search
