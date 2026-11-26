@@ -6,7 +6,7 @@ Owner-scoped endpoints under `/api/v1/projects/{project_id}/evaluations` evaluat
 
 Untrusted Python execution remains **DISABLED** pending sandbox security sign-off (`AGENTS.md`, `infra/security/sandbox-policy.md`):
 - Zero `subprocess`, `pytest`, `mutmut`, `eval`, `exec`, or `compile` calls are ever invoked on uploaded or LLM-generated code.
-- Dynamic runtime metrics (`line_coverage`, `mutation_score`) fail closed to `N/A` with `reason = "Untrusted execution is disabled by sandbox security policy"` unless verified structured trace payloads are explicitly supplied.
+- Dynamic runtime metrics (`line_coverage`, `branch_coverage`, `mutation_score`) fail closed to `N/A` with `reason = "Untrusted execution is disabled by sandbox security policy"` unless verified structured trace payloads are explicitly supplied.
 
 ## Metric States & Domain Invariants (`FR-EVL-001`, Issue #52)
 
@@ -34,6 +34,12 @@ Every persisted `MetricRecord` enforces strict separation between numeric zero a
    $$\text{Mutation Score} = \text{round}\left(\frac{\text{Killed}}{\text{Killed} + \text{Survived}} \times 100,\ 2\right)$$
    - Tracks `KILLED`, `SURVIVED`, `TIMEOUT`, `SUSPICIOUS`, `SKIPPED`, `EQUIVALENT`, and `INVALID` statuses across operators `AOR`, `ROR`, `LCR`, `SDL`, and `UOI`.
    - Excludes `INVALID`, `SKIPPED`, `EQUIVALENT`, `TIMEOUT` (and `SUSPICIOUS`) from `denominator = killed + survived`. Returns `N/A` when `denominator == 0` or execution is disabled without a verified trace, and `0.0` when `killed == 0` and `survived > 0`.
+3a. **`line_coverage` (statement coverage) and `branch_coverage` (`FR-EVL-003`, Issue #53)**:
+   - `line_coverage` = executed statements / executable statements x 100 (coverage.py "lines" are statements); `numerator`/`denominator` are the counts and `details` keeps `covered_ranges` / `missed_ranges`.
+   - `branch_coverage` = covered branch arcs / total branch arcs x 100; `details` keeps `covered_branches`, `total_branches`, `missing_arcs` (e.g. `"L3->L4"`, `"L5->exit"`) and `partial_lines`.
+   - Source: either `coverage_trace` (statements only, as before) or `coverage_report`, the raw `coverage json` output of the sandbox runner (`files["<...>/target.py"]` with `executed_lines`, `missing_lines`, `missing_branches`, `summary.num_statements|covered_lines|num_branches|covered_branches`; `meta.version` is the tool version). `coverage_report` wins when both are sent. `coverage_runner_status` (`COMPLETED|FAILED|TIMEOUT|ERROR`) maps to `FAILED`/`TIMEOUT` states.
+   - The report is validated: exactly one `target.py` entry, counts consistent with the listed lines/arcs, positive line numbers. Otherwise `422 INPUT_INVALID` with `fields.coverage_report`.
+   - `0.0` (`MEASURED`) when nothing is covered; `N/A` with `numerator = denominator = 0` when there are no statements/branches, when the report has no branch data, or while the sandbox is disabled and no report is supplied.
 4. **`assertion_quality` (`FR-EVL-007`, Issue #56)**:
    - Static AST analyzer extracts every `assert` and `pytest.raises` statement (`AST-01`, `AST-02`, ...) into `EQUALITY`, `RELATIONAL`, `TYPE`, `IDENTITY`, `INVARIANT`, `EXCEPTION`, or `TRIVIAL` (`assert True`, constant literals, self-comparison `x == x`, empty `pytest.raises` blocks).
    $$\text{Assertion Quality Score} = \text{round}\left(\frac{\text{Effective Non-Trivial Assertions}}{\text{Total Assertions}} \times \frac{\text{Cases With Assertions}}{\text{Total Test Cases}} \times 100,\ 2\right)$$
@@ -128,3 +134,22 @@ Persists human review labels (`EFFECTIVE | WEAK | TRIVIAL | INCORRECT | N/A`) an
 `GET /api/v1/projects/{project_id}/evaluations/runs/{run_id}/assertion-reviews`
 
 - **Response (`200 OK`)**: `AssertionReviewListOutput` ordered by `assertion_id` ascending.
+
+## Metric provenance (`NFR-REP-001`, Issue #57)
+
+Every metric record, including `N/A`, `FAILED` and `TIMEOUT`, has `provenance`:
+
+```json
+{
+  "evaluator_version": "tql-evaluator/1.1.0",
+  "formula": "covered_branch_arcs / total_branch_arcs * 100",
+  "tool": { "name": "coverage.py", "version": "7.8.0" },
+  "parameters": { "report": "coverage-json", "branch": true },
+  "inputs": { "run_id": "uuid", "snapshot_id": "uuid", "source_sha256": "64 hex", "generated_code_sha256": "64 hex" },
+  "evaluated_at": "2026-11-27T09:00:00Z"
+}
+```
+
+Tools: `python-ast` with the Python version for static metrics, `tql-evaluator` for `generation_success`, `coverage.py` (version from the report's `meta.version`) for coverage, `mutmut` (version from `mutation_report.tool_version`) for mutation. A runtime tool version is `null` when the report did not state it. Only hashes and identifiers are stored, never source text or secrets. Records written before migration `20261127_0015` have `provenance: null`.
+`coverage_details` in the run output adds `covered_branches`, `total_branches` and `missing_arcs`.
+

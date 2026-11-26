@@ -42,6 +42,7 @@ STATIC_METRICS: frozenset[MetricName] = frozenset(
 DYNAMIC_RUNTIME_METRICS: frozenset[MetricName] = frozenset(
     {
         MetricName.LINE_COVERAGE,
+        MetricName.BRANCH_COVERAGE,
         MetricName.MUTATION_SCORE,
     }
 )

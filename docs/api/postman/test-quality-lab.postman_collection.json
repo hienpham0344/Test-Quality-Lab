@@ -2449,6 +2449,109 @@
           ]
         },
         {
+          "name": "POST /projects/{{project_id}}/evaluations/runs/{{run_id}}/evaluate - coverage report",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/projects/{{project_id}}/evaluations/runs/{{run_id}}/evaluate",
+            "description": "FR-EVL-003 (#53) statement + branch coverage from a `coverage json` report, and NFR-REP-001 (#57) provenance on every metric record.\n\nContract: docs/api/contracts/evaluations.md",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"run_status\": \"COMPLETED\",\n  \"target_function\": \"add\",\n  \"generated_code\": \"def test_add():\\n    assert add(2, 3) == 5\\n\",\n  \"coverage_report\": {\n    \"meta\": {\n      \"version\": \"7.8.0\"\n    },\n    \"files\": {\n      \"/workspace/target.py\": {\n        \"executed_lines\": [\n          1,\n          2,\n          3,\n          5\n        ],\n        \"missing_lines\": [\n          4,\n          6\n        ],\n        \"missing_branches\": [\n          [\n            3,\n            4\n          ],\n          [\n            5,\n            -1\n          ]\n        ],\n        \"summary\": {\n          \"num_statements\": 6,\n          \"covered_lines\": 4,\n          \"num_branches\": 4,\n          \"covered_branches\": 2\n        }\n      }\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const m = Object.fromEntries(pm.response.json().metric_records.map(r => [r.metric_name, r]));",
+                  "pm.test('branch coverage traceable', () => { pm.expect(m.branch_coverage.numerator).to.eql(2); pm.expect(m.branch_coverage.denominator).to.eql(4); });",
+                  "pm.test('provenance on every metric', () => Object.values(m).forEach(r => pm.expect(r.provenance).to.have.property('formula')));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 OK (branch_coverage record)",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/projects/{{project_id}}/evaluations/runs/{{run_id}}/evaluate",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"run_status\": \"COMPLETED\",\n  \"target_function\": \"add\",\n  \"generated_code\": \"def test_add():\\n    assert add(2, 3) == 5\\n\",\n  \"coverage_report\": {\n    \"meta\": {\n      \"version\": \"7.8.0\"\n    },\n    \"files\": {\n      \"/workspace/target.py\": {\n        \"executed_lines\": [\n          1,\n          2,\n          3,\n          5\n        ],\n        \"missing_lines\": [\n          4,\n          6\n        ],\n        \"missing_branches\": [\n          [\n            3,\n            4\n          ],\n          [\n            5,\n            -1\n          ]\n        ],\n        \"summary\": {\n          \"num_statements\": 6,\n          \"covered_lines\": 4,\n          \"num_branches\": 4,\n          \"covered_branches\": 2\n        }\n      }\n    }\n  }\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"metric_records\": [\n    {\n      \"metric_name\": \"branch_coverage\",\n      \"state\": \"MEASURED\",\n      \"numeric_value\": 50.0,\n      \"numerator\": 2,\n      \"denominator\": 4,\n      \"reason\": null,\n      \"details\": {\n        \"covered_branches\": 2,\n        \"total_branches\": 4,\n        \"missing_arcs\": [\n          \"L3->L4\",\n          \"L5->exit\"\n        ],\n        \"partial_lines\": [\n          3,\n          5\n        ]\n      },\n      \"provenance\": {\n        \"evaluator_version\": \"tql-evaluator/1.1.0\",\n        \"formula\": \"covered_branch_arcs / total_branch_arcs * 100\",\n        \"tool\": {\n          \"name\": \"coverage.py\",\n          \"version\": \"7.8.0\"\n        },\n        \"parameters\": {\n          \"report\": \"coverage-json\",\n          \"branch\": true\n        },\n        \"inputs\": {\n          \"run_id\": \"00000000-0000-0000-0000-0000000000a1\",\n          \"snapshot_id\": null,\n          \"source_sha256\": \"1111111111111111111111111111111111111111111111111111111111111111\",\n          \"generated_code_sha256\": \"2222222222222222222222222222222222222222222222222222222222222222\"\n        },\n        \"evaluated_at\": \"2026-11-27T09:00:00Z\"\n      }\n    }\n  ]\n}"
+            },
+            {
+              "name": "422 inconsistent report",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/projects/{{project_id}}/evaluations/runs/{{run_id}}/evaluate",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"run_status\": \"COMPLETED\",\n  \"target_function\": \"add\",\n  \"generated_code\": \"def test_add():\\n    assert add(2, 3) == 5\\n\",\n  \"coverage_report\": {\n    \"meta\": {\n      \"version\": \"7.8.0\"\n    },\n    \"files\": {\n      \"/workspace/target.py\": {\n        \"executed_lines\": [\n          1,\n          2,\n          3,\n          5\n        ],\n        \"missing_lines\": [\n          4,\n          6\n        ],\n        \"missing_branches\": [\n          [\n            3,\n            4\n          ],\n          [\n            5,\n            -1\n          ]\n        ],\n        \"summary\": {\n          \"num_statements\": 6,\n          \"covered_lines\": 4,\n          \"num_branches\": 4,\n          \"covered_branches\": 2\n        }\n      }\n    }\n  }\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"detail\": {\n    \"code\": \"INPUT_INVALID\",\n    \"message\": \"Invalid coverage report\",\n    \"fields\": {\n      \"coverage_report\": \"Coverage summary does not match the executed and missing lines\"\n    }\n  }\n}"
+            }
+          ]
+        },
+        {
           "name": "GET /projects/{{project_id}}/evaluations/runs/{{run_id}}",
           "request": {
             "method": "GET",
