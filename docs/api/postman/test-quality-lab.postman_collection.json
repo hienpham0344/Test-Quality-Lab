@@ -734,7 +734,7 @@
       "name": "projects",
       "item": [
         {
-          "name": "UC-03 Project management and revision history",
+          "name": "UC-03 Projects",
           "item": [
             {
               "name": "POST /projects",
@@ -747,7 +747,7 @@
                   }
                 ],
                 "url": "{{baseUrl}}/projects",
-                "description": "FR-PRJ-001. Creates an owner-scoped project at revision 1 and stores {{projectId}}.\n\nContract: docs/api/contracts/projects.md",
+                "description": "FR-PRJ-001. Creates an owner-scoped project at revision 1 and stores {{projectId}} (and {{project_id}} for the Sprint 3+ folders).\n\nContract: docs/api/contracts/projects.md",
                 "body": {
                   "mode": "raw",
                   "raw": "{\n  \"name\": \"Postman Campaign\",\n  \"description\": \"Initial project description\"\n}",
@@ -767,9 +767,557 @@
                       "pm.test('status 201', () => pm.response.to.have.status(201));",
                       "const body = pm.response.json();",
                       "pm.environment.set('projectId', body.id);",
+                      "pm.environment.set('project_id', body.id);",
                       "pm.test('initial revision is 1', () => pm.expect(body.current_revision).to.eql(1));"
                     ]
                   }
+                }
+              ],
+              "response": [
+                {
+                  "name": "201 Created",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": "{{baseUrl}}/projects",
+                    "description": "FR-PRJ-001. Creates an owner-scoped project at revision 1 and stores {{projectId}} (and {{project_id}} for the Sprint 3+ folders).\n\nContract: docs/api/contracts/projects.md",
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"name\": \"Postman Campaign\",\n  \"description\": \"Initial project description\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "Created",
+                  "code": 201,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"id\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"name\": \"Postman Campaign\",\n  \"description\": \"Initial project description\",\n  \"current_revision\": 1,\n  \"created_at\": \"2026-11-27T09:00:00\",\n  \"updated_at\": \"2026-11-27T09:00:00\"\n}"
+                },
+                {
+                  "name": "422 INPUT_INVALID (blank name)",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": "{{baseUrl}}/projects",
+                    "description": "FR-PRJ-001. Creates an owner-scoped project at revision 1 and stores {{projectId}} (and {{project_id}} for the Sprint 3+ folders).\n\nContract: docs/api/contracts/projects.md",
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"name\": \"Postman Campaign\",\n  \"description\": \"Initial project description\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "Unprocessable Entity",
+                  "code": 422,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"detail\": {\n    \"code\": \"INPUT_INVALID\",\n    \"message\": \"Project name must contain 1 to 120 characters\",\n    \"fields\": {\n      \"name\": \"Project name must contain 1 to 120 characters\"\n    }\n  }\n}"
+                }
+              ]
+            },
+            {
+              "name": "POST /projects - blank name (422)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/projects",
+                "description": "FR-PRJ-001 exception / SRS Bảng 6 (#81). Whitespace-only name returns 422 INPUT_INVALID with fields.name; nothing is created.\n\nContract: docs/api/contracts/projects.md",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"   \",\n  \"description\": null\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 422', () => pm.response.to.have.status(422));",
+                      "const detail = pm.response.json().detail;",
+                      "pm.test('code INPUT_INVALID', () => pm.expect(detail.code).to.eql('INPUT_INVALID'));",
+                      "pm.test('fields.name present', () => pm.expect(detail.fields).to.have.property('name'));"
+                    ]
+                  }
+                }
+              ],
+              "response": [
+                {
+                  "name": "422 INPUT_INVALID",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": "{{baseUrl}}/projects",
+                    "description": "FR-PRJ-001 exception / SRS Bảng 6 (#81). Whitespace-only name returns 422 INPUT_INVALID with fields.name; nothing is created.\n\nContract: docs/api/contracts/projects.md",
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"name\": \"   \",\n  \"description\": null\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "Unprocessable Entity",
+                  "code": 422,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"detail\": {\n    \"code\": \"INPUT_INVALID\",\n    \"message\": \"Project name must contain 1 to 120 characters\",\n    \"fields\": {\n      \"name\": \"Project name must contain 1 to 120 characters\"\n    }\n  }\n}"
+                }
+              ]
+            },
+            {
+              "name": "GET /projects",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/projects?q=postman&sort=updated_at&order=desc&limit=20&offset=0",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "projects"
+                  ],
+                  "query": [
+                    {
+                      "key": "q",
+                      "value": "postman",
+                      "description": "Optional: case-insensitive name contains (<= 120 chars)"
+                    },
+                    {
+                      "key": "sort",
+                      "value": "updated_at",
+                      "description": "created_at | updated_at | name (default created_at)"
+                    },
+                    {
+                      "key": "order",
+                      "value": "desc",
+                      "description": "desc | asc (default desc)"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "20",
+                      "description": "1..100 (default 100)"
+                    },
+                    {
+                      "key": "offset",
+                      "value": "0",
+                      "description": ">= 0"
+                    }
+                  ]
+                },
+                "description": "FR-PRJ-003 (#81). Lists the caller's projects with experiment_count; filters only narrow the owner's projects. Total matches in the X-Total-Count header; an empty result is 200 [].\n\nContract: docs/api/contracts/projects.md"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 200', () => pm.response.to.have.status(200));",
+                      "const items = pm.response.json();",
+                      "pm.test('body is an array', () => pm.expect(items).to.be.an('array'));",
+                      "pm.test('X-Total-Count header', () => pm.expect(Number(pm.response.headers.get('X-Total-Count'))).to.be.at.least(items.length));",
+                      "pm.test('items carry experiment_count', () => items.forEach((p) => pm.expect(p.experiment_count).to.be.a('number')));",
+                      "pm.test('created project is listed', () => pm.expect(items.map((p) => p.id)).to.include(pm.environment.get('projectId')));"
+                    ]
+                  }
+                }
+              ],
+              "response": [
+                {
+                  "name": "200 OK",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/projects?q=postman&sort=updated_at&order=desc&limit=20&offset=0",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "projects"
+                      ],
+                      "query": [
+                        {
+                          "key": "q",
+                          "value": "postman",
+                          "description": "Optional: case-insensitive name contains (<= 120 chars)"
+                        },
+                        {
+                          "key": "sort",
+                          "value": "updated_at",
+                          "description": "created_at | updated_at | name (default created_at)"
+                        },
+                        {
+                          "key": "order",
+                          "value": "desc",
+                          "description": "desc | asc (default desc)"
+                        },
+                        {
+                          "key": "limit",
+                          "value": "20",
+                          "description": "1..100 (default 100)"
+                        },
+                        {
+                          "key": "offset",
+                          "value": "0",
+                          "description": ">= 0"
+                        }
+                      ]
+                    },
+                    "description": "FR-PRJ-003 (#81). Lists the caller's projects with experiment_count; filters only narrow the owner's projects. Total matches in the X-Total-Count header; an empty result is 200 [].\n\nContract: docs/api/contracts/projects.md"
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-Total-Count",
+                      "value": "1"
+                    }
+                  ],
+                  "body": "[\n  {\n    \"id\": \"550e8400-e29b-41d4-a716-446655440000\",\n    \"name\": \"Postman Campaign v2\",\n    \"description\": \"Initial project description\",\n    \"current_revision\": 2,\n    \"created_at\": \"2026-11-27T09:00:00\",\n    \"updated_at\": \"2026-11-27T09:00:00\",\n    \"experiment_count\": 0\n  }\n]"
+                },
+                {
+                  "name": "200 OK (no match)",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/projects?q=postman&sort=updated_at&order=desc&limit=20&offset=0",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "projects"
+                      ],
+                      "query": [
+                        {
+                          "key": "q",
+                          "value": "postman",
+                          "description": "Optional: case-insensitive name contains (<= 120 chars)"
+                        },
+                        {
+                          "key": "sort",
+                          "value": "updated_at",
+                          "description": "created_at | updated_at | name (default created_at)"
+                        },
+                        {
+                          "key": "order",
+                          "value": "desc",
+                          "description": "desc | asc (default desc)"
+                        },
+                        {
+                          "key": "limit",
+                          "value": "20",
+                          "description": "1..100 (default 100)"
+                        },
+                        {
+                          "key": "offset",
+                          "value": "0",
+                          "description": ">= 0"
+                        }
+                      ]
+                    },
+                    "description": "FR-PRJ-003 (#81). Lists the caller's projects with experiment_count; filters only narrow the owner's projects. Total matches in the X-Total-Count header; an empty result is 200 [].\n\nContract: docs/api/contracts/projects.md"
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-Total-Count",
+                      "value": "0"
+                    }
+                  ],
+                  "body": "[]"
+                }
+              ]
+            },
+            {
+              "name": "GET /projects - invalid limit (422)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/projects?limit=101",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "projects"
+                  ],
+                  "query": [
+                    {
+                      "key": "limit",
+                      "value": "101",
+                      "description": "Out of range: max 100"
+                    }
+                  ]
+                },
+                "description": "FR-PRJ-003 / SRS §3.15 (#81). Invalid filter or paging returns 422 INPUT_INVALID with the field name.\n\nContract: docs/api/contracts/projects.md"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 422', () => pm.response.to.have.status(422));",
+                      "const detail = pm.response.json().detail;",
+                      "pm.test('code INPUT_INVALID', () => pm.expect(detail.code).to.eql('INPUT_INVALID'));",
+                      "pm.test('fields.limit present', () => pm.expect(detail.fields).to.have.property('limit'));"
+                    ]
+                  }
+                }
+              ],
+              "response": [
+                {
+                  "name": "422 INPUT_INVALID",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/projects?limit=101",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "projects"
+                      ],
+                      "query": [
+                        {
+                          "key": "limit",
+                          "value": "101",
+                          "description": "Out of range: max 100"
+                        }
+                      ]
+                    },
+                    "description": "FR-PRJ-003 / SRS §3.15 (#81). Invalid filter or paging returns 422 INPUT_INVALID with the field name.\n\nContract: docs/api/contracts/projects.md"
+                  },
+                  "status": "Unprocessable Entity",
+                  "code": 422,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"detail\": {\n    \"code\": \"INPUT_INVALID\",\n    \"message\": \"Invalid request\",\n    \"fields\": {\n      \"limit\": \"Input should be less than or equal to 100\"\n    }\n  }\n}"
+                }
+              ]
+            },
+            {
+              "name": "GET /projects/:projectId",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/projects/{{projectId}}",
+                "description": "FR-PRJ-002. Returns one owned project.\n\nContract: docs/api/contracts/projects.md"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 200', () => pm.response.to.have.status(200));",
+                      "pm.test('same project', () => pm.expect(pm.response.json().id).to.eql(pm.environment.get('projectId')));"
+                    ]
+                  }
+                }
+              ],
+              "response": [
+                {
+                  "name": "200 OK",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [],
+                    "url": "{{baseUrl}}/projects/{{projectId}}",
+                    "description": "FR-PRJ-002. Returns one owned project.\n\nContract: docs/api/contracts/projects.md"
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"id\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"name\": \"Postman Campaign\",\n  \"description\": \"Initial project description\",\n  \"current_revision\": 1,\n  \"created_at\": \"2026-11-27T09:00:00\",\n  \"updated_at\": \"2026-11-27T09:00:00\"\n}"
+                },
+                {
+                  "name": "404 NOT_FOUND",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [],
+                    "url": "{{baseUrl}}/projects/{{projectId}}",
+                    "description": "FR-PRJ-002. Returns one owned project.\n\nContract: docs/api/contracts/projects.md"
+                  },
+                  "status": "Not Found",
+                  "code": 404,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"detail\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Project not found\",\n    \"fields\": {}\n  }\n}"
+                }
+              ]
+            },
+            {
+              "name": "GET /projects/:randomId - not found (404)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/projects/{{$randomUUID}}",
+                "description": "FR-AUT-004 / SRS §3.14 (#81). An unknown ID returns the same 404 NOT_FOUND body as another user's project, so ownership is never revealed. The real cross-user case is covered by backend/tests/integration/test_projects_api.py::test_foreign_and_missing_project_return_identical_not_found.\n\nContract: docs/api/contracts/projects.md"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 404', () => pm.response.to.have.status(404));",
+                      "pm.test('standard NOT_FOUND body', () => pm.expect(pm.response.json()).to.eql({ detail: { code: 'NOT_FOUND', message: 'Project not found', fields: {} } }));"
+                    ]
+                  }
+                }
+              ],
+              "response": [
+                {
+                  "name": "404 NOT_FOUND",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [],
+                    "url": "{{baseUrl}}/projects/{{$randomUUID}}",
+                    "description": "FR-AUT-004 / SRS §3.14 (#81). An unknown ID returns the same 404 NOT_FOUND body as another user's project, so ownership is never revealed. The real cross-user case is covered by backend/tests/integration/test_projects_api.py::test_foreign_and_missing_project_return_identical_not_found.\n\nContract: docs/api/contracts/projects.md"
+                  },
+                  "status": "Not Found",
+                  "code": 404,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"detail\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Project not found\",\n    \"fields\": {}\n  }\n}"
+                }
+              ]
+            },
+            {
+              "name": "GET /projects - no token (401)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "auth": {
+                  "type": "noauth"
+                },
+                "url": "{{baseUrl}}/projects",
+                "description": "FR-AUT-004 / NFR-SEC-001. Without a bearer token the API returns 401 AUTH_SESSION_INVALID.\n\nContract: docs/api/contracts/projects.md"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 401', () => pm.response.to.have.status(401));",
+                      "pm.test('code AUTH_SESSION_INVALID', () => pm.expect(pm.response.json().detail.code).to.eql('AUTH_SESSION_INVALID'));"
+                    ]
+                  }
+                }
+              ],
+              "response": [
+                {
+                  "name": "401 AUTH_SESSION_INVALID",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [],
+                    "auth": {
+                      "type": "noauth"
+                    },
+                    "url": "{{baseUrl}}/projects",
+                    "description": "FR-AUT-004 / NFR-SEC-001. Without a bearer token the API returns 401 AUTH_SESSION_INVALID.\n\nContract: docs/api/contracts/projects.md"
+                  },
+                  "status": "Unauthorized",
+                  "code": 401,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "WWW-Authenticate",
+                      "value": "Bearer"
+                    }
+                  ],
+                  "body": "{\n  \"detail\": {\n    \"code\": \"AUTH_SESSION_INVALID\",\n    \"message\": \"Authentication required\",\n    \"fields\": {}\n  }\n}"
                 }
               ]
             },
@@ -805,6 +1353,74 @@
                       "pm.test('revision incremented', () => pm.expect(pm.response.json().current_revision).to.eql(2));"
                     ]
                   }
+                }
+              ],
+              "response": [
+                {
+                  "name": "200 OK",
+                  "originalRequest": {
+                    "method": "PATCH",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": "{{baseUrl}}/projects/{{projectId}}",
+                    "description": "FR-PRJ-002. Updates project metadata and appends an immutable history revision.\n\nContract: docs/api/contracts/projects.md",
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"name\": \"Postman Campaign v2\",\n  \"description\": \"Updated description for history check\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"id\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"name\": \"Postman Campaign v2\",\n  \"description\": \"Updated description for history check\",\n  \"current_revision\": 2,\n  \"created_at\": \"2026-11-27T09:00:00\",\n  \"updated_at\": \"2026-11-27T09:00:00\"\n}"
+                },
+                {
+                  "name": "404 NOT_FOUND",
+                  "originalRequest": {
+                    "method": "PATCH",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": "{{baseUrl}}/projects/{{projectId}}",
+                    "description": "FR-PRJ-002. Updates project metadata and appends an immutable history revision.\n\nContract: docs/api/contracts/projects.md",
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"name\": \"Postman Campaign v2\",\n  \"description\": \"Updated description for history check\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "Not Found",
+                  "code": 404,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"detail\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Project not found\",\n    \"fields\": {}\n  }\n}"
                 }
               ]
             },

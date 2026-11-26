@@ -4,6 +4,8 @@ from datetime import datetime
 from app.modules.projects import service as project_service_module
 from tests.integration.conftest import bearer
 
+NOT_FOUND_BODY = {"code": "NOT_FOUND", "message": "Project not found", "fields": {}}
+
 
 def test_project_api_enforces_owner_and_preserves_history(api):
     client = api.client
@@ -198,8 +200,143 @@ def test_project_history_filtering_pagination_and_owner_isolation(api, monkeypat
         history_url, params={"from": "2026-11-10", "limit": 5}, headers=other_header
     )
     assert unowned.status_code == 404
-    assert unowned.json()["detail"] == "Project not found"
+    assert unowned.json()["detail"] == NOT_FOUND_BODY
 
     missing = client.get(f"/api/v1/projects/{uuid.uuid4()}/history", headers=owner_header)
     assert missing.status_code == 404
-    assert missing.json()["detail"] == "Project not found"
+    assert missing.json()["detail"] == NOT_FOUND_BODY
+
+
+# --- Issue #81: standard errors, list filters, X-Total-Count (FR-PRJ-001/003, SRS §3.15) ---
+
+
+def _create(client, headers, name, description=None):
+    response = client.post("/api/v1/projects", json={"name": name, "description": description}, headers=headers)
+    assert response.status_code == 201
+    return response.json()
+
+
+def test_create_rejects_invalid_metadata_with_input_invalid_and_creates_nothing(api):
+    client = api.client
+    headers = bearer(api.register_and_login("owner@example.com"))
+    cases = [
+        ({"name": ""}, {"name"}),
+        ({"name": "   "}, {"name"}),
+        ({"name": "x" * 121}, {"name"}),
+        ({"name": "ok", "description": "d" * 2001}, {"description"}),
+        ({"name": " ", "description": "d" * 2001}, {"name", "description"}),
+    ]
+    for body, fields in cases:
+        rejected = client.post("/api/v1/projects", json=body, headers=headers)
+        assert rejected.status_code == 422, body
+        detail = rejected.json()["detail"]
+        assert detail["code"] == "INPUT_INVALID"
+        assert set(detail["fields"]) == fields
+    assert client.post("/api/v1/projects", json={"name": "x" * 120}, headers=headers).status_code == 201
+    listed = client.get("/api/v1/projects", headers=headers)
+    assert [item["name"] for item in listed.json()] == ["x" * 120]
+    assert listed.headers["X-Total-Count"] == "1"
+
+
+def test_shape_errors_use_input_invalid_body(api):
+    client = api.client
+    headers = bearer(api.register_and_login("owner@example.com"))
+    missing = client.post("/api/v1/projects", json={}, headers=headers)
+    assert missing.status_code == 422
+    assert missing.json()["detail"]["code"] == "INPUT_INVALID"
+    assert "name" in missing.json()["detail"]["fields"]
+    extra = client.post("/api/v1/projects", json={"name": "a", "owner_id": "x"}, headers=headers)
+    assert extra.json()["detail"]["code"] == "INPUT_INVALID"
+
+
+def test_patch_invalid_keeps_previous_metadata_and_history(api):
+    client = api.client
+    headers = bearer(api.register_and_login("owner@example.com"))
+    project = _create(client, headers, "Stable", "kept")
+    path = f"/api/v1/projects/{project['id']}"
+    for body in ({"name": "  "}, {"name": None}, {"description": "d" * 2001}):
+        rejected = client.patch(path, json=body, headers=headers)
+        assert rejected.status_code == 422
+        assert rejected.json()["detail"]["code"] == "INPUT_INVALID"
+    current = client.get(path, headers=headers).json()
+    assert (current["name"], current["description"], current["current_revision"]) == ("Stable", "kept", 1)
+    assert len(client.get(f"{path}/history", headers=headers).json()) == 1
+
+
+def test_foreign_and_missing_project_return_identical_not_found(api):
+    client = api.client
+    owner = bearer(api.register_and_login("owner@example.com"))
+    other = bearer(api.register_and_login("other@example.com"))
+    project = _create(client, owner, "Secret project", "secret text")
+    foreign = f"/api/v1/projects/{project['id']}"
+    missing = f"/api/v1/projects/{uuid.uuid4()}"
+    for path in (foreign, missing):
+        for response in (
+            client.get(path, headers=other),
+            client.patch(path, json={"name": "Attack"}, headers=other),
+            client.get(f"{path}/history", headers=other),
+        ):
+            assert response.status_code == 404
+            assert response.json() == {"detail": NOT_FOUND_BODY}
+            assert "Secret" not in response.text and project["id"] not in response.text
+    assert client.get(foreign, headers=owner).json()["name"] == "Secret project"
+
+
+def test_list_filters_sorts_pages_and_reports_total(api):
+    client = api.client
+    owner = bearer(api.register_and_login("owner@example.com"))
+    other = bearer(api.register_and_login("other@example.com"))
+    for name in ("Payment API", "payments v2", "Inventory", "Billing"):
+        _create(client, owner, name)
+    _create(client, other, "Payment other")
+
+    found = client.get("/api/v1/projects", params={"q": "PAYMENT", "sort": "name", "order": "asc"}, headers=owner)
+    assert found.status_code == 200
+    assert [item["name"] for item in found.json()] == ["Payment API", "payments v2"]
+    assert found.headers["X-Total-Count"] == "2"
+
+    page = client.get(
+        "/api/v1/projects", params={"sort": "name", "order": "asc", "limit": 2, "offset": 1}, headers=owner
+    )
+    assert [item["name"] for item in page.json()] == ["Inventory", "Payment API"]
+    assert page.headers["X-Total-Count"] == "4"
+    assert all(item["experiment_count"] == 0 for item in page.json())
+    assert set(page.json()[0]) == {
+        "id", "name", "description", "current_revision", "created_at", "updated_at", "experiment_count",
+    }
+
+
+def test_list_empty_returns_200_empty_array(api):
+    client = api.client
+    headers = bearer(api.register_and_login("owner@example.com"))
+    response = client.get("/api/v1/projects", params={"q": "nothing"}, headers=headers)
+    assert response.status_code == 200
+    assert response.json() == []
+    assert response.headers["X-Total-Count"] == "0"
+
+
+def test_list_rejects_invalid_query_params(api):
+    client = api.client
+    headers = bearer(api.register_and_login("owner@example.com"))
+    for params, field in (
+        ({"limit": 0}, "limit"),
+        ({"limit": 101}, "limit"),
+        ({"offset": -1}, "offset"),
+        ({"sort": "owner_id"}, "sort"),
+        ({"order": "sideways"}, "order"),
+        ({"q": "x" * 121}, "q"),
+    ):
+        response = client.get("/api/v1/projects", params=params, headers=headers)
+        assert response.status_code == 422, params
+        assert response.json()["detail"]["code"] == "INPUT_INVALID"
+        assert field in response.json()["detail"]["fields"]
+
+
+def test_list_requires_authentication_and_exposes_total_header_to_cors(api):
+    client = api.client
+    assert client.get("/api/v1/projects", params={"q": "a"}).status_code == 401
+    cross_origin = client.get(
+        "/api/v1/projects", headers={"Origin": "http://localhost:5173"}
+    )
+    assert cross_origin.status_code == 401
+    assert "x-total-count" in cross_origin.headers.get("access-control-expose-headers", "").lower()
