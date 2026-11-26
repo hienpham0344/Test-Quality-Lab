@@ -78,7 +78,7 @@ def execute_generation_job(self: Any, job_id: str) -> dict[str, str]:
         safe_msg = redact_secrets(str(exc))
         raise self.retry(
             exc=RuntimeError(safe_msg),
-            countdown=5,
+            countdown=exc.countdown,
             argsrepr=f"({job_id!r},)",
             kwargsrepr="{}",
         ) from None

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -43,6 +44,8 @@ class GenerationJobOutput(BaseModel):
     cancelled_at: datetime | None
     created_at: datetime
     updated_at: datetime
+    # FR-AIC-004 (#41): set when quota/rate limit paused unsent runs of a provider.
+    error_summary: dict[str, Any] | None = None
 
 
 class GenerationRunOutput(BaseModel):
@@ -58,6 +61,25 @@ class GenerationRunOutput(BaseModel):
     repeat: int
     status: GenerationRunStatus
     attempt_count: int
+    artifact_sha256: str | None
+    error: GenerationErrorOutput | None
+    # FR-GEN-004 (#40): eligible for the runner; None before the response was checked.
+    artifact_eligible: bool | None = None
+    validation_failed_stage: str | None = None
+
+
+class GenerationArtifactsOutput(BaseModel):
+    """FR-GEN-002/003/004 (#39, #40): raw response, parsed test and per-stage validation of one run."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    run_id: uuid.UUID
+    job_id: uuid.UUID
+    status: GenerationRunStatus
+    raw_response: str | None
+    parsed_test: str | None
+    response_metadata: dict[str, Any] | None
+    validation: dict[str, Any] | None
     artifact_sha256: str | None
     error: GenerationErrorOutput | None
 

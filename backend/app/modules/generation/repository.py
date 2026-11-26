@@ -29,6 +29,13 @@ class GenerationRepository:
         )
         return self.db.scalar(stmt)
 
+    def get_project_run(self, project_id: uuid.UUID, run_id: uuid.UUID) -> GenerationRun | None:
+        stmt = select(GenerationRun).where(
+            GenerationRun.id == run_id,
+            GenerationRun.project_id == project_id,
+        )
+        return self.db.scalar(stmt)
+
     def get_job_by_request_id(
         self, project_id: uuid.UUID, request_id: str
     ) -> GenerationJob | None:

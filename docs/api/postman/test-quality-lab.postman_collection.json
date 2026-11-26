@@ -2242,6 +2242,95 @@
           ]
         },
         {
+          "name": "GET /projects/{{project_id}}/generation/runs/{{run_id}}/artifacts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/projects/{{project_id}}/generation/runs/{{run_id}}/artifacts",
+            "description": "FR-GEN-002/003/004 (#39, #40): raw response (secrets redacted), parsed pytest module, safe call metadata and per-stage validation. Set run_id from a run in GET /generation.\n\nContract: docs/api/contracts/generation.md"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('no-store', () => pm.expect(pm.response.headers.get('Cache-Control')).to.eql('no-store'));",
+                  "const body = pm.response.json();",
+                  "pm.test('artifact fields', () => pm.expect(body).to.include.keys('raw_response', 'parsed_test', 'response_metadata', 'validation', 'error'));",
+                  "pm.test('stages kept separate', () => { if (body.validation) pm.expect(body.validation.stages).to.include.keys('generated', 'parsed', 'syntax_valid', 'collected', 'executable'); });"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/projects/{{project_id}}/generation/runs/{{run_id}}/artifacts"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Cache-Control",
+                  "value": "no-store"
+                }
+              ],
+              "body": "{\n  \"run_id\": \"00000000-0000-0000-0000-0000000000a1\",\n  \"job_id\": \"00000000-0000-0000-0000-0000000000b1\",\n  \"status\": \"COMPLETED\",\n  \"raw_response\": \"```python\\nfrom module import divide\\n\\ndef test_divide():\\n    assert divide(6, 2) == 3.0\\n```\\n\",\n  \"parsed_test\": \"from module import divide\\n\\ndef test_divide():\\n    assert divide(6, 2) == 3.0\\n\",\n  \"response_metadata\": {\n    \"provider\": \"groq\",\n    \"model_requested\": \"llama-3.3-70b-versatile\",\n    \"model_returned\": \"llama-3.3-70b-versatile\",\n    \"finish_reason\": \"stop\",\n    \"truncated\": false,\n    \"usage\": {\n      \"prompt_tokens\": 40,\n      \"completion_tokens\": 24,\n      \"total_tokens\": 64\n    },\n    \"latency_ms\": 812,\n    \"response_chars\": 96\n  },\n  \"validation\": {\n    \"schema_version\": \"pytest-module/v1\",\n    \"collection_mode\": \"static-ast\",\n    \"eligible\": true,\n    \"failed_stage\": null,\n    \"reason\": null,\n    \"extracted_from_fence\": true,\n    \"collected_tests\": [\n      \"test_divide\"\n    ],\n    \"stages\": {\n      \"generated\": \"PASSED\",\n      \"parsed\": \"PASSED\",\n      \"syntax_valid\": \"PASSED\",\n      \"structure_valid\": \"PASSED\",\n      \"target_linked\": \"PASSED\",\n      \"collected\": \"PASSED\",\n      \"executable\": \"NOT_VERIFIED\"\n    }\n  },\n  \"artifact_sha256\": \"0000000000000000000000000000000000000000000000000000000000000000\",\n  \"error\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "GET /projects/{{project_id}}/generation/runs/:randomId/artifacts - not found (404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/projects/{{project_id}}/generation/runs/{{$randomUUID}}/artifacts",
+            "description": "Missing runs, other projects' runs and other users' projects return the same 404.\n\nContract: docs/api/contracts/generation.md"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('NOT_FOUND', () => pm.expect(pm.response.json().detail.code).to.eql('NOT_FOUND'));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "404 NOT_FOUND",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/projects/{{project_id}}/generation/runs/{{$randomUUID}}/artifacts"
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"detail\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Generation run not found\",\n    \"fields\": {}\n  }\n}"
+            }
+          ]
+        },
+        {
           "name": "POST /projects/{{project_id}}/generation",
           "request": {
             "method": "POST",
