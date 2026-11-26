@@ -1977,8 +1977,8 @@
           "request": {
             "method": "GET",
             "header": [],
-            "url": "{{baseUrl}}/projects/{{project_id}}/experiments",
-            "description": "Lists experiment drafts for the owned project.\n\nContract: docs/api/contracts/experiments.md"
+            "url": "{{baseUrl}}/projects/{{project_id}}/experiments?order=desc&limit=20&offset=0",
+            "description": "FR-PRJ-003 / #83: owned project's experiments with derived status (DRAFT, READY, QUEUED, RUNNING, COMPLETED, FAILED, CANCELLED) and generation run counts. Query: status, order (created_at asc|desc), limit 1-100, offset. Total in X-Total-Count.\n\nContract: docs/api/contracts/experiments.md"
           },
           "event": [
             {
@@ -1987,9 +1987,118 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('status 200', () => pm.response.to.have.status(200));",
-                  "pm.test('returns experiments array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                  "const body = pm.response.json();",
+                  "pm.test('returns experiments array', () => pm.expect(body).to.be.an('array'));",
+                  "pm.test('X-Total-Count header', () => pm.expect(Number(pm.response.headers.get('X-Total-Count'))).to.be.at.least(body.length));",
+                  "pm.test('summary fields', () => body.forEach(e => pm.expect(e).to.include.keys('status', 'runs_total', 'runs_done', 'runs_failed')));"
                 ]
               }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/projects/{{project_id}}/experiments?order=desc&limit=20&offset=0"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-Total-Count",
+                  "value": "1"
+                }
+              ],
+              "body": "[\n  {\n    \"id\": \"00000000-0000-0000-0000-000000000001\",\n    \"project_id\": \"00000000-0000-0000-0000-000000000002\",\n    \"name\": \"HumanEval L1 vs L3\",\n    \"description\": null,\n    \"config\": {\n      \"source_id\": \"00000000-0000-0000-0000-000000000003\",\n      \"source_revision\": 1,\n      \"function_names\": [\n        \"add\"\n      ],\n      \"dataset_id\": null,\n      \"dataset_revision\": null,\n      \"selected_rows\": null,\n      \"models\": [\n        {\n          \"provider\": \"groq\",\n          \"model\": \"llama-3.3-70b-versatile\"\n        }\n      ],\n      \"strategies\": [\n        \"L1\",\n        \"L3\"\n      ],\n      \"repeats\": 1,\n      \"parameters\": {\n        \"temperature\": 0.0,\n        \"max_tokens\": 2048,\n        \"top_p\": 1.0,\n        \"seed\": null,\n        \"timeout_seconds\": 30.0\n      }\n    },\n    \"run_count\": 2,\n    \"latest_snapshot_number\": 1,\n    \"created_at\": \"2026-11-27T09:00:00\",\n    \"updated_at\": \"2026-11-27T09:00:00\",\n    \"status\": \"COMPLETED\",\n    \"runs_total\": 2,\n    \"runs_done\": 1,\n    \"runs_failed\": 1\n  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "GET /projects/{{project_id}}/experiments - invalid status (422)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/projects/{{project_id}}/experiments?status=DONE",
+            "description": "Unknown status filter is rejected with the SRS §3.15 body.\n\nContract: docs/api/contracts/experiments.md"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 422', () => pm.response.to.have.status(422));",
+                  "pm.test('INPUT_INVALID on status', () => { const d = pm.response.json().detail; pm.expect(d.code).to.eql('INPUT_INVALID'); pm.expect(d.fields).to.have.property('status'); });"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "422 INPUT_INVALID",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/projects/{{project_id}}/experiments?status=DONE"
+              },
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"detail\": {\n    \"code\": \"INPUT_INVALID\",\n    \"message\": \"Invalid request\",\n    \"fields\": {\n      \"status\": \"Input should be 'DRAFT', 'READY', 'QUEUED', 'RUNNING', 'COMPLETED', 'FAILED' or 'CANCELLED'\"\n    }\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "GET /projects/:randomId/experiments - not found (404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/projects/{{$randomUUID}}/experiments",
+            "description": "Missing and foreign projects return the same 404.\n\nContract: docs/api/contracts/experiments.md"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('NOT_FOUND', () => pm.expect(pm.response.json().detail.code).to.eql('NOT_FOUND'));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "404 NOT_FOUND",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/projects/{{$randomUUID}}/experiments"
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"detail\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Project not found\",\n    \"fields\": {}\n  }\n}"
             }
           ]
         },

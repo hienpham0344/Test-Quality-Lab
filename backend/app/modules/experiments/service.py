@@ -4,6 +4,7 @@ import copy
 import hashlib
 import json
 import uuid
+from dataclasses import dataclass
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -21,8 +22,11 @@ from app.modules.experiments.repository import ExperimentRepository
 from app.modules.experiments.schemas import (
     ExperimentConfigInput,
     ExperimentCreateInput,
+    ExperimentListItem,
     ExperimentOutput,
     ExperimentPatchInput,
+    ExperimentSortOrder,
+    ExperimentStatus,
     ExperimentValidationOutput,
     SnapshotDetailOutput,
     SnapshotRunOutput,
@@ -44,6 +48,26 @@ from app.modules.sources.repository import SourceRepository
 def _canonical_sha256(payload: Any) -> str:
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+EXPERIMENT_LIST_LIMIT_MAX = 100
+
+
+@dataclass(frozen=True)
+class ExperimentPage:
+    items: list[ExperimentListItem]
+    total: int
+
+
+def derive_experiment_status(snapshot_count: int, job_statuses: list[str]) -> ExperimentStatus:
+    """An active job wins (RUNNING over QUEUED); otherwise the latest job; otherwise DRAFT/READY."""
+    if ExperimentStatus.RUNNING.value in job_statuses:
+        return ExperimentStatus.RUNNING
+    if ExperimentStatus.QUEUED.value in job_statuses:
+        return ExperimentStatus.QUEUED
+    if job_statuses:
+        return ExperimentStatus(job_statuses[-1])
+    return ExperimentStatus.READY if snapshot_count > 0 else ExperimentStatus.DRAFT
 
 
 class ExperimentService:
@@ -287,9 +311,50 @@ class ExperimentService:
         self.db.refresh(exp)
         return self._to_experiment_output(exp)
 
-    def list_experiments(self, owner_id: uuid.UUID, project_id: uuid.UUID) -> list[ExperimentOutput]:
+    def list_experiments(
+        self,
+        owner_id: uuid.UUID,
+        project_id: uuid.UUID,
+        *,
+        status: ExperimentStatus | None = None,
+        order: ExperimentSortOrder = ExperimentSortOrder.DESC,
+        limit: int = EXPERIMENT_LIST_LIMIT_MAX,
+        offset: int = 0,
+    ) -> ExperimentPage:
+        """FR-PRJ-003 / FR-EXP-006 (#83): owned project's experiments with status and run counts."""
         self._require_project(owner_id, project_id)
-        return [self._to_experiment_output(row) for row in self.repo.list_by_project(project_id)]
+        if not 1 <= limit <= EXPERIMENT_LIST_LIMIT_MAX:
+            raise AppError(
+                ErrorCode.INPUT_INVALID, "Invalid filter",
+                {"limit": f"Must be between 1 and {EXPERIMENT_LIST_LIMIT_MAX}"},
+            )
+        if offset < 0:
+            raise AppError(ErrorCode.INPUT_INVALID, "Invalid filter", {"offset": "Must be >= 0"})
+        counts = self.repo.run_counts(project_id)
+        jobs = self.repo.job_statuses(project_id)
+        items = [
+            self._to_list_item(row, counts.get(row.id, (0, 0, 0)), jobs.get(row.id, []))
+            for row in self.repo.list_by_project(project_id)
+        ]
+        if status is not None:
+            items = [item for item in items if item.status == status]
+        items.sort(key=lambda item: str(item.id))
+        items.sort(key=lambda item: item.created_at, reverse=order == ExperimentSortOrder.DESC)
+        return ExperimentPage(items=items[offset : offset + limit], total=len(items))
+
+    @classmethod
+    def _to_list_item(
+        cls, row: Experiment, counts: tuple[int, int, int], job_statuses: list[str]
+    ) -> ExperimentListItem:
+        total, done, failed = counts
+        base = cls._to_experiment_output(row).model_dump()
+        return ExperimentListItem(
+            **base,
+            status=derive_experiment_status(row.latest_snapshot_number, job_statuses),
+            runs_total=total,
+            runs_done=done,
+            runs_failed=failed,
+        )
 
     def get_experiment(
         self, owner_id: uuid.UUID, project_id: uuid.UUID, experiment_id: uuid.UUID

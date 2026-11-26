@@ -120,7 +120,7 @@ X-Total-Count: 4
   }
 ]
 ```
-`experiment_count` = number of experiments in the project (`0` when none).
+`experiment_count` = number of experiments in the project (`0` when none). It equals the unfiltered total of `GET /projects/{id}/experiments` (#83, see experiments.md).
 
 Errors: 401; 422 `INPUT_INVALID` with `fields.limit` / `fields.offset` / `fields.sort` / `fields.order` / `fields.q`.
 
