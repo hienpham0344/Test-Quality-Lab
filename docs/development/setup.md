@@ -1,18 +1,153 @@
-# Local development
+# Local Development & Environment Setup Guide
 
-1. Install Docker Engine with Docker Compose plugin.
-2. Copy `.env.example` to `.env` and change dev credentials.
-3. `docker compose up --build -d`.
-4. `docker compose exec backend alembic upgrade head`.
-5. Open http://localhost:5173 and http://localhost:8000/docs.
+Covers local workstation prerequisites, environment variable configuration (including AES-256-GCM keyring setup and zero-secret hygiene), Docker Compose startup, Alembic database migrations, and automated verification commands across Backend, Sandbox, and Frontend.
 
-Docker is required; no local execution or image build has been verified in the
-scaffold-generation environment. Avoid testing with real secrets/data.
+---
 
-Backend local tests: `cd backend && pip install -r requirements-dev.txt && pytest`.
-Frontend local tests: `cd frontend && npm install && npm run lint && npm test -- --run`.
+## 1. Prerequisites
 
-## Supabase database connection
+| Dependency | Supported Version | Purpose |
+|---|---|---|
+| **Docker Engine & Docker Compose** | Docker 24+ / Compose v2 (`docker compose`) | Containerized stack (`postgres`, `redis`, `mailpit`, `backend`, `worker`, `beat`, `frontend`) |
+| **Python** | **3.12+** | FastAPI backend, Celery worker, Alembic migrations, `pytest`, `ruff` |
+| **Node.js & npm** | **Node 20+** / npm 10+ | React + Vite frontend, ESLint, Vitest unit & component tests |
+| **PostgreSQL** | **16+** (via Docker Compose or local/Supabase session pooler) | Primary relational store for users, projects, sources, datasets, prompts, snapshots, runs, evaluations, reports, and audit events |
+| **Redis** | **7+** (via Docker Compose or local loopback) | Auth rate-limiting store and Celery broker/result backend |
+| **Mailpit** | Latest (via Docker Compose on `:1025` SMTP / `:8025` Web UI) | Local email capture for registration verification and password reset links |
+
+---
+
+## 2. Environment Variables & Secret Hygiene
+
+Copy `.env.example` to `.env` in the repository root before starting the stack:
+
+```bash
+cp .env.example .env
+```
+
+> **Security Rule (`AGENTS.md` / `NFR-SEC`)**: Never commit `.env` or place real API keys, SMTP passwords, database passwords, or encryption keys in `.env.example`, source files, test fixtures, or commit messages.
+
+### 2.1 Generate an AES-256-GCM Credential Encryption Keyring (`CREDENTIAL_ENCRYPTION_KEYS`)
+
+AI provider API keys configured per project (`PUT /api/v1/projects/{project_id}/ai-configs/{provider}`) are encrypted at rest with **AES-256-GCM** using associated data bound to `"{project_id}:{provider}"`. Generate a fresh 32-byte URL-safe key for your local `.env`:
+
+```bash
+python3 -c "import secrets; print('local-dev-k1:' + secrets.token_urlsafe(32))"
+```
+
+Set the generated value in `.env`:
+
+```dotenv
+CREDENTIAL_ENCRYPTION_KEYS=local-dev-k1:<generated-32-byte-urlsafe-secret>
+```
+
+- **Key rotation**: `CREDENTIAL_ENCRYPTION_KEYS` accepts a comma-separated list of `<key_id>:<urlsafe_base64_32_byte_key>` entries (`k2:...,local-dev-k1:...`). The **first** entry is the active primary key used for new encryptions and `POST /api/v1/projects/{project_id}/ai-configs/{provider}/rotate-encryption`; subsequent entries remain available to decrypt older envelopes.
+
+### 2.2 Required & Optional Environment Variables Reference
+
+| Variable | Required | Default / Example (`.env.example`) | Description |
+|---|---|---|---|
+| `POSTGRES_DB` | Yes (Compose) | `test_quality_lab` | Local PostgreSQL database name created by the `postgres` container |
+| `POSTGRES_USER` | Yes (Compose) | `tql_dev` | Local PostgreSQL user |
+| `POSTGRES_PASSWORD` | Yes (Compose) | `change-me-local-only` | Local PostgreSQL password (change in `.env`) |
+| `DATABASE_URL` | Yes | `postgresql+psycopg://tql_dev:change-me-local-only@postgres:5432/test_quality_lab` | SQLAlchemy v2 + `psycopg` connection URL used by `backend`, `worker`, and Alembic |
+| `REDIS_URL` | Yes | `redis://redis:6379/0` | Redis URL for public auth rate limiters and Celery task queuing |
+| `CREDENTIAL_ENCRYPTION_KEYS` | Yes (for AI Config) | `local-dev-k1:CHANGE_ME_...` | Comma-separated AES-256-GCM keyring (`<key_id>:<32-byte-urlsafe-key>`). Returns `503 SERVICE_UNAVAILABLE` on credential save if unset |
+| `ARTIFACT_DIR` | Yes | `/app/artifacts` | Root directory for generated `.py` test artifacts (enforces `is_relative_to` containment and symlink rejection) |
+| `CORS_ORIGINS` | Yes | `http://localhost:5173` | Allowed frontend origin(s) for FastAPI CORS middleware |
+| `VITE_API_URL` | Yes (Frontend) | `http://localhost:8000` | Base backend URL consumed by the React frontend |
+| `PUBLIC_APP_URL` | Yes | `http://localhost:5173` | Base URL embedded in verification (`/verify-email#token=...`) and password reset (`/reset-password#token=...`) links. Must use `https://` unless host is `localhost` or `127.0.0.1` |
+| `SMTP_HOST` | Yes | `mailpit` | SMTP server hostname (`mailpit` in Compose, or e.g. `smtp.gmail.com`) |
+| `SMTP_PORT` | Yes | `1025` | SMTP port (`1025` for Mailpit, `587` for STARTTLS, `465` for SSL) |
+| `SMTP_SECURITY` | Yes | `none` | `none` (local Mailpit only), `starttls`, or `ssl` (remote SMTP rejects `none`) |
+| `SMTP_SENDER` | Yes | `Test Quality Lab <no-reply@localhost>` | `From` header used for transactional authentication emails |
+| `SMTP_USERNAME` | Optional | `None` | SMTP authentication username (required when `SMTP_PASSWORD` is set) |
+| `SMTP_PASSWORD` | Optional | `None` | SMTP authentication password / Gmail App Password (keep only in ignored `.env`) |
+| `GROQ_BASE_URL` | Optional | `https://api.groq.com/openai/v1` | Upstream base URL for the Groq LLM adapter |
+| `GEMINI_BASE_URL` | Optional | `https://generativelanguage.googleapis.com/v1beta` | Upstream base URL for the Gemini adapter (API key sent via `x-goog-api-key` header only) |
+| `OPENROUTER_BASE_URL` | Optional | `https://openrouter.ai/api/v1` | Upstream base URL for the OpenRouter adapter |
+| `LLM_TIMEOUT_SECONDS` | Optional | `30.0` | Default per-request HTTP timeout (seconds) for upstream LLM provider calls |
+
+---
+
+## 3. Step-by-Step Startup & Database Migrations
+
+### 3.1 Start the Docker Compose Stack
+
+```bash
+# 1. Build and start all services in detached mode
+docker compose up --build -d
+
+# 2. Verify container status
+docker compose ps
+```
+
+### 3.2 Run & Verify Alembic Migrations
+
+All schema migrations live under `backend/migrations/versions/` and must be applied to head (`20261126_0011_s7_reporting_audit`):
+
+```bash
+# Apply all migrations up to head inside the running backend container
+docker compose exec backend alembic upgrade head
+
+# Confirm current schema revision matches head
+docker compose exec backend alembic current
+```
+
+**Migration Lineage (`backend/migrations/versions/`)**:
+1. `20261029_0001_init_users.py` — Initial `users` table
+2. `20261101_0002_auth_projects.py` — Sessions, verification/reset tokens, `projects`, and append-only `project_history`
+3. `20261107_0003_sources.py` — Python `sources` and immutable `source_versions`
+4. `20261108_0003_display_name_audit_events.py` — User `display_name` and `audit_events`
+5. `20261109_0004_merge_auth_and_sources.py` — Merge revision for auth and sources branches
+6. `20261109_0005_datasets.py` — CSV `datasets` and immutable `dataset_versions`
+7. `20261125_0006_ai_config.py` — Encrypted `provider_credentials` (`CredentialVault`)
+8. `20261125_0007_prompts.py` — Versioned `prompt_templates` and `prompt_versions` (`L1`–`L5`, `UNAPPROVED` default per `TBD-04`)
+9. `20261125_0008_experiments.py` — `experiments`, immutable `experiment_snapshots`, and `experiment_snapshot_runs`
+10. `20261126_0009_generation.py` — `generation_jobs` and `generation_runs` with `(project_id, request_id)` idempotency constraint
+11. `20261126_0010_evaluation.py` — `metric_records` (`MEASURED | N/A | FAILED | TIMEOUT`) and `assertion_reviews`
+12. `20261126_0011_s7_reporting_audit.py` — Sprint 7 reporting & audit indexes (`report_runs`)
+
+### 3.3 Access Local Services
+
+- **Frontend Web UI**: `http://localhost:5173`
+- **FastAPI OpenAPI Docs**: `http://localhost:8000/docs` (schema: `http://localhost:8000/openapi.json`)
+- **Health & Readiness Probes**: `http://localhost:8000/health` and `http://localhost:8000/ready`
+- **Mailpit Web Inbox (Local Emails)**: `http://localhost:8025`
+
+---
+
+## 4. Local Test, Lint & Verification Commands
+
+### 4.1 Backend Tests & Linting (`pytest` + `ruff`)
+
+```bash
+cd backend
+pip install -r requirements-dev.txt
+pytest
+ruff check app tests
+```
+
+### 4.2 Sandbox Isolation & Fail-Closed Gate Verification
+
+Untrusted Python execution is strictly disabled (`sandbox/runner/main.py` exits with non-zero status). Verify the sandbox isolation and fail-closed tests from the repository root:
+
+```bash
+pytest sandbox/tests backend/tests/unit/test_sandbox_isolation_verification.py
+```
+
+### 4.3 Frontend Linting & Unit/Component Tests (`eslint` + `vitest`)
+
+```bash
+cd frontend
+npm install
+npm run lint
+npm test -- --run
+```
+
+---
+
+## 5. Supabase Database Connection
 
 The backend and worker already read `DATABASE_URL`. To use a Supabase shared
 session pooler, put its URL in the ignored project-root `.env` file using the
@@ -32,12 +167,14 @@ After starting Compose, the equivalent check inside the backend container is
 Apply migrations to a remote database only after reviewing the target and
 migration contents.
 
-## Authentication and project APIs
+---
+
+## 6. Authentication and Project APIs
 
 The backend exposes `POST /api/v1/auth/register`, `/auth/verify`, `/auth/login`,
 `/auth/refresh`, `/auth/logout`, `/auth/verification/request`,
 `/auth/password/forgot`, `/auth/password/reset` and `GET /auth/me`. The full
-request/response/error contract is `docs/api/contracts/auth.md`; Postman requests
+request/response/error contract is [`docs/api/contracts/auth.md`](../api/contracts/auth.md); Postman requests
 are in `docs/api/postman/`. Access tokens last 15 minutes, refresh tokens 1 day,
 verification links 24 hours and reset links 30 minutes. Verification and reset
 tokens are accepted in JSON request bodies and stored only as hashes. Mailpit
@@ -52,7 +189,7 @@ Supply the login access token in the `Authorization: Bearer` header. Project
 history records metadata revisions. Deleting projects and listing their
 experiments remain outside these endpoints.
 
-### Email delivery and recovery
+### 6.1 Email Delivery and Recovery
 
 The frontend handles `/verify-email#token=...` and `/reset-password#token=...`.
 It removes the fragment from the address bar and sends the token in a JSON body.
@@ -65,9 +202,9 @@ emails) must be HTTPS unless it is `localhost`/`127.0.0.1`. Set both
 `SMTP_USERNAME` and `SMTP_PASSWORD` if the provider requires authentication;
 keep credentials only in the ignored `.env`. Plain remote SMTP is rejected.
 
-#### Sending real email (Gmail)
+#### Sending Real Email (Gmail)
 
-By default every email goes to Mailpit (http://localhost:8025). To deliver to real inboxes:
+By default every email goes to Mailpit (`http://localhost:8025`). To deliver to real inboxes:
 
 1. On the sending Gmail account, enable 2-Step Verification and create an
    [App password](https://myaccount.google.com/apppasswords). The normal password is rejected.
@@ -105,7 +242,7 @@ Run one `beat` service alongside the worker. At 03:00 UTC daily it removes auth
 tokens and sessions whose expiry is older than seven days. It does not remove users,
 projects, project history, or active credentials.
 
-### Auth/project verification
+### 6.2 Auth/Project Coverage & Live Verification
 
 Install `backend/requirements-test.txt`, then from `backend` run:
 
@@ -130,9 +267,11 @@ Project request models reject unknown fields. Issue #19's accepted scope is
 create/list/read/update plus metadata history and ownership checks; DELETE and
 experiment listing require their own specified behavior before implementation.
 
-## Python source API
+---
 
-Apply Alembic revision `20261107_0003` before using source routes. Under
+## 7. Python Source API & Static AST Policy
+
+Apply Alembic revision `20261107_0003` (or `alembic upgrade head`) before using source routes. Under
 `/api/v1/projects/{project_id}/sources`, authenticated owners can `POST` a new
 source, `GET` their sources, `POST /{source_id}/versions` to add a revision,
 `GET /{source_id}/versions` for version metadata, and
