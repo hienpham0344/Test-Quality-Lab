@@ -23,7 +23,7 @@ async function readJson(response) {
   }
 }
 
-async function request(path, { method = 'GET', body, accessToken, signal } = {}) {
+async function requestWithHeaders(path, { method = 'GET', body, accessToken, signal } = {}) {
   const headers = {}
   if (body !== undefined) headers['Content-Type'] = 'application/json'
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`
@@ -39,7 +39,44 @@ async function request(path, { method = 'GET', body, accessToken, signal } = {})
     const detail = data?.detail ?? {}
     throw new ApiError(response.status, detail.code ?? null, detail.fields ?? {}, typeof detail === 'string' ? detail : detail.message)
   }
-  return data
+  return { data, headers: response.headers }
+}
+
+async function request(path, options) {
+  return (await requestWithHeaders(path, options)).data
+}
+
+/** `?a=1&b=2` from defined, non-empty values only; '' when nothing is set. */
+function queryString(params = {}) {
+  const query = new URLSearchParams()
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === null) continue
+    const text = typeof value === 'string' ? value.trim() : String(value)
+    if (text) query.set(key, text)
+  }
+  const text = query.toString()
+  return text ? `?${text}` : ''
+}
+
+function totalFrom(headers, fallback) {
+  const raw = headers?.get?.('X-Total-Count')
+  const total = raw === null || raw === undefined ? Number.NaN : Number(raw)
+  return Number.isInteger(total) && total >= 0 ? total : fallback
+}
+
+/**
+ * Runs `call(accessToken)`; on 401 asks `onRefresh(session)` once for a new session and retries.
+ * `onRefresh` returns the refreshed session or null. A second 401 is thrown to the caller.
+ */
+export async function withSessionRefresh(session, onRefresh, call) {
+  try {
+    return await call(session?.accessToken)
+  } catch (error) {
+    if (!(error instanceof ApiError) || error.status !== 401 || !onRefresh) throw error
+    const refreshed = await onRefresh(session)
+    if (!refreshed?.accessToken) throw error
+    return call(refreshed.accessToken)
+  }
 }
 
 export async function getHealth() {
@@ -104,14 +141,33 @@ export function resetPassword(token, newPassword) {
   })
 }
 
-export async function listProjects(accessToken, signal) {
-  const data = await request('/projects', { accessToken, signal })
+export const PROJECT_PAGE_LIMIT = 100
+
+/** FR-PRJ-003: one page of owned projects. Params: q, sort (created_at|updated_at|name), order, limit (1-100), offset. */
+export async function listProjects(accessToken, { q, sort, order, limit, offset } = {}, signal) {
+  const { data, headers } = await requestWithHeaders(
+    `/projects${queryString({ q, sort, order, limit, offset })}`,
+    { accessToken, signal },
+  )
   if (!Array.isArray(data)) throw new Error('Invalid project list')
-  return data
+  return { items: data, total: totalFrom(headers, data.length) }
+}
+
+/** Every owned project, fetched in pages of 100 (the API maximum). Used by the dashboard summary. */
+export async function listAllProjects(accessToken, { q, sort, order } = {}, signal) {
+  const items = []
+  for (let page = 0; page < 1000; page += 1) {
+    // The first page relies on the server defaults (limit 100, offset 0); later pages page by offset.
+    const paging = items.length ? { limit: PROJECT_PAGE_LIMIT, offset: items.length } : {}
+    const result = await listProjects(accessToken, { q, sort, order, ...paging }, signal)
+    items.push(...result.items)
+    if (result.items.length < PROJECT_PAGE_LIMIT || items.length >= result.total) break
+  }
+  return items
 }
 
 export function getProject(accessToken, projectId, signal) {
-  return request(`/projects/${projectId}`, { accessToken, signal })
+  return request(`/projects/${encodeURIComponent(projectId)}`, { accessToken, signal })
 }
 
 export function createProject(accessToken, { name, description }, signal) {
@@ -134,7 +190,7 @@ export function updateProject(accessToken, projectId, { name, description }, sig
   if (description !== undefined) {
     payload.description = typeof description === 'string' ? (description.trim() || null) : (description ?? null)
   }
-  return request(`/projects/${projectId}`, {
+  return request(`/projects/${encodeURIComponent(projectId)}`, {
     accessToken,
     method: 'PATCH',
     body: payload,
@@ -142,8 +198,11 @@ export function updateProject(accessToken, projectId, { name, description }, sig
   })
 }
 
-export async function getProjectHistory(accessToken, projectId, signal) {
-  const data = await request(`/projects/${projectId}/history`, { accessToken, signal })
+export async function getProjectHistory(accessToken, projectId, { from, to, limit, offset } = {}, signal) {
+  const data = await request(
+    `/projects/${encodeURIComponent(projectId)}/history${queryString({ from, to, limit, offset })}`,
+    { accessToken, signal },
+  )
   if (!Array.isArray(data)) throw new Error('Invalid project history')
   return data
 }

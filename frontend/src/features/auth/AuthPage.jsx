@@ -73,7 +73,9 @@ export function AuthPage({ mode, onSignIn }) {
       if (isLogin) {
         const accessToken = result?.access_token
         if (typeof accessToken !== 'string' || !accessToken) throw new Error('Invalid sign-in response')
-        onSignIn({ accessToken })
+        const refreshToken = typeof result?.refresh_token === 'string' ? result.refresh_token : undefined
+        // The refresh token stays in memory only; sessionStorage keeps just the access token.
+        onSignIn(refreshToken ? { accessToken, refreshToken } : { accessToken })
       } else {
         form.reset()
         setDone(true)

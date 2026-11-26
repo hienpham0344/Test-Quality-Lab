@@ -1,12 +1,13 @@
 import { ArrowDownWideNarrow, ChevronLeft, ChevronRight, FlaskConical, FolderKanban, History, LayoutGrid, Plus, RotateCcw, Search, Table2, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { AuthApiError, createProject, listProjects } from '../../services/api'
+import { useQueryClient } from '@tanstack/react-query'
+import { AuthApiError, createProject, withSessionRefresh } from '../../services/api'
+import { projectKeys, useAllProjects } from './queries'
 import { ProjectCard, ProjectTable } from '../../components/projects/ProjectCard'
 import { ProjectCreateModal } from '../../components/projects/ProjectCreateModal'
 
-export function ProjectsPage({ session, onExpire }) {
+export function ProjectsPage({ session, onExpire, onRefresh }) {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const [createModalOpen, setCreateModalOpen] = useState(false)
@@ -60,13 +61,8 @@ export function ProjectsPage({ session, onExpire }) {
     setSearchParams(next)
   }
 
-  const projects = useQuery({
-    queryKey: ['private', 'projects'],
-    queryFn: ({ signal }) => listProjects(session.accessToken, signal),
-    retry: false,
-    gcTime: 0,
-    refetchInterval: 60000,
-  })
+  // All owned projects (fetched in pages of 100): search, sort and the summary tiles cover every project.
+  const projects = useAllProjects({ session, onRefresh }, { refetchInterval: 60000 })
   const expired = projects.error instanceof AuthApiError && projects.error.status === 401
 
   useEffect(() => {
@@ -85,11 +81,11 @@ export function ProjectsPage({ session, onExpire }) {
     setIsCreating(true)
     setCreateError(null)
     try {
-      const created = await createProject(session.accessToken, { name, description })
-      const listKey = ['private', 'projects']
+      const created = await withSessionRefresh(session, onRefresh, (token) => createProject(token, { name, description }))
+      const listKey = projectKeys.all()
       await queryClient.cancelQueries({ queryKey: listKey })
       queryClient.setQueryData(listKey, (current = []) => [created, ...current.filter(({ id }) => id !== created.id)])
-      queryClient.setQueryData(['private', 'project', created.id], created)
+      queryClient.setQueryData(projectKeys.detail(created.id), created)
       setCreateModalOpen(false)
       if (duplicate) {
         void queryClient.invalidateQueries({ queryKey: listKey })
