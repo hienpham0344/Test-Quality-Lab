@@ -2690,6 +2690,175 @@
           ]
         },
         {
+          "name": "GET /projects/{{project_id}}/reports/progress",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/projects/{{project_id}}/reports/progress",
+            "description": "FR-RPT-001 (#60): run counts per status, run positions, mismatch and unconfirmed jobs. Optional snapshot_id.\n\nContract: docs/api/contracts/reports.md"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('counts add up', () => pm.expect(Object.values(b.by_status).reduce((a, n) => a + n, 0)).to.eql(b.total_runs));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/projects/{{project_id}}/reports/progress"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"project_id\": \"00000000-0000-0000-0000-000000000002\",\n  \"snapshot_id\": null,\n  \"updated_at\": \"2026-11-27T09:03:00\",\n  \"planned_runs\": 4,\n  \"total_runs\": 3,\n  \"by_status\": {\n    \"QUEUED\": 0,\n    \"RUNNING\": 1,\n    \"COMPLETED\": 1,\n    \"FAILED\": 0,\n    \"TIMEOUT\": 1,\n    \"CANCELLED\": 0\n  },\n  \"unconfirmed_jobs\": [],\n  \"mismatch_reason\": \"3 run(s) recorded for 4 planned matrix run(s)\",\n  \"runs\": []\n}"
+            }
+          ]
+        },
+        {
+          "name": "GET /projects/{{project_id}}/reports/history",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/projects/{{project_id}}/reports/history?status=COMPLETED&strategy=L1&from=2026-01-01&limit=20&offset=0",
+            "description": "FR-RPT-003 (#60): owner-scoped run history with filters and paging; total in X-Total-Count.\n\nContract: docs/api/contracts/reports.md"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('total header', () => pm.expect(Number(pm.response.headers.get('X-Total-Count'))).to.be.at.least(pm.response.json().length));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/projects/{{project_id}}/reports/history?status=COMPLETED&strategy=L1&from=2026-01-01&limit=20&offset=0"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-Total-Count",
+                  "value": "0"
+                }
+              ],
+              "body": "[]"
+            }
+          ]
+        },
+        {
+          "name": "GET /projects/{{project_id}}/reports/history - invalid filter (422)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/projects/{{project_id}}/reports/history?strategy=L9",
+            "description": "Unknown strategy/status or a bad date range returns INPUT_INVALID with the field.\n\nContract: docs/api/contracts/reports.md"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 422', () => pm.response.to.have.status(422));",
+                  "pm.test('field', () => pm.expect(pm.response.json().detail.fields).to.have.property('strategy'));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "422 INPUT_INVALID",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/projects/{{project_id}}/reports/history?strategy=L9"
+              },
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"detail\": {\n    \"code\": \"INPUT_INVALID\",\n    \"message\": \"Invalid filter\",\n    \"fields\": {\n      \"strategy\": \"Must be one of L1, L2, L3, L4, L5\"\n    }\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "GET /projects/{{project_id}}/reports/strategy-summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/projects/{{project_id}}/reports/strategy-summary",
+            "description": "FR-EVL-006 / FR-RPT-004 (#61): L1-L5 per model and function; pooled only under identical conditions; sample counts and exclusions.\n\nContract: docs/api/contracts/reports.md"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('never ranks', () => pm.response.json().groups.forEach(g => pm.expect(['COMPARABLE', 'INCOMPARABLE', 'INSUFFICIENT_EVIDENCE']).to.include(g.status)));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/projects/{{project_id}}/reports/strategy-summary"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"project_id\": \"00000000-0000-0000-0000-000000000002\",\n  \"snapshot_id\": null,\n  \"methodology\": \"Per-run metric values are pooled only within one model, one target function and identical measurement conditions ...\",\n  \"total_runs\": 4,\n  \"groups\": [\n    {\n      \"provider\": \"groq\",\n      \"model\": \"llama-3.3-70b-versatile\",\n      \"function_name\": \"add\",\n      \"status\": \"COMPARABLE\",\n      \"reasons\": [],\n      \"condition_keys\": [\n        \"3f2a9c0d1e4b5a67\"\n      ],\n      \"strategies_with_valid_samples\": [\n        \"L1\",\n        \"L2\"\n      ],\n      \"strategies\": [\n        {\n          \"strategy\": \"L1\",\n          \"runs\": 2,\n          \"completed_runs\": 2,\n          \"metrics\": [\n            {\n              \"metric\": \"line_coverage\",\n              \"unit\": \"percent\",\n              \"valid_samples\": 2,\n              \"excluded\": {},\n              \"mean\": 75.0,\n              \"min\": 50.0,\n              \"max\": 100.0,\n              \"pooled_numerator\": 9,\n              \"pooled_denominator\": 12,\n              \"pooled_value\": 75.0\n            }\n          ]\n        }\n      ]\n    }\n  ]\n}"
+            }
+          ]
+        },
+        {
           "name": "GET /projects/{{project_id}}/reports/results",
           "request": {
             "method": "GET",

@@ -120,6 +120,28 @@ Base path: `/api/v1/projects/{project_id}/reports`
 
 ---
 
+### 6. Run progress (`FR-RPT-001`, #60)
+`GET /api/v1/projects/{project_id}/reports/progress?snapshot_id=<uuid?>` -> `200`
+`{project_id, snapshot_id, updated_at, planned_runs, total_runs, by_status {QUEUED, RUNNING, COMPLETED, FAILED, TIMEOUT, CANCELLED}, unconfirmed_jobs, mismatch_reason, runs: [{run_id, job_id, ordinal, function_name, provider, model, strategy, repeat_index, status, attempt_count, updated_at}]}`.
+- `planned_runs` = the snapshot matrix size per generation job (one matrix when the snapshot has not started). When `total_runs` differs, `mismatch_reason` explains it.
+- A `QUEUED`/`RUNNING` job that has not updated for 10 minutes is listed in `unconfirmed_jobs` and named in `mismatch_reason`; it is never reported as `COMPLETED` (SRS 3.13).
+- Errors: `401`; `404 NOT_FOUND` for a missing/foreign project or a snapshot of another project. Empty project -> zeros and `runs: []`.
+
+### 7. Run history with filters (`FR-RPT-003`, #60)
+`GET /api/v1/projects/{project_id}/reports/history` -> `200` array, newest first; the matching total is in `X-Total-Count`.
+- Filters (all optional, combined with AND, always inside the owner's project): `experiment_id`, `snapshot_id`, `status` (`QUEUED|RUNNING|COMPLETED|FAILED|TIMEOUT|CANCELLED`, case-insensitive), `strategy` (`L1`-`L5`), `provider`, `model` (case-insensitive exact), `function_name`, `from` / `to` (`YYYY-MM-DD`, whole day inclusive, or ISO 8601 datetime; UTC), `limit` (1-200, default 50), `offset` (>= 0).
+- Item: `run_id, job_id, experiment_id, experiment_name, snapshot_id, snapshot_number, function_name, provider, model, strategy, repeat_index, status, artifact_eligible, error_code, created_at, finished_at`.
+- Errors: `401`; `404 NOT_FOUND` (foreign project); `422 INPUT_INVALID` with `fields.status|strategy|from|to|limit|offset`. No match -> `200 []` with `X-Total-Count: 0`.
+
+### 8. Comparable L1-L5 strategy summary (`FR-EVL-006`, `FR-RPT-004`, #61)
+`GET /api/v1/projects/{project_id}/reports/strategy-summary?snapshot_id=<uuid?>` -> `200`
+`{project_id, snapshot_id, methodology, total_runs, groups: [{provider, model, function_name, status, reasons, condition_keys, strategies_with_valid_samples, strategies: [{strategy, runs, completed_runs, metrics: [{metric, unit, valid_samples, excluded, mean, min, max, pooled_numerator, pooled_denominator, pooled_value}]}]}]}`.
+- Groups are one model and one target function. Metrics: `syntax_validity`, `line_coverage`, `branch_coverage`, `mutation_score`, `assertion_quality` (all percent).
+- Values are pooled only when every run in the group shares the same measurement conditions (source SHA-256, dataset SHA-256, frozen generation parameters; `condition_keys`). Otherwise `status = INCOMPARABLE`, `mean`/`min`/`max`/`pooled_*` are `null` and `reasons` explains; sample counts stay visible.
+- `valid_samples` counts `MEASURED` records. `excluded` counts the rest by reason: `N/A`, `FAILED`, `TIMEOUT`, `NOT_EVALUATED`. `mean` averages run values, `min`/`max` give the sample range, `pooled_value = sum(numerator) / sum(denominator) x 100` (only when every sample has both).
+- `status = INSUFFICIENT_EVIDENCE` when fewer than two strategies have valid samples. The API never ranks strategies or names a winner; coverage is not presented as absolute quality.
+- Errors: `401`; `404 NOT_FOUND` for a missing/foreign project or snapshot. No runs -> `groups: []`.
+
 ## Audit, Integrity & Backup Endpoints (`NFR-DAT` / `NFR-OBS`)
 
 - `GET /api/v1/audit-events`: Authenticated user's own `AuditEvent` trail newest-first with optional `action`, `from`, `to` (`YYYY-MM-DD` or ISO 8601 datetime; `422 INPUT_INVALID` if `from > to`), `limit` (`1..200`), and `offset` (`>= 0`). Each event: `id`, `user_id`, `action`, `resource_id` (affected project ID for `project.created` / `project.updated`, otherwise `null`), `created_at`. Never names, descriptions or secrets (#86).
