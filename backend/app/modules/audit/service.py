@@ -28,6 +28,8 @@ class AuditAction(StrEnum):
     PROMPT_VERSION_CREATED = "prompt_version.created"
     PROMPT_VERSION_APPROVED = "prompt_version.approved"
     PROMPT_BUNDLE_FINALIZED = "prompt_bundle.finalized"
+    PROJECT_CREATED = "project.created"
+    PROJECT_UPDATED = "project.updated"
     EXPERIMENT_CREATED = "experiment.created"
     EXPERIMENT_SNAPSHOT_FROZEN = "experiment.snapshot_frozen"
     GENERATION_STARTED = "generation.started"
@@ -69,9 +71,19 @@ class AuditService:
     def __init__(self, db: Session) -> None:
         self.repo = AuditRepository(db)
 
-    def record(self, action: AuditAction | str, user_id: uuid.UUID | None) -> None:
+    def record(
+        self,
+        action: AuditAction | str,
+        user_id: uuid.UUID | None,
+        resource_id: uuid.UUID | None = None,
+    ) -> None:
+        """Adds the event to the caller's transaction: it is only stored if the caller commits."""
         action_val = action.value if isinstance(action, AuditAction) else str(action)
-        self.repo.add(AuditEvent(user_id=user_id, action=action_val, created_at=utcnow()))
+        self.repo.add(
+            AuditEvent(
+                user_id=user_id, action=action_val, resource_id=resource_id, created_at=utcnow()
+            )
+        )
 
     def list_user_events(
         self,

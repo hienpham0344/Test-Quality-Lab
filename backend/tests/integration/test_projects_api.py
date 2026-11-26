@@ -340,3 +340,25 @@ def test_list_requires_authentication_and_exposes_total_header_to_cors(api):
     )
     assert cross_origin.status_code == 401
     assert "x-total-count" in cross_origin.headers.get("access-control-expose-headers", "").lower()
+
+
+def test_project_create_and_edit_are_audited_with_project_id(api):
+    """#86 / SRS 4.8: create and real edits are audited; no-op, invalid and foreign edits are not."""
+    client = api.client
+    owner = bearer(api.register_and_login("audit-owner@example.com"))
+    other = bearer(api.register_and_login("audit-other@example.com"))
+    project_id = _create(client, owner, "Audited")["id"]
+    client.patch(f"/api/v1/projects/{project_id}", json={"name": "Audited"}, headers=owner)
+    client.patch(f"/api/v1/projects/{project_id}", json={"name": ""}, headers=owner)
+    client.patch(f"/api/v1/projects/{project_id}", json={"name": "X"}, headers=other)
+    client.patch(f"/api/v1/projects/{project_id}", json={"name": "Renamed"}, headers=owner)
+
+    def project_events(headers):
+        events = client.get("/api/v1/audit-events", headers=headers).json()
+        return [(e["action"], e["resource_id"]) for e in events if e["action"].startswith("project.")]
+
+    assert project_events(owner) == [
+        ("project.updated", project_id),
+        ("project.created", project_id),
+    ]
+    assert project_events(other) == []

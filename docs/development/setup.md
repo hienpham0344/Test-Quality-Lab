@@ -84,7 +84,7 @@ docker compose ps
 
 ### 3.2 Run & Verify Alembic Migrations
 
-All schema migrations live under `backend/migrations/versions/` and must be applied to head (`20261126_0011_s7_reporting_audit`):
+All schema migrations live under `backend/migrations/versions/` and must be applied to head (`20261127_0012_audit_resource_id`):
 
 ```bash
 # Apply all migrations up to head inside the running backend container
@@ -107,6 +107,7 @@ docker compose exec backend alembic current
 10. `20261126_0009_generation.py` — `generation_jobs` and `generation_runs` with `(project_id, request_id)` idempotency constraint
 11. `20261126_0010_evaluation.py` — `metric_records` (`MEASURED | N/A | FAILED | TIMEOUT`) and `assertion_reviews`
 12. `20261126_0011_s7_reporting_audit.py` — Sprint 7 reporting & audit indexes (`report_runs`)
+13. `20261127_0012_audit_resource_id.py` — nullable `audit_events.resource_id` for project create/edit audit (#86)
 
 ### 3.3 Access Local Services
 

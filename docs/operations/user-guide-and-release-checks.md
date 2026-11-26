@@ -188,7 +188,7 @@ cd frontend && npm run lint && npm test -- --run
 # 1. Start or rebuild the Compose stack
 docker compose up --build -d
 
-# 2. Apply Alembic migrations to head (20261126_0011_s7_reporting_audit) and verify current revision
+# 2. Apply Alembic migrations to head (20261127_0012_audit_resource_id) and verify current revision
 docker compose exec backend alembic upgrade head
 docker compose exec backend alembic current
 

@@ -1,7 +1,7 @@
 # Data model
 
-Current implementation (`20261108_0001` through `20261126_0011` linear Alembic chain):
-- **Identity & access (`0001`–`0003`)**: `users` (`auth_epoch` invalidates old sessions on password reset; optional `display_name`), one-time `auth_tokens`, revocable `auth_sessions`, and `audit_events` (`user_id` nullable `SET NULL` on user delete, `action`, `created_at` — never stores emails, tokens, API keys, or passwords).
+Current implementation (`20261108_0001` through `20261127_0012` linear Alembic chain):
+- **Identity & access (`0001`–`0003`)**: `users` (`auth_epoch` invalidates old sessions on password reset; optional `display_name`), one-time `auth_tokens`, revocable `auth_sessions`, and `audit_events` (`user_id` nullable `SET NULL` on user delete, `action`, `created_at`, and since `20261127_0012` a nullable indexed `resource_id` holding the affected project ID for `project.created` / `project.updated` (#86) — never stores names, descriptions, emails, tokens, API keys, or passwords).
 - **Projects & inputs (`0002`, `0004`, `0005`)**: `projects`, immutable `project_history` revisions, `sources` + immutable `source_versions` (SHA-256), and `datasets` + immutable `dataset_versions` (SHA-256).
 - **AI configs, prompts & experiments (`0006`–`0008`)**: AES-256-GCM encrypted `provider_credentials` (`20261125_0006`), `prompt_templates` + immutable `prompt_versions` (`20261125_0007`, default `L1`–`L5` slots remain `UNAPPROVED` per SRS `TBD-04`), and `experiments` + append-only `experiment_snapshots` / `experiment_snapshot_runs` (`20261125_0008`).
 - **Generation queue (`20261126_0009`)**: `generation_jobs` (`UNIQUE(project_id, request_id)` idempotency, `QUEUED | RUNNING | COMPLETED | FAILED | CANCELLED`) and `generation_runs` (`UNIQUE(job_id, ordinal)`, `QUEUED | RUNNING | COMPLETED | FAILED | TIMEOUT | CANCELLED`, redacted `.py` artifact relative path + `artifact_sha256` + sanitized `error_info`).

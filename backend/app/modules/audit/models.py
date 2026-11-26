@@ -17,4 +17,6 @@ class AuditEvent(Base):
         Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )
     action: Mapped[str] = mapped_column(String(64), nullable=False)
+    # ID of the affected resource (e.g. project_id). Never names, descriptions or other free text.
+    resource_id: Mapped[uuid.UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)

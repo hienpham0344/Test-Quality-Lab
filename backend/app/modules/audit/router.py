@@ -29,6 +29,7 @@ class AuditEventOutput(BaseModel):
     id: uuid.UUID
     user_id: uuid.UUID | None
     action: str
+    resource_id: uuid.UUID | None = None
     created_at: datetime
 
 

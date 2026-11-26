@@ -122,7 +122,7 @@ Base path: `/api/v1/projects/{project_id}/reports`
 
 ## Audit, Integrity & Backup Endpoints (`NFR-DAT` / `NFR-OBS`)
 
-- `GET /api/v1/audit-events`: Authenticated user's own `AuditEvent` trail newest-first with optional `action`, `from`, `to` (`YYYY-MM-DD` or ISO 8601 datetime; `422 INPUT_INVALID` if `from > to`), `limit` (`1..200`), and `offset` (`>= 0`).
+- `GET /api/v1/audit-events`: Authenticated user's own `AuditEvent` trail newest-first with optional `action`, `from`, `to` (`YYYY-MM-DD` or ISO 8601 datetime; `422 INPUT_INVALID` if `from > to`), `limit` (`1..200`), and `offset` (`>= 0`). Each event: `id`, `user_id`, `action`, `resource_id` (affected project ID for `project.created` / `project.updated`, otherwise `null`), `created_at`. Never names, descriptions or secrets (#86).
 - `GET /api/v1/projects/{project_id}/audit/integrity`: Recomputes SHA-256 digests of `SourceVersion`, `DatasetVersion`, `PromptVersion`, `ExperimentSnapshot`, and referenced artifact files.
 - `POST /api/v1/projects/{project_id}/audit/cleanup-orphans?dry_run=false`: Safely scans `<artifact_dir>/<project_id>`, rejects symlinks, deletes unreferenced files when `dry_run=false`, and records `system.artifact_cleanup`.
 - `POST /api/v1/projects/{project_id}/audit/backup-export` & `POST /api/v1/audit/backup-restore`: Secret-free deterministic JSON backup export (`system.backup_exported`) and checksum-verified restore (`system.backup_restored`). See [`docs/operations/backup-restore.md`](../../operations/backup-restore.md).

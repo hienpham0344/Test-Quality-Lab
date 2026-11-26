@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.clock import utcnow
 from app.core.exceptions import AppError, ErrorCode
+from app.modules.audit.service import AuditAction, AuditService
 from app.modules.projects.models import Project, ProjectHistory
 from app.modules.projects.repository import ProjectRepository
 from app.modules.projects.schemas import ProjectSort, SortOrder
@@ -56,6 +57,7 @@ class ProjectService:
     def __init__(self, db: Session):
         self.db = db
         self.repo = ProjectRepository(db)
+        self.audit = AuditService(db)
 
     def create(self, owner_id: uuid.UUID, name: str, description: str | None) -> Project:
         name, description = clean_metadata(name, description)
@@ -71,6 +73,7 @@ class ProjectService:
         self.db.add(project)
         self.db.flush()
         self.db.add(history)
+        self.audit.record(AuditAction.PROJECT_CREATED, owner_id, project.id)
         self.db.commit()
         return project
 
@@ -136,6 +139,7 @@ class ProjectService:
                 name=name, description=description, changed_at=project.updated_at,
             )
         )
+        self.audit.record(AuditAction.PROJECT_UPDATED, owner_id, project.id)
         self.db.commit()
         return project
 
