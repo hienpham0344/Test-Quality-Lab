@@ -104,7 +104,7 @@ def test_trigger_records_oracle_policy_and_blocks_while_sandbox_disabled(exec_ap
     assert finished.status == "BLOCKED"
     assert finished.error_info["code"] == "SANDBOX_DISABLED"
     assert finished.passed_cases == finished.failed_cases == 0 and finished.cases == []
-    assert not any(Path(api["settings"].sandbox_workdir).iterdir())  # workspace cleaned
+    assert not Path(api["settings"].sandbox_workdir).exists()  # nothing staged on the host
     detail = client.get(f"/api/v1/projects/{proj_id}/executions/{body['id']}").json()
     assert detail["status"] == "BLOCKED" and any(log["level"] == "SECURITY" for log in detail["logs"])
     listed = client.get(f"/api/v1/projects/{proj_id}/executions").json()
@@ -198,3 +198,60 @@ def test_ownership_eligibility_and_validation(exec_api):
     assert client.get(url).status_code == 404
     assert client.get(f"{url}/{mine['id']}").status_code == 404
     assert client.post(f"{url}/{mine['id']}/cancel", json={}).status_code == 404
+
+
+def test_worker_never_leaves_an_execution_running_after_an_unexpected_error(exec_api, tmp_path):
+    """Review fix: an OSError while preparing the workspace or a crashing launcher ends FAILED, not RUNNING."""
+    api = exec_api
+    _eligible_run(api)
+    url = f"/api/v1/projects/{api['proj_a_id']}/executions"
+
+    blocker = tmp_path / "not-a-directory"
+    blocker.write_text("x", encoding="utf-8")
+    api["settings"].sandbox_workdir = str(blocker)  # mkdir under a file fails with an OSError
+    first = api["client"].post(url, json={}).json()
+    finished = _work(api, first["id"], FakeLauncher(lambda *_: LaunchResult(0, "", "", 1)))
+    assert finished.status == "FAILED" and finished.error_info["stage"] == "workspace"
+    assert finished.error_info["code"] == "WORKSPACE_ERROR" and finished.completed_at is not None
+
+    api["settings"].sandbox_workdir = str(tmp_path / "sandbox-work-2")
+
+    def crash(*_):
+        raise RuntimeError("docker daemon went away")
+
+    second = api["client"].post(url, json={}).json()
+    finished = _work(api, second["id"], FakeLauncher(crash))
+    assert finished.status == "FAILED" and finished.error_info["code"] == "RUNNER_ERROR"
+    assert not any(Path(api["settings"].sandbox_workdir).iterdir())  # still cleaned up
+
+
+def test_disabled_sandbox_blocks_without_writing_generated_code_to_disk(exec_api):
+    """Review fix: with the sandbox disabled nothing is staged on the host (and no workdir is required)."""
+    api = exec_api
+    _eligible_run(api)
+    body = api["client"].post(f"/api/v1/projects/{api['proj_a_id']}/executions", json={}).json()
+    finished = _work(api, body["id"])
+    assert finished.status == "BLOCKED" and finished.started_at is not None
+    assert not Path(api["settings"].sandbox_workdir).exists()
+
+
+def test_cancel_while_pending_is_not_overwritten_by_the_worker(exec_api, monkeypatch):
+    """Review fix: a cancel that lands while the workspace is prepared stops the run before the sandbox."""
+    api = exec_api
+    client, proj_id = api["client"], api["proj_a_id"]
+    _eligible_run(api)
+    url = f"/api/v1/projects/{proj_id}/executions"
+    body = client.post(url, json={}).json()
+    original = ExecutionWorker._workspace
+
+    def workspace_then_cancel(self, execution, run, code):
+        path = original(self, execution, run, code)
+        response = client.post(f"{url}/{body['id']}/cancel", json={})
+        assert response.json()["status"] == "CANCELLED"  # PENDING cancels immediately
+        return path
+
+    monkeypatch.setattr(ExecutionWorker, "_workspace", workspace_then_cancel)
+    launcher = FakeLauncher(lambda *_: LaunchResult(0, "", "", 1))
+    finished = _work(api, body["id"], launcher)
+    assert finished.status == "CANCELLED" and launcher.requests == []
+    assert not any(Path(api["settings"].sandbox_workdir).iterdir())

@@ -21,6 +21,7 @@ from app.core.exceptions import AppError, ErrorCode
 from app.core.logging import redact_secrets
 from app.infrastructure.sandbox.launcher import (
     RUNNER_DISABLED_EXIT_CODE,
+    DisabledLauncher,
     LaunchRequest,
     LaunchResult,
     SandboxDisabledError,
@@ -55,6 +56,11 @@ from app.modules.experiments.models import ExperimentSnapshot
 from app.modules.generation.models import GenerationRun
 from app.modules.projects.repository import ProjectRepository
 from app.modules.sources.repository import SourceRepository
+
+
+class _WorkspaceError(Exception):
+    """The host workspace for one execution could not be prepared."""
+
 
 TEST_FILE = "test_generated.py"
 TARGET_FILE = "target.py"
@@ -312,9 +318,22 @@ class ExecutionWorker:
         workspace: Path | None = None
         result: LaunchResult | None = None
         try:
+            if isinstance(self.launcher, DisabledLauncher):
+                # Fail closed before anything is staged on the host: no generated code is written to disk.
+                raise SandboxDisabledError("Sandbox execution is disabled until the sandbox security review passes")
             if run is None or snapshot is None or not run.parsed_code:
                 raise AppError(ErrorCode.NOT_FOUND, "Generated test artifact is no longer available")
-            workspace = self._workspace(execution, run, snapshot.frozen_code)
+            try:
+                workspace = self._workspace(execution, run, snapshot.frozen_code)
+            except OSError as exc:
+                raise _WorkspaceError(f"Workspace could not be prepared: {type(exc).__name__}") from exc
+            self.db.refresh(execution)
+            if execution.status != ExecutionStatus.PENDING.value:
+                # Cancelled while the workspace was prepared: never start the sandbox.
+                execution.logs = [*execution.logs, _system_log("WARN", "Cancelled before the sandbox started")]
+                if execution.status == ExecutionStatus.CANCELLING.value:
+                    self._finish(execution, ExecutionStatus.CANCELLED, utcnow())
+                return execution
             execution.status = ExecutionStatus.RUNNING.value
             execution.container_name = f"tql-exec-{execution.id.hex}"
             execution.logs = [*execution.logs, _system_log("INFO", "Sandbox started")]
@@ -333,9 +352,17 @@ class ExecutionWorker:
             execution.error_info = _error("sandbox", "SANDBOX_DISABLED", str(exc), at)
             execution.logs = [*execution.logs, _system_log("SECURITY", str(exc))]
             self._finish(execution, ExecutionStatus.BLOCKED, at)
+        except _WorkspaceError as exc:
+            at = utcnow()
+            execution.error_info = _error("workspace", "WORKSPACE_ERROR", str(exc), at)
+            self._finish(execution, ExecutionStatus.FAILED, at)
         except AppError as exc:
             at = utcnow()
             execution.error_info = _error("workspace", exc.code.value, exc.message, at)
+            self._finish(execution, ExecutionStatus.FAILED, at)
+        except Exception as exc:  # noqa: BLE001 — never leave an execution PENDING/RUNNING forever
+            at = utcnow()
+            execution.error_info = _error("runner", "RUNNER_ERROR", f"Sandbox launcher failed: {type(exc).__name__}", at)
             self._finish(execution, ExecutionStatus.FAILED, at)
         finally:
             try:

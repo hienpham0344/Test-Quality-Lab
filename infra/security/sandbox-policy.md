@@ -25,7 +25,8 @@ What exists now (backend, all disabled by default):
   (CPU at most 1, memory at most 1 GiB with swap disabled, timeout at most 60 seconds, network `none`, non-root UID 65534,
   read-only root filesystem, `--cap-drop ALL`, `no-new-privileges`, pids/nofile/fsize ulimits, `noexec` tmpfs,
   read-only workspace bind mount, no secret-looking environment variables). `build_docker_run_args` builds the argv only.
-- `backend/app/infrastructure/sandbox/launcher.py`: `DisabledLauncher` (default) refuses every run.
+- `backend/app/infrastructure/sandbox/launcher.py`: `DisabledLauncher` (default) refuses every run. With it, the
+  execution worker ends the run `BLOCKED` before creating a workspace, so generated code is never written to the host.
   `DockerSandboxLauncher` is returned only when `SANDBOX_EXECUTION_ENABLED=true` **and** `SANDBOX_SECURITY_REVIEW_ID`
   is set; it kills and removes the container on timeout or cancel and caps output at 1 MiB. It must run in a
   separate launcher service: the API and worker still never mount the Docker socket.

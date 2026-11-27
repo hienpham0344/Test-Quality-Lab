@@ -32,7 +32,11 @@ Isolation applied by the launcher (`app/infrastructure/sandbox/policy.py`, store
 `COMPLETED` means the runner finished (pytest exit 0 or 1); individual tests can still be `FAILED`. Runner problems never become results:
 no structured report or pytest exit 2/3/4 -> `FAILED` `RUNNER_ERROR`; exit 5 -> `FAILED` `NO_TESTS_COLLECTED`; over 60 s -> `TIMEOUT` `RUNNER_TIMEOUT`
 with every collected test marked `TIMEOUT`; cancelled -> `CANCELLED`. A cancel of a `RUNNING` run returns `CANCELLING` and becomes
-`CANCELLED` only after the worker confirms the stop (SRS 3.13). Container and workspace cleanup always runs; a cleanup problem is logged as a `SECURITY` incident.
+`CANCELLED` only after the worker confirms the stop (SRS 3.13); a cancel that lands while the workspace is being prepared (`PENDING`)
+stops the run before the sandbox starts. Container and workspace cleanup always runs; a cleanup problem is logged as a `SECURITY` incident.
+While the sandbox is disabled the worker returns `BLOCKED` before staging anything, so no generated code is written to the host.
+A workspace that cannot be prepared ends `FAILED` with `error.stage = "workspace"`, `WORKSPACE_ERROR`; an unexpected launcher
+error ends `FAILED` `RUNNER_ERROR`. An execution is never left `PENDING` or `RUNNING` by a worker error.
 
 ## Metric States & DoD Verification
 
