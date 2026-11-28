@@ -385,3 +385,29 @@ describe('Quality Evaluation & Visualization Components (UC-10)', () => {
     })
   })
 })
+
+describe('Coverage never invents line data from a percentage', () => {
+  let box
+  let r
+  beforeEach(() => {
+    vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+    box = document.body.appendChild(document.createElement('div'))
+    r = createRoot(box)
+  })
+  afterEach(() => {
+    act(() => r.unmount())
+    box.remove()
+    vi.unstubAllGlobals()
+  })
+
+  it('shows the percentage and says line details are missing, with no fabricated ranges or file name', async () => {
+    await act(async () => r.render(
+      <QualityEvaluationView execution={{ id: 'run-1', status: 'COMPLETED', metrics: { coverage: 75 } }} />,
+    ))
+    const text = box.querySelector('[data-testid=coverage-visualization-card]').textContent
+    expect(text).toContain('75.0%')
+    expect(text).toContain('line details not available')
+    expect(text).not.toMatch(/\/ 24 lines|L1-L15|L18-L24|L16-L17|solution_v1\.py/)
+    expect(text).toContain('Not recorded')
+  })
+})

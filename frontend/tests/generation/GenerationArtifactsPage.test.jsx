@@ -80,6 +80,54 @@ describe('Generation artifacts (#43)', () => {
     expect(container.querySelector('code')).toBeNull()
   })
 
+  it('shows why a failed run failed and never a fake response (#39, #41)', async () => {
+    fetchMock.mockResolvedValueOnce(Response.json({
+      status: 'FAILED', raw_response: null, parsed_test: null, response_metadata: null, validation: null,
+      error: { stage: 'provider', code: 'PROVIDER_AUTH_FAILED', message: 'groq returned HTTP 401: Invalid API Key',
+        occurred_at: '2026-11-28T03:29:28Z' },
+    }))
+    await renderViewer()
+    await vi.waitFor(() => expect(container.querySelector('[aria-labelledby=run-error]')).not.toBeNull())
+    const panel = container.querySelector('[aria-labelledby=run-error]').textContent
+    expect(panel).toContain('PROVIDER_AUTH_FAILED')
+    expect(panel).toContain('provider')
+    expect(panel).toContain('Invalid API Key')
+    expect(container.querySelector('[data-testid=run-status]').textContent).toBe('FAILED')
+    expect(container.textContent).toContain('No raw model response')
+    expect(container.querySelector('[aria-labelledby=validation]')).toBeNull()
+    expect(container.querySelector('code')).toBeNull()
+  })
+
+  it('lists every validation step and the response details (#40, #39)', async () => {
+    fetchMock.mockResolvedValueOnce(Response.json({
+      status: 'COMPLETED', raw_response: '```python\ndef test_add(): ...\n```', parsed_test: 'def test_add(): ...',
+      error: null,
+      validation: {
+        eligible: false, failed_stage: 'target_linked', reason: 'No test calls add',
+        collected_tests: ['test_add'],
+        stages: { generated: 'PASSED', parsed: 'PASSED', syntax_valid: 'PASSED', structure_valid: 'PASSED',
+          target_linked: 'FAILED', collected: 'SKIPPED', executable: 'NOT_VERIFIED' },
+      },
+      response_metadata: { provider: 'groq', model_requested: 'm1', model_returned: 'm1-2026', finish_reason: 'length',
+        truncated: true, usage: { prompt_tokens: 10, completion_tokens: 0, total_tokens: 10 }, latency_ms: 0 },
+    }))
+    await renderViewer()
+    await vi.waitFor(() => expect(container.querySelector('[aria-labelledby=validation]')).not.toBeNull())
+    const stage = (name) => container.querySelector(`[data-testid=stage-${name}]`).textContent
+    expect(stage('parsed')).toContain('Passed')
+    expect(stage('target_linked')).toContain('Failed')
+    expect(stage('collected')).toContain('Skipped')
+    expect(stage('executable')).toContain('Not verified')
+    expect(container.textContent).toContain('Not eligible for execution')
+    expect(container.textContent).toContain('No test calls add')
+    const details = container.querySelector('[aria-labelledby=response-details]').textContent
+    expect(details).toContain('m1-2026')
+    expect(details).toContain('Yes (hit the token limit)')
+    expect(details).toContain('10 / 0 / 10') // numeric zero shown, not dropped
+    expect(details).toContain('0 ms')
+    expect(container.querySelector('[aria-labelledby=run-error]')).toBeNull()
+  })
+
   it('expires an unauthorized session', async () => {
     fetchMock.mockResolvedValueOnce(new Response(null, { status: 401 }))
     await renderViewer()

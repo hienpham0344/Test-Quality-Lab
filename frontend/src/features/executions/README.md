@@ -5,7 +5,7 @@ This feature implements the Execution status, test case inspection, safe logs, p
 - **Cancel eligible runs with feedback**: Runs in `QUEUED`, `PENDING`, or `RUNNING` status can be cancelled with immediate visual feedback, cancellation reason recording, and audit logging. Completed, cancelled, failed, and timeout runs cannot be cancelled.
 - **Pass / Fail UX Breakdown**: Visual pass rate progress bar (% passed vs failed vs timeout), filter chips (`All`, `Passed`, `Failed`, `Timeout`), search query filtering, and high-visibility status indicators.
 - **Coverage & Mutation Result Visualization (UC-10, #58)**:
-  - **Line Coverage Visualizer**: Visual coverage gauge, executable statement counts (covered vs missed), exercised line ranges (`L1-L15`), and verified mathematical formula:
+  - **Line Coverage Visualizer**: Visual coverage gauge, executable statement counts (covered vs missed), exercised line ranges (e.g. `L1-L15`, only when the coverage report includes them; a percentage alone shows "line details not available"), and verified mathematical formula:
     $$\text{Line Coverage} = \frac{\text{Covered Executable Lines}}{\text{Total Executable Lines}} \times 100\%$$
   - **Mutation Testing Visualizer**: Fault injection score gauge, segmented progress bar (Killed: Emerald, Survived: Amber, Timeout: Red, Incompetent: Slate), operator classification (AOR, ROR, LCR, SDL, UOI), and interactive filterable mutants table with search and operator filters:
     $$\text{Mutation Score} = \frac{\text{Killed Mutants}}{\text{Total Mutants} - \text{Equivalent Mutants}} \times 100\%$$

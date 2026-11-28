@@ -107,8 +107,8 @@ function changeInput(element, value) {
 describe('ResultsDashboardPage integration (FR-RPT-001, FR-RPT-002, FR-RPT-003)', () => {
   it('renders title, breadcrumbs, progress overview, and history table', async () => {
     fetchMock.mockImplementation(async (url) => {
-      if (url.includes('/api/v1/projects/proj-123/executions')) {
-        return { ok: true, json: async () => mockRuns }
+      if (url.includes('/api/v1/projects/proj-123/reports/results')) {
+        return { ok: true, json: async () => ({ project_id: 'proj-123', total_runs: mockRuns.length, runs: mockRuns }) }
       }
       if (url.includes('/api/v1/projects/proj-123')) {
         return { ok: true, json: async () => mockProject }
@@ -129,8 +129,8 @@ describe('ResultsDashboardPage integration (FR-RPT-001, FR-RPT-002, FR-RPT-003)'
 
   it('filters runs by status when filter dropdown is changed', async () => {
     fetchMock.mockImplementation(async (url) => {
-      if (url.includes('/api/v1/projects/proj-123/executions')) {
-        return { ok: true, json: async () => mockRuns }
+      if (url.includes('/api/v1/projects/proj-123/reports/results')) {
+        return { ok: true, json: async () => ({ project_id: 'proj-123', total_runs: mockRuns.length, runs: mockRuns }) }
       }
       if (url.includes('/api/v1/projects/proj-123')) {
         return { ok: true, json: async () => mockProject }
@@ -158,8 +158,8 @@ describe('ResultsDashboardPage integration (FR-RPT-001, FR-RPT-002, FR-RPT-003)'
 
   it('filters runs when typing search query', async () => {
     fetchMock.mockImplementation(async (url) => {
-      if (url.includes('/api/v1/projects/proj-123/executions')) {
-        return { ok: true, json: async () => mockRuns }
+      if (url.includes('/api/v1/projects/proj-123/reports/results')) {
+        return { ok: true, json: async () => ({ project_id: 'proj-123', total_runs: mockRuns.length, runs: mockRuns }) }
       }
       if (url.includes('/api/v1/projects/proj-123')) {
         return { ok: true, json: async () => mockProject }
@@ -186,8 +186,8 @@ describe('ResultsDashboardPage integration (FR-RPT-001, FR-RPT-002, FR-RPT-003)'
 
   it('opens and closes drilldown inspection modal', async () => {
     fetchMock.mockImplementation(async (url) => {
-      if (url.includes('/api/v1/projects/proj-123/executions')) {
-        return { ok: true, json: async () => mockRuns }
+      if (url.includes('/api/v1/projects/proj-123/reports/results')) {
+        return { ok: true, json: async () => ({ project_id: 'proj-123', total_runs: mockRuns.length, runs: mockRuns }) }
       }
       if (url.includes('/api/v1/projects/proj-123')) {
         return { ok: true, json: async () => mockProject }
@@ -226,8 +226,8 @@ describe('ResultsDashboardPage integration (FR-RPT-001, FR-RPT-002, FR-RPT-003)'
 
   it('triggers CSV and JSON export and shows feedback toast', async () => {
     fetchMock.mockImplementation(async (url) => {
-      if (url.includes('/api/v1/projects/proj-123/executions')) {
-        return { ok: true, json: async () => mockRuns }
+      if (url.includes('/api/v1/projects/proj-123/reports/results')) {
+        return { ok: true, json: async () => ({ project_id: 'proj-123', total_runs: mockRuns.length, runs: mockRuns }) }
       }
       if (url.includes('/api/v1/projects/proj-123')) {
         return { ok: true, json: async () => mockProject }
@@ -277,8 +277,8 @@ describe('ResultsDashboardPage integration (FR-RPT-001, FR-RPT-002, FR-RPT-003)'
 
   it('switches between History and Strategy Comparison tabs and exports comparison CSV (FR-RPT-004/005)', async () => {
     fetchMock.mockImplementation(async (url) => {
-      if (url.includes('/api/v1/projects/proj-123/executions')) {
-        return { ok: true, json: async () => mockRuns }
+      if (url.includes('/api/v1/projects/proj-123/reports/results')) {
+        return { ok: true, json: async () => ({ project_id: 'proj-123', total_runs: mockRuns.length, runs: mockRuns }) }
       }
       if (url.includes('/api/v1/projects/proj-123')) {
         return { ok: true, json: async () => mockProject }
@@ -333,5 +333,52 @@ describe('ResultsDashboardPage integration (FR-RPT-001, FR-RPT-002, FR-RPT-003)'
 
     global.URL.createObjectURL = origCreate
     global.URL.revokeObjectURL = origRevoke
+  })
+})
+
+describe('ResultsDashboardPage data source (/reports/results)', () => {
+  const backendRun = {
+    id: 'run-1', project_id: 'proj-123', suite_name: 'Smoke frozen #1', source_name: 'source_rev_1.py',
+    dataset_name: 'dataset_rev_1.csv', function_name: 'add', provider: 'groq', model: 'llama-3.3-70b-versatile',
+    strategy: 'L2', status: 'FAILED', total_cases: 1, completed_cases: 1, passed_cases: 0, failed_cases: 1,
+    timeout_cases: 0, duration_ms: null, created_at: '2026-11-28T03:29:28',
+    metrics: { coverage: 'FAILED', line_coverage: 'FAILED', mutation_score: 'N/A', assertion_quality: 'FAILED',
+      assertion_score: 'FAILED', syntax_validity: 'FAILED', validity: 'FAILED' },
+    error_message: 'groq returned HTTP 401',
+  }
+
+  function mockBackend(resultsResponse) {
+    fetchMock.mockImplementation(async (url) => {
+      if (url.includes('/reports/results')) return resultsResponse()
+      if (url.includes('/executions')) throw new Error('must not read executions for results')
+      if (url.includes('/api/v1/projects/proj-123')) return { ok: true, json: async () => mockProject }
+      return { ok: true, json: async () => ({}) }
+    })
+  }
+
+  it('lists the generation runs from /reports/results with their metric states (not 0)', async () => {
+    mockBackend(() => ({ ok: true, json: async () => ({ project_id: 'proj-123', total_runs: 1, runs: [backendRun] }) }))
+    await renderPage()
+    await vi.waitFor(() => expect(container.textContent).toContain('Smoke frozen #1'))
+    expect(container.textContent).toContain('llama-3.3-70b-versatile')
+    expect(container.textContent).toContain('FAILED')
+    expect(container.textContent).toContain('N/A')
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/projects/proj-123/reports/results'))).toBe(true)
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/executions'))).toBe(false)
+  })
+
+  it('offers only models that actually ran (no placeholder model names)', async () => {
+    mockBackend(() => ({ ok: true, json: async () => ({ project_id: 'proj-123', total_runs: 0, runs: [] }) }))
+    await renderPage()
+    await vi.waitFor(() => expect(container.textContent).toContain('Results Dashboard & History'))
+    await vi.waitFor(() => expect(container.querySelector('[data-testid=results-loading-state]')).toBeNull())
+    for (const fake of ['GPT-4o', 'Claude 3.5 Sonnet', 'Gemini 1.5 Pro']) expect(container.textContent).not.toContain(fake)
+  })
+
+  it('shows an error instead of falling back to other data when results fail to load', async () => {
+    mockBackend(() => ({ ok: false, status: 503, json: async () => ({ detail: { code: 'SERVICE_UNAVAILABLE', message: 'down', fields: {} } }) }))
+    await renderPage()
+    await vi.waitFor(() => expect(container.querySelector('[data-testid=results-error-state]')).not.toBeNull())
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/executions'))).toBe(false)
   })
 })

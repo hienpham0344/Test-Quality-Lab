@@ -7,12 +7,8 @@ export function QualityEvaluationView({ execution, onInspectCase }) {
   if (!execution) return null
 
   const metrics = execution.metrics || {}
-  const lineDetails = execution.coverage_details || {
-    covered_lines: typeof metrics.coverage === 'number' ? Math.round((metrics.coverage / 100) * 24) : 0,
-    total_lines: 24,
-    covered_ranges: typeof metrics.coverage === 'number' && metrics.coverage > 0 ? ['L1-L15', 'L18-L24'] : [],
-    missed_ranges: typeof metrics.coverage === 'number' && metrics.coverage < 100 ? ['L16-L17'] : [],
-  }
+  // Line-level details only when the backend sent them; never derived or invented from the percentage.
+  const lineDetails = execution.coverage_details || null
 
   const mutationDetails = execution.mutation_details || {
     mutants: execution.mutants || [],

@@ -6,9 +6,11 @@ export function CoverageVisualizationCard({ coverage, lineDetails, sourceName, s
   const [showEquationInfo, setShowEquationInfo] = useState(false)
   const metric = formatMetricState(coverage, { isRate: true })
 
-  const coveredLines = lineDetails?.covered_lines ?? 0
-  const totalLines = lineDetails?.total_lines ?? 0
-  const missedLines = Math.max(0, totalLines - coveredLines)
+  // Line counts are shown only when the report included them; a percentage alone is never turned into lines.
+  const hasLineDetails = typeof lineDetails?.total_lines === 'number' && typeof lineDetails?.covered_lines === 'number'
+  const coveredLines = hasLineDetails ? lineDetails.covered_lines : null
+  const totalLines = hasLineDetails ? lineDetails.total_lines : null
+  const missedLines = hasLineDetails ? Math.max(0, totalLines - coveredLines) : null
   const lineRanges = lineDetails?.covered_ranges || []
   const missedRanges = lineDetails?.missed_ranges || []
 
@@ -72,7 +74,7 @@ export function CoverageVisualizationCard({ coverage, lineDetails, sourceName, s
           <div className="flex items-center justify-between text-xs">
             <span className="text-slate-300 font-medium">Executable Statement Coverage</span>
             <span className="font-mono text-cyan-300 font-semibold">
-              {coveredLines} / {totalLines} lines ({metric.text})
+              {hasLineDetails ? `${coveredLines} / ${totalLines} lines (${metric.text})` : `${metric.text} · line details not available`}
             </span>
           </div>
           <div className="h-3 w-full bg-slate-950 rounded-full overflow-hidden border border-slate-800 flex">
@@ -87,7 +89,7 @@ export function CoverageVisualizationCard({ coverage, lineDetails, sourceName, s
               style={{ width: `${Math.min(100, Math.max(0, numericPercent))}%` }}
               title={`Covered: ${numericPercent}%`}
             />
-            {missedLines > 0 && (
+            {numericPercent < 100 && (
               <div
                 className="bg-slate-800 h-full transition-all"
                 style={{ width: `${Math.max(0, 100 - numericPercent)}%` }}
@@ -114,19 +116,19 @@ export function CoverageVisualizationCard({ coverage, lineDetails, sourceName, s
         <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
           <span className="text-slate-400 text-[11px]">Target Source</span>
           <p className="font-mono text-white truncate font-medium pt-0.5">
-            {sourceName || 'solution_v1.py'}
+            {sourceName || 'Not recorded'}
           </p>
         </div>
         <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
           <span className="text-slate-400 text-[11px]">Covered Lines</span>
           <p className="font-mono text-emerald-400 font-semibold pt-0.5">
-            {isNumeric ? `${coveredLines} lines` : 'N/A'}
+            {isNumeric && hasLineDetails ? `${coveredLines} lines` : 'N/A'}
           </p>
         </div>
         <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
           <span className="text-slate-400 text-[11px]">Missed Lines</span>
           <p className="font-mono text-rose-400 font-semibold pt-0.5">
-            {isNumeric ? `${missedLines} lines` : 'N/A'}
+            {isNumeric && hasLineDetails ? `${missedLines} lines` : 'N/A'}
           </p>
         </div>
         <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-3">

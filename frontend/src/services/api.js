@@ -332,19 +332,14 @@ export function cancelExecution(accessToken, projectId, executionId, { reason } 
 }
 
 // --- UC-11 Results dashboard, history and filters (S7, FR-RPT-001/002/003) ---
+/**
+ * FR-RPT-001/002/003: every run of the project (generation outcome + evaluated metrics) with the summary.
+ * Metric values are numbers or the state strings 'N/A' | 'FAILED' | 'TIMEOUT' (never coerced to 0).
+ * Errors are thrown; there is no silent fallback to other data.
+ */
 export async function getProjectResults(accessToken, projectId, signal) {
-  try {
-    const data = await request(`/projects/${projectId}/reports/results`, { accessToken, signal })
-    if (data && Array.isArray(data.runs)) return data
-    if (Array.isArray(data)) return { runs: data }
-  } catch (err) {
-    if (err.status === 404) {
-      const fallbackList = await listExecutions(accessToken, projectId, signal)
-      return { runs: fallbackList }
-    }
-    throw err
-  }
-  const fallbackList = await listExecutions(accessToken, projectId, signal)
-  return { runs: fallbackList }
+  const data = await request(`/projects/${encodeURIComponent(projectId)}/reports/results`, { accessToken, signal })
+  if (!data || !Array.isArray(data.runs)) throw new Error('Invalid results response')
+  return data
 }
 
