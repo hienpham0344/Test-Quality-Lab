@@ -118,7 +118,7 @@ describe('project API calls', () => {
         vi.stubGlobal('fetch', fetchMock);
 
         const result = await listProjects(accessToken);
-        expect(result).toEqual(mockProjects);
+        expect(result).toEqual({ items: mockProjects, total: 1 });
         const [url, options] = fetchMock.mock.calls[0];
         expect(url).toMatch(/\/api\/v1\/projects$/);
         expect(options.headers.Authorization).toBe('Bearer valid-token');

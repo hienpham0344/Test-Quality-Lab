@@ -2,6 +2,13 @@
 
 The Reports feature delivers the Results Dashboard, History tracking, multi-dimensional Filters, Strategy Quality Comparison Charts, Scientific Comparability Engine, and Benchmark CSV Export for test generation and execution quality evaluation.
 
+## Data source
+
+`ResultsDashboardPage` loads `GET /api/v1/projects/{id}/reports/results` through `getProjectResults` (one row per
+generation run with its evaluated metrics, polled every 10 s). Metric values are numbers or the states `N/A`,
+`FAILED`, `TIMEOUT` and are never coerced to 0. A load error shows the error state; there is no fallback to the
+executions list and no placeholder rows or model names.
+
 ## Components & Modules
 
 - **`ResultsDashboardPage.jsx`**: Main page integrating tab navigation between History & Runs and Strategy Comparison & Analytics, campaign progress overview, filters/sorting bar, and results history table with full drilldown inspection modal.
@@ -24,7 +31,7 @@ The Reports feature delivers the Results Dashboard, History tracking, multi-dime
   - Instant text search across suite name, run ID, dataset, source file, model, and strategy
   - Status filter: `All`, `Completed`, `Active` (`Running`, `Queued`, `Pending`), `Failed / Timeout`, `Cancelled`
   - Prompt strategy filter: `L1: Zero-shot`, `L2: Few-shot`, `L3: Chain-of-thought`, `L4: Self-consistency`, `L5: Hybrid`
-  - LLM model filter: `GPT-4o`, `Claude 3.5 Sonnet`, `Gemini 1.5 Pro`, `Llama 3.3 70B`, etc.
+  - LLM model filter: only the models present in the loaded runs (empty when nothing has run yet)
   - Quality criteria filter: `All Quality Levels`, `100% Passing Only`, `Has Failures / Errors`, `High Coverage (≥ 80%)`
   - Sorting: Date, Pass Rate, Coverage, Mutation Score, Duration, Suite Name (Ascending / Descending)
   - Active filter badges with one-click dismiss and "Reset filters" action

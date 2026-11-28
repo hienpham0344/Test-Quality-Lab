@@ -296,3 +296,52 @@ def test_cross_tenant_and_foreign_source_references_return_404(exp_api) -> None:
     # Another user accessing owner's project experiments -> 404 NOT_FOUND.
     exp_api["state"]["user_id"] = exp_api["other_id"]
     assert client.get(f"/api/v1/projects/{project_id}/experiments").status_code == 404
+
+
+def test_project_experiment_list_summary_filters_and_paging(exp_api) -> None:
+    """#83 (FR-PRJ-003): status, run counts, status filter, created_at order, paging, X-Total-Count."""
+    client: TestClient = exp_api["client"]
+    project_id = exp_api["project_id"]
+    url = f"/api/v1/projects/{project_id}/experiments"
+    for name in ["First", "Second", "Third"]:
+        created = client.post(url, json={
+            "name": name,
+            "config": {
+                "source_id": str(exp_api["source_id"]),
+                "source_revision": 1,
+                "function_names": ["add"],
+                "models": [{"provider": "groq", "model": "llama-3.3-70b-versatile"}],
+                "strategies": ["L1"],
+            },
+        })
+        assert created.status_code == 201
+
+    listed = client.get(url)
+    assert listed.status_code == 200
+    assert listed.headers["X-Total-Count"] == "3"
+    first = listed.json()[0]
+    assert first["name"] == "Third"
+    assert (first["status"], first["runs_total"], first["runs_done"], first["runs_failed"]) == (
+        "DRAFT", 0, 0, 0,
+    )
+
+    page = client.get(url, params={"order": "asc", "limit": 1, "offset": 1})
+    assert [e["name"] for e in page.json()] == ["Second"]
+    assert page.headers["X-Total-Count"] == "3"
+    none_ready = client.get(url, params={"status": "READY"})
+    assert (none_ready.json(), none_ready.headers["X-Total-Count"]) == ([], "0")
+
+    projects = client.get("/api/v1/projects").json()
+    assert next(p["experiment_count"] for p in projects if p["id"] == str(project_id)) == 3
+
+    for params, field in [({"status": "DONE"}, "status"), ({"limit": 101}, "limit"),
+                          ({"offset": -1}, "offset"), ({"order": "up"}, "order")]:
+        bad = client.get(url, params=params)
+        assert bad.status_code == 422, params
+        assert bad.json()["detail"]["code"] == "INPUT_INVALID"
+        assert field in bad.json()["detail"]["fields"]
+
+    exp_api["state"]["user_id"] = exp_api["other_id"]
+    foreign = client.get(url)
+    assert foreign.status_code == 404
+    assert foreign.json()["detail"]["code"] == "NOT_FOUND"

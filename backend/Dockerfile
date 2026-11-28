@@ -9,4 +9,5 @@ COPY backend/alembic.ini /app/alembic.ini
 RUN groupadd --gid 10001 app && useradd --uid 10001 --gid 10001 --no-create-home app && mkdir -p /app/artifacts && chown -R app:app /app
 USER app
 EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Apply pending migrations, then serve. A failed migration stops the container (no stale-schema API).
+CMD ["sh", "-c", "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8000"]

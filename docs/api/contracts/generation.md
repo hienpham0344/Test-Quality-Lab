@@ -37,26 +37,57 @@ Untrusted Python execution remains strictly disabled: generated `.py` test candi
 
 - **Idempotent retries**: Skips runs already in terminal states (`COMPLETED`, `CANCELLED`, `FAILED`, `TIMEOUT`) and re-checks job `CANCELLED` state before every run.
 - **Frozen snapshot rendering**: Renders prompts strictly from `snapshot.frozen_prompts`, `snapshot.frozen_functions`, `snapshot.frozen_code`, and `snapshot.frozen_rows`.
-- **Error classification**:
-  - HTTP `429`, `502`, `503`, `504` and transient transport errors retry up to `max_attempts`, resetting the in-flight run to `QUEUED` with sanitized `error_info` until retries are exhausted (`FAILED`).
-  - Upstream timeouts transition the run to `TIMEOUT` (`PROVIDER_TIMEOUT`).
-  - Permanent auth/input/upstream errors (e.g., `400`, `401`, `403`) transition the run to `FAILED` with all reflected keys or headers scrubbed to `[REDACTED]`.
+- **Error classification (FR-AIC-004, FR-GEN-005, #41)** — every failed run stores `error_info = {stage, code, message, occurred_at}` (secrets scrubbed to `[REDACTED]`); completed runs are never removed or changed:
+
+  | Provider result | `code` | Run status | Retry | Pauses unsent runs of the provider |
+  |---|---|---|---|---|
+  | `401` / `403` | `PROVIDER_AUTH_FAILED` | `FAILED` | no | no |
+  | `402`, or `429` whose body names a quota/billing/credit limit | `PROVIDER_QUOTA_EXHAUSTED` | `FAILED` | no | **yes** |
+  | other `429` | `PROVIDER_RATE_LIMITED` | `QUEUED` while retrying, then `FAILED` | yes, after `Retry-After` (1–300 s, default 5 s) | **yes**, once retries are exhausted |
+  | `5xx`, connection errors | `PROVIDER_UNAVAILABLE` | `QUEUED` while retrying, then `FAILED` | yes | no |
+  | other `4xx` | `PROVIDER_BAD_REQUEST` | `FAILED` | no | no |
+  | timeout | `PROVIDER_TIMEOUT` | `TIMEOUT` | no | no |
+  | malformed/unknown | `UNKNOWN_PROVIDER_ERROR` | `FAILED` (never `COMPLETED`) | no | no |
+  | missing key / prompt / artifact path | `CREDENTIAL_MISSING`, `PROMPT_NOT_APPROVED`, `INPUT_INVALID`, `ACCESS_DENIED` (stage `credential` / `prompt` / `artifact`) | `FAILED` | no | no |
+
+- **Provider pause** — when a run pauses its provider, every still-unsent (`QUEUED`, `attempt_count = 0`) run of the same provider in the job becomes `FAILED` with `code: PROVIDER_PAUSED` and is never sent. The job records `error_summary = {code, provider, first_failed_run_id, first_failed_ordinal, unsent_runs, retry_after_seconds, occurred_at}` (shown in `jobs[].error_summary`). The job ends `FAILED` because not every run completed.
+
+## Raw response, parsing and validation (FR-GEN-002/003/004, #39, #40)
+
+- **Raw response**: a successful provider call stores the original text unchanged except secret redaction (`generated_code`), plus `response_metadata`: `provider`, `model_requested`, `model_returned`, `finish_reason`, `truncated`, `usage {prompt_tokens, completion_tokens, total_tokens}`, `latency_ms`, frozen `parameters`, `system_prompt_sha256`, `user_prompt_sha256`, `response_sha256`, `response_chars`, `received_at`. No keys, headers or prompts in clear text. Failed calls store no response (never a fake one).
+- **Parsing (schema `pytest-module/v1`)**: Python is taken from ```` ```python ```` fences, other fences, or the whole text when it already parses. No code at all (or more than 200 000 characters) → run `FAILED`, `error.stage = "parse"`, `code = ARTIFACT_INVALID`, raw response kept, no artifact file.
+- **Validation stages** (`validation.stages`, kept separate, never merged): `generated`, `parsed`, `syntax_valid`, `structure_valid` (non-empty `test_*` functions), `target_linked` (calls the target function), `collected`, `executable`. Values: `PASSED`, `FAILED`, `SKIPPED` (an earlier stage failed) or `NOT_VERIFIED`. `collected` uses **static** discovery with pytest's default rules (`collection_mode: "static-ast"`, `collected_tests`), because importing generated code would execute it. `executable` stays `NOT_VERIFIED` until the sandbox runner (FR-EXE) runs the artifact.
+- A run whose code parses but fails a later stage stays `COMPLETED` (= Generated) with `validation.eligible = false`, `failed_stage` and `reason`; only `eligible` artifacts go to the runner. The artifact file (`artifact_relpath`, `artifact_sha256`) holds the parsed module, not the raw response.
+- Dashboard runs add `artifact_eligible` (`true`/`false`, `null` before checking) and `validation_failed_stage`.
 
 The frontend retries an uncertain start using the same request ID. It
 does not synthesize runs or infer approval from a browser draft.
 `401` expires the session. `403`, `404`, `409`, and `422` refresh
 eligibility and display the server rejection.
 
-## Read artifacts (UC-09)
+## Read artifacts (UC-09, #39)
 
-Proposed `GET /api/v1/projects/{project_id}/generation/runs/{run_id}/artifacts`.
-The server must verify ownership of the project and membership of the run
-in that project before returning any content. A successful response returns
-both fields: `raw_response` (model response text) and `parsed_test` (extracted
-Python test source). Each field is a string or `null` when unavailable. For
-a parse failure, return the available raw response with `parsed_test: null`.
+`GET /api/v1/projects/{project_id}/generation/runs/{run_id}/artifacts` → `200` with `Cache-Control: no-store`:
 
-A known run with no artifacts yet can return both fields as `null`. Return
-`401` for an expired session, `403` for denied access, and `404` for a missing
-run. Responses must exclude credentials and use `Cache-Control: no-store`.
-The viewer renders both artifacts as text. FastAPI integration is pending.
+```json
+{
+  "run_id": "uuid", "job_id": "uuid", "status": "COMPLETED",
+  "raw_response": "```python
+from module import divide
+...```",
+  "parsed_test": "from module import divide
+
+def test_divide():
+    assert divide(6, 2) == 3.0
+",
+  "response_metadata": { "model_returned": "llama-3.3-70b-versatile", "finish_reason": "stop", "usage": { "total_tokens": 64 }, "...": "..." },
+  "validation": { "schema_version": "pytest-module/v1", "collection_mode": "static-ast", "eligible": true, "failed_stage": null,
+                  "stages": { "generated": "PASSED", "parsed": "PASSED", "syntax_valid": "PASSED", "structure_valid": "PASSED",
+                              "target_linked": "PASSED", "collected": "PASSED", "executable": "NOT_VERIFIED" },
+                  "collected_tests": ["test_divide"], "reason": null, "extracted_from_fence": true },
+  "artifact_sha256": "64 hex", "error": null
+}
+```
+
+The server checks project ownership and that the run belongs to the project. Queued runs and failed provider calls return `raw_response: null` and `parsed_test: null`. A parse failure returns the raw response with `parsed_test: null` and `error.stage = "parse"`.
+Errors: `401` expired session; `404 NOT_FOUND` for a missing run, another project's run or another user's project (no `403`, SRS §3.14). Credentials never appear.

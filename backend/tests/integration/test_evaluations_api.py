@@ -231,7 +231,7 @@ def test_evaluate_and_get_run_persists_static_and_verified_runtime_metrics(eval_
     fetched = client.get(f"/api/v1/projects/{project_id}/evaluations/runs/{run_id}")
     assert fetched.status_code == 200
     fetched_body = fetched.json()
-    assert len(fetched_body["metric_records"]) == 4
+    assert len(fetched_body["metric_records"]) == 5  # + branch_coverage (#53)
     fetched_metrics = {m["metric_name"]: m for m in fetched_body["metric_records"]}
     assert fetched_metrics["mutation_score"]["numeric_value"] == 0.0
     assert fetched_body["mutation_details"]["summary"]["survived"] == 1

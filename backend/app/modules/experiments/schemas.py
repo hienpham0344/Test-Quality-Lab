@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -70,6 +71,32 @@ class ExperimentOutput(BaseModel):
     latest_snapshot_number: int
     created_at: datetime
     updated_at: datetime
+
+
+class ExperimentStatus(StrEnum):
+    """Derived experiment status (FR-PRJ-003 summary, FR-EXP-006); never stored."""
+
+    DRAFT = "DRAFT"  # no frozen snapshot yet
+    READY = "READY"  # frozen, no generation job started
+    QUEUED = "QUEUED"
+    RUNNING = "RUNNING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
+
+
+class ExperimentSortOrder(StrEnum):
+    ASC = "asc"
+    DESC = "desc"
+
+
+class ExperimentListItem(ExperimentOutput):
+    """One row of `GET /projects/{id}/experiments` (#83)."""
+
+    status: ExperimentStatus
+    runs_total: int
+    runs_done: int
+    runs_failed: int
 
 
 class SnapshotRunOutput(BaseModel):

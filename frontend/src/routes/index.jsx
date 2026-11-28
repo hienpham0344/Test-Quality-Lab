@@ -27,7 +27,7 @@ function WorkspaceRedirect() {
   return <Navigate replace to={canReturn ? { pathname: target.pathname, search } : '/workspace'} />
 }
 
-export default function AppRoutes({ session, expired, logoutNotice, signingOut, onSignIn, onSignOut, onExpire }) {
+export default function AppRoutes({ session, expired, logoutNotice, signingOut, onSignIn, onSignOut, onExpire, onRefresh }) {
   return (
     <Routes>
       <Route element={<MainLayout signedIn={Boolean(session)} signingOut={signingOut} onSignOut={onSignOut} />}>
@@ -36,7 +36,7 @@ export default function AppRoutes({ session, expired, logoutNotice, signingOut, 
       <Route element={<RequireSession session={session} expired={expired} logoutNotice={logoutNotice} signingOut={signingOut} />}>
         <Route element={<WorkspaceLayout session={session} signingOut={signingOut} onSignOut={onSignOut} />}>
           <Route path="/workspace" element={<WorkspaceOverviewPage />} />
-          <Route path="/projects" element={<ProjectsPage session={session} onExpire={onExpire} />} />
+          <Route path="/projects" element={<ProjectsPage session={session} onExpire={onExpire} onRefresh={onRefresh} />} />
           <Route path="/projects/:projectId/sources/new" element={<PythonSourcePage session={session} onExpire={onExpire} />} />
           <Route path="/projects/:projectId/ai-config" element={<ProviderConfigurationPage />} />
           <Route path="/projects/:projectId/experiments/new" element={<ExperimentSetupPage session={session} onExpire={onExpire} />} />
@@ -44,8 +44,8 @@ export default function AppRoutes({ session, expired, logoutNotice, signingOut, 
           <Route path="/projects/:projectId/generation" element={<GenerationProgressPage session={session} onExpire={onExpire} />} />
           <Route path="/projects/:projectId/results" element={<ResultsDashboardPage session={session} onExpire={onExpire} />} />
           <Route path="/projects/:projectId/reports" element={<ResultsDashboardPage session={session} onExpire={onExpire} />} />
-          <Route path="/projects/new" element={<ProjectEditorPage session={session} onExpire={onExpire} mode="create" />} />
-          <Route path="/projects/:projectId" element={<ProjectEditorPage session={session} onExpire={onExpire} mode="edit" />} />
+          <Route path="/projects/new" element={<ProjectEditorPage session={session} onExpire={onExpire} onRefresh={onRefresh} mode="create" />} />
+          <Route path="/projects/:projectId" element={<ProjectEditorPage session={session} onExpire={onExpire} onRefresh={onRefresh} mode="edit" />} />
         </Route>
       </Route>
       <Route element={<LoginLayout />}>

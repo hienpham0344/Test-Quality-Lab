@@ -75,7 +75,7 @@ class TestDynamicMetricFailClosedEligibility:
 
     def test_static_and_dynamic_metric_partition_is_disjoint_and_complete(self) -> None:
         assert DYNAMIC_RUNTIME_METRICS == frozenset(
-            {MetricName.LINE_COVERAGE, MetricName.MUTATION_SCORE}
+            {MetricName.LINE_COVERAGE, MetricName.BRANCH_COVERAGE, MetricName.MUTATION_SCORE}
         )
         assert STATIC_METRICS == frozenset(
             {
@@ -88,7 +88,7 @@ class TestDynamicMetricFailClosedEligibility:
 
     @pytest.mark.parametrize(
         "dynamic_metric",
-        [MetricName.LINE_COVERAGE, MetricName.MUTATION_SCORE],
+        [MetricName.LINE_COVERAGE, MetricName.BRANCH_COVERAGE, MetricName.MUTATION_SCORE],
     )
     def test_dynamic_metrics_fail_closed_by_default_when_sandbox_not_approved(
         self, dynamic_metric: MetricName

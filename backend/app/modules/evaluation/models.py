@@ -24,7 +24,8 @@ from app.infrastructure.database.base import Base
 class MetricName(StrEnum):
     SYNTAX_VALIDITY = "syntax_validity"
     GENERATION_SUCCESS = "generation_success"
-    LINE_COVERAGE = "line_coverage"
+    LINE_COVERAGE = "line_coverage"  # statement coverage (coverage.py "lines")
+    BRANCH_COVERAGE = "branch_coverage"
     MUTATION_SCORE = "mutation_score"
     ASSERTION_QUALITY = "assertion_quality"
 
@@ -62,6 +63,8 @@ class MetricRecord(Base):
     reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
     source_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     details: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    # NFR-REP-001 (#57): formula, tool name/version, parameters and input hashes. Nullable for old rows.
+    provenance: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     evaluated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
 
 

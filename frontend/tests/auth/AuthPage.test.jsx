@@ -190,6 +190,31 @@ describe('protected routing and session UX', () => {
     expect(fetchMock.mock.calls.some(([url]) => url.endsWith('/auth/login'))).toBe(false)
   })
 
+  it('refreshes an expired access token once and keeps the refresh token out of storage (#87)', async () => {
+    let projectCalls = 0
+    fetchMock.mockImplementation(async (url, request) => {
+      if (url.endsWith('/auth/login')) return Response.json({ access_token: accessToken, refresh_token: 'refresh-1' })
+      if (url.endsWith('/auth/refresh')) {
+        expect(JSON.parse(request.body)).toEqual({ token: 'refresh-1' })
+        return Response.json({ access_token: 'access-2', refresh_token: 'refresh-2' })
+      }
+      if (url.endsWith('/projects')) {
+        projectCalls += 1
+        return request.headers.Authorization === 'Bearer access-2'
+          ? Response.json([{ id: 'project-1', name: 'Private workspace' }])
+          : new Response(null, { status: 401 })
+      }
+      throw new Error('Unexpected request')
+    })
+    await open('/projects')
+    await submit(credentials)
+    await vi.waitFor(() => expect(container.textContent).toContain('Private workspace'))
+    expect(projectCalls).toBe(2)
+    expect(fetchMock.mock.calls.filter(([url]) => url.endsWith('/auth/refresh'))).toHaveLength(1)
+    expect(JSON.stringify({ ...sessionStorage })).not.toContain('refresh-')
+    expect(JSON.stringify({ ...localStorage })).not.toContain('refresh-')
+  })
+
   it('clears private content and prompts for sign-in after session rejection', async () => {
     let rejected = false
     mockSession({ projects: () => rejected

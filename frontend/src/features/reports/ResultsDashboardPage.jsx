@@ -12,7 +12,7 @@ import {
   TrendingUp,
   X,
 } from 'lucide-react'
-import { AuthApiError, getProject, listExecutions } from '../../services/api'
+import { AuthApiError, getProject, getProjectResults } from '../../services/api'
 import {
   assessComparability,
   computeStrategyComparison,
@@ -81,10 +81,10 @@ export function ResultsDashboardPage({ session, onExpire }) {
     gcTime: 0,
   })
 
-  // Query Executions / Results (FR-RPT-001)
+  // Query project results (FR-RPT-001/002/003): every generation run with its evaluated metrics.
   const resultsQuery = useQuery({
-    queryKey: ['private', 'executions', projectId],
-    queryFn: ({ signal }) => listExecutions(session?.accessToken, projectId, signal),
+    queryKey: ['private', 'report-results', projectId],
+    queryFn: ({ signal }) => getProjectResults(session?.accessToken, projectId, signal),
     enabled: Boolean(session?.accessToken && projectId),
     retry: false,
     gcTime: 0,
@@ -102,20 +102,14 @@ export function ResultsDashboardPage({ session, onExpire }) {
     }
   }, [projectQuery.error, resultsQuery.error, onExpire, session])
 
-  const runs = resultsQuery.data || []
+  const runs = useMemo(() => resultsQuery.data?.runs ?? [], [resultsQuery.data])
   const projectName = projectQuery.data?.name || 'Project'
 
-  // Collect distinct models present in runs for filter dropdown
+  // Filter options come only from models that actually ran (no placeholder model names).
   const availableModels = useMemo(() => {
     const set = new Set()
     for (const r of runs) {
       if (r.model) set.add(r.model)
-    }
-    // Also include common models if none yet
-    if (set.size === 0) {
-      set.add('GPT-4o')
-      set.add('Claude 3.5 Sonnet')
-      set.add('Gemini 1.5 Pro')
     }
     return Array.from(set).sort()
   }, [runs])

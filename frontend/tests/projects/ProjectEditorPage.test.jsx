@@ -292,6 +292,30 @@ describe('ProjectEditorPage', () => {
     })
   })
 
+  it('shows server field errors beside the input and keeps the edits after a 422 (#87)', async () => {
+    fetchMock.mockImplementation(async (url, options) => {
+      if (options?.method === 'PATCH') {
+        return new Response(JSON.stringify({ detail: {
+          code: 'INPUT_INVALID',
+          message: 'Project name is not allowed',
+          fields: { name: 'Project name is not allowed' },
+        } }), { status: 422 })
+      }
+      return { ok: true, json: async () => mockProject }
+    })
+    await renderEditor('/projects/p-1')
+    await vi.waitFor(() => expect(container.querySelector('#edit-project-name').value).toBe('LLM Evaluator'))
+    const nameInput = container.querySelector('#edit-project-name')
+    await act(async () => setInputValue(nameInput, 'Server rejects this'))
+    await act(async () => {
+      container.querySelector('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    })
+    await vi.waitFor(() => expect(container.querySelector('#edit-project-name-error')?.textContent).toBe('Project name is not allowed'))
+    expect(nameInput.getAttribute('aria-invalid')).toBe('true')
+    expect(nameInput.getAttribute('aria-describedby')).toBe('edit-project-name-error')
+    expect(nameInput.value).toBe('Server rejects this')
+  })
+
   it('resets dirty form inputs on Reset click', async () => {
     fetchMock.mockImplementation(async (url) => {
       if (url.endsWith('/history')) return { ok: true, json: async () => mockHistory }

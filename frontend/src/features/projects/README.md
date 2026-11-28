@@ -31,10 +31,23 @@ Project management views and editor screens for Sprint 1 (FR-PRJ-001 / FR-PRJ-00
 - `ProjectCreateModal.jsx`: Native modal dialog with a live trimmed-name count, keyboard focus containment, Escape dismissal, and focus restoration.
 - `ProjectHistoryList.jsx`: Read-only History tab in Edit project. Revisions appear newest first, five per page. Inclusive date filters use the browser time zone. Changed markers compare each field with the preceding revision before filtering or pagination.
 
-## API Integration (`src/services/api.js`)
+## API Integration (`src/services/api.js`, #87)
 
-- `listProjects(accessToken, signal)`: Fetches owner-scoped projects.
-- `getProject(accessToken, projectId, signal)`: Retrieves project details.
-- `createProject(accessToken, { name, description }, signal)`: Creates a new project with trimmed fields.
-- `updateProject(accessToken, projectId, { name, description }, signal)`: Updates metadata and increments revision.
-- `getProjectHistory(accessToken, projectId, signal)`: Retrieves immutable project revision history.
+All functions go through `request()`, so failures are always `ApiError(status, code, fields, message)`
+with the SRS §3.15 body (`docs/api/contracts/projects.md`).
+
+- `listProjects(accessToken, { q, sort, order, limit, offset }, signal)` → `{ items, total }`. Empty params are omitted; `total` comes from `X-Total-Count`.
+- `listAllProjects(accessToken, { q, sort, order }, signal)` → every owned project, fetched in pages of 100 (API maximum). The dashboard uses it because its summary tiles count all projects.
+- `getProject(accessToken, projectId, signal)`, `createProject(accessToken, { name, description }, signal)`, `updateProject(accessToken, projectId, { name, description }, signal)`.
+- `getProjectHistory(accessToken, projectId, { from, to, limit, offset }, signal)`.
+- `withSessionRefresh(session, onRefresh, call)`: on `401` asks `onRefresh` once for a new session and retries; a second `401` reaches the page, which calls `onExpire`.
+  `App.jsx` keeps the refresh token **in memory only** (sessionStorage stores just the access token); concurrent 401s share one `/auth/refresh` call.
+
+## Query hooks (`queries.js`) and messages (`messages.js`)
+
+- `projectKeys`: `all()` (full list), `page(params)`, `detail(id)`, `history(id, params)`, `historyAll(id)`.
+- `useAllProjects(auth)`, `useProjects(auth, params)` (`{ items, total }`), `useProject(auth, id)`, `useProjectHistory(auth, id, params)`,
+  `useCreateProject(auth)`, `useUpdateProject(auth, id)`. `auth = { session, onRefresh }`. Mutations update the detail cache and invalidate the list, detail and history keys.
+- `projectErrorMessage(error)` / `projectErrorKey(error)` map by status + code (`INPUT_INVALID`, `NOT_FOUND`, `AUTH_SESSION_INVALID`, `SERVICE_UNAVAILABLE`, network). `projectFieldErrors(error)` returns `fields` for inline errors (`aria-invalid` + `aria-describedby`).
+
+Tests: `tests/projects/projectsApiClient.test.jsx`, `src/services/api.test.js`, `tests/auth/AuthPage.test.jsx` (refresh flow), `tests/projects/ProjectEditorPage.test.jsx` (server field errors).

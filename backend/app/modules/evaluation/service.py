@@ -12,6 +12,11 @@ from app.core.exceptions import AppError, ErrorCode
 from app.core.logging import redact_secrets
 from app.modules.audit.service import AuditAction, AuditService
 from app.modules.evaluation.assertions import score_assertion_quality
+from app.modules.evaluation.coverage import (
+    CoverageMeasurement,
+    parse_coverage_report,
+    score_branch_coverage,
+)
 from app.modules.evaluation.eligibility import (
     CoverageTracePayload,
     MetricOutcome,
@@ -21,6 +26,7 @@ from app.modules.evaluation.eligibility import (
 )
 from app.modules.evaluation.models import AssertionReview, MetricName, MetricRecord, RubricLabel
 from app.modules.evaluation.mutation import parse_mutmut_report, score_mutation_results
+from app.modules.evaluation.provenance import build_provenance
 from app.modules.evaluation.repository import EvaluationRepository
 from app.modules.evaluation.schemas import (
     AssertionDetailsOutput,
@@ -44,6 +50,7 @@ _PER_RUN_METRIC_ORDER: tuple[MetricName, ...] = (
     MetricName.SYNTAX_VALIDITY,
     MetricName.ASSERTION_QUALITY,
     MetricName.LINE_COVERAGE,
+    MetricName.BRANCH_COVERAGE,
     MetricName.MUTATION_SCORE,
 )
 _TERMINAL_STATES: frozenset[str] = frozenset(
@@ -144,6 +151,7 @@ class EvaluationService:
             reason=record.reason,
             source_sha256=record.source_sha256,
             details=dict(record.details),
+            provenance=record.provenance,
             evaluated_at=record.evaluated_at,
         )
 
@@ -206,7 +214,14 @@ class EvaluationService:
         cov_rec = by_name.get(MetricName.LINE_COVERAGE.value)
         coverage_details: CoverageDetailsOutput | None = None
         if cov_rec is not None and cov_rec.details and "total_lines" in cov_rec.details:
-            coverage_details = CoverageDetailsOutput.model_validate(cov_rec.details)
+            branch_rec = by_name.get(MetricName.BRANCH_COVERAGE.value)
+            branch = branch_rec.details if branch_rec is not None and branch_rec.details else {}
+            coverage_details = CoverageDetailsOutput.model_validate({
+                **cov_rec.details,
+                "covered_branches": branch.get("covered_branches"),
+                "total_branches": branch.get("total_branches"),
+                "missing_arcs": branch.get("missing_arcs", []),
+            })
 
         return RunEvaluationOutput(
             project_id=project_id,
@@ -233,6 +248,7 @@ class EvaluationService:
         failure_reason: str | None,
         coverage_payload: CoverageTracePayload | None,
         mutation_payload: dict[str, Any] | None,
+        coverage_measurement: CoverageMeasurement | None = None,
     ) -> list[MetricRecord]:
         try:
             syntax_outcome = score_syntax_validity(
@@ -248,7 +264,13 @@ class EvaluationService:
             )
             coverage_outcome = score_line_coverage(
                 run_status,
-                coverage_payload,
+                coverage_measurement.statements if coverage_measurement is not None else coverage_payload,
+                execution_enabled=False,
+                failure_reason=failure_reason,
+            )
+            branch_outcome = score_branch_coverage(
+                run_status,
+                coverage_measurement,
                 execution_enabled=False,
                 failure_reason=failure_reason,
             )
@@ -269,8 +291,28 @@ class EvaluationService:
             syntax_outcome,
             assertion_outcome,
             coverage_outcome,
+            branch_outcome,
             mutation_outcome,
         )
+        coverage_version = coverage_measurement.tool_version if coverage_measurement is not None else None
+        tool_versions = {
+            MetricName.LINE_COVERAGE: coverage_version,
+            MetricName.BRANCH_COVERAGE: coverage_version,
+            MetricName.MUTATION_SCORE: (mutation_payload or {}).get("tool_version"),
+        }
+        parameters: dict[MetricName, dict[str, Any]] = {
+            MetricName.SYNTAX_VALIDITY: {"target_function": target_function},
+            MetricName.LINE_COVERAGE: {
+                "report": "coverage-json" if coverage_measurement is not None else
+                ("coverage-trace" if coverage_payload is not None else None),
+                "target_file": coverage_measurement.target_file if coverage_measurement is not None else None,
+            },
+            MetricName.BRANCH_COVERAGE: {
+                "report": "coverage-json" if coverage_measurement is not None else None,
+                "branch": bool(coverage_measurement and coverage_measurement.branches is not None),
+            },
+            MetricName.MUTATION_SCORE: {"report": "mutmut" if mutation_payload is not None else None},
+        }
         persisted: list[MetricRecord] = []
         for outcome in outcomes:
             rec = self.repo.upsert_metric_record(
@@ -280,6 +322,16 @@ class EvaluationService:
                 outcome=outcome,
                 source_sha256=source_sha256,
                 evaluated_at=now,
+                provenance=build_provenance(
+                    outcome.metric_name,
+                    run_id=run_id,
+                    snapshot_id=snapshot_id,
+                    source_sha256=source_sha256,
+                    generated_code=generated_code,
+                    evaluated_at=now,
+                    runtime_tool_version=tool_versions.get(outcome.metric_name),
+                    parameters=parameters.get(outcome.metric_name),
+                ),
             )
             persisted.append(rec)
         return persisted
@@ -352,6 +404,16 @@ class EvaluationService:
             if req.mutation_report is not None
             else None
         )
+        coverage_measurement: CoverageMeasurement | None = None
+        if req.coverage_report is not None:
+            try:
+                coverage_measurement = parse_coverage_report(
+                    req.coverage_report, runner_status=req.coverage_runner_status
+                )
+            except ValueError as exc:
+                raise AppError(
+                    ErrorCode.INPUT_INVALID, "Invalid coverage report", {"coverage_report": str(exc)}
+                ) from exc
 
         records = self._compute_and_persist_run_metrics(
             project_id=project_id,
@@ -364,6 +426,7 @@ class EvaluationService:
             failure_reason=effective_failure_reason,
             coverage_payload=coverage_payload,
             mutation_payload=mutation_payload,
+            coverage_measurement=coverage_measurement,
         )
         self.db.commit()
         return self._build_run_output(project_id, run_id, records)
@@ -456,13 +519,23 @@ class EvaluationService:
             evaluated_runs=evaluated_runs,
             total_planned_runs=total_planned_runs,
         )
+        evaluated_at = utcnow()
         persisted = self.repo.upsert_metric_record(
             project_id=project_id,
             snapshot_id=snapshot.id,
             run_id=snapshot.id,
             outcome=outcome,
             source_sha256=snapshot.source_sha256,
-            evaluated_at=utcnow(),
+            evaluated_at=evaluated_at,
+            provenance=build_provenance(
+                MetricName.GENERATION_SUCCESS,
+                run_id=snapshot.id,
+                snapshot_id=snapshot.id,
+                source_sha256=snapshot.source_sha256,
+                generated_code=None,
+                evaluated_at=evaluated_at,
+                parameters={"snapshot_sha256": snapshot.snapshot_sha256, "planned_runs": snapshot.run_count},
+            ),
         )
         self.db.commit()
 

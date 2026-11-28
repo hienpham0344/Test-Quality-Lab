@@ -17,6 +17,7 @@ from app.infrastructure.llm.base import (
     LLMRequest,
     LLMResponse,
     LLMUsage,
+    ProviderHTTPError,
     ProviderId,
     require_non_empty_secret,
     validate_model_id,
@@ -41,6 +42,7 @@ class MockHTTPError:
     status_code: int
     body: str = "Upstream provider failure"
     reflect_api_key: bool = False
+    retry_after: float | None = None
 
 
 @dataclass(frozen=True)
@@ -123,9 +125,10 @@ class MockLLMAdapter:
                 f"{outcome.body} {raw_secret}".strip() if outcome.reflect_api_key else outcome.body
             )
             safe_body = redact_secrets(raw_body[:500], extra_secrets=[raw_secret])
-            raise AppError(
-                ErrorCode.PROVIDER_UPSTREAM_ERROR,
+            raise ProviderHTTPError(
                 f"{self._provider_id.value} returned HTTP {outcome.status_code}: {safe_body}",
+                status_code=outcome.status_code,
+                retry_after=outcome.retry_after,
             )
 
         if outcome.on_call is not None:

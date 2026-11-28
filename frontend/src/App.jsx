@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AppRoutes from './routes'
-import { AuthApiError, logout } from './services/api'
+import { AuthApiError, logout, refreshSession } from './services/api'
 
 const SESSION_KEY = 'test-quality-lab:access-token'
 
@@ -28,6 +28,7 @@ export function App() {
   const activeSession = useRef(auth.session)
   const [signingOut, setSigningOut] = useState(false)
   const logoutInProgress = useRef(false)
+  const refreshInFlight = useRef(null)
   const navigate = useNavigate()
 
   function signIn(session) {
@@ -41,6 +42,26 @@ export function App() {
     activeSession.current = null
     saveSession(null)
     setAuth({ session: null, expired: true })
+  }, [])
+
+  /** Exchanges the in-memory refresh token once for a new pair; concurrent 401s share one request. */
+  const refresh = useCallback((staleSession) => {
+    const current = activeSession.current
+    if (!current || !current.refreshToken) return Promise.resolve(null)
+    if (staleSession && current !== staleSession) return Promise.resolve(current)
+    if (refreshInFlight.current) return refreshInFlight.current
+    refreshInFlight.current = refreshSession(current.refreshToken)
+      .then((result) => {
+        if (activeSession.current !== current || typeof result?.access_token !== 'string') return null
+        const next = { accessToken: result.access_token, refreshToken: result.refresh_token }
+        activeSession.current = next
+        saveSession(next)
+        setAuth({ session: next, expired: false })
+        return next
+      })
+      .catch(() => null)
+      .finally(() => { refreshInFlight.current = null })
+    return refreshInFlight.current
   }, [])
 
   async function signOut() {
@@ -68,7 +89,7 @@ export function App() {
     }
   }
 
-  return <AppRoutes {...auth} signingOut={signingOut} onSignIn={signIn} onSignOut={signOut} onExpire={expire} />
+  return <AppRoutes {...auth} signingOut={signingOut} onSignIn={signIn} onSignOut={signOut} onExpire={expire} onRefresh={refresh} />
 }
 
 export default App

@@ -15,6 +15,7 @@ app.add_middleware(
     allow_credentials=False,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
     allow_headers=["Content-Type", "Authorization"],
+    expose_headers=["X-Total-Count"],
 )
 register_error_handlers(app)
 app.include_router(api_router, prefix="/api/v1")

@@ -64,6 +64,13 @@ export const STATUS_DEFINITIONS = {
     dotClass: 'bg-red-400',
     cancellable: false,
   },
+  BLOCKED: {
+    label: 'Blocked',
+    description: 'Sandbox execution is disabled until the security review passes. Nothing was run.',
+    badgeClass: 'bg-slate-800/80 text-slate-200 border-slate-600',
+    dotClass: 'bg-slate-400',
+    cancellable: false,
+  },
 }
 
 export const MUTANT_STATUS_DEFINITIONS = {

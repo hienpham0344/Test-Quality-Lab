@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, Response
 from sqlalchemy.orm import Session
 
 from app.core.security import CredentialVault
@@ -12,6 +12,7 @@ from app.modules.ai_config.dependencies import get_vault
 from app.modules.auth.dependencies import current_user
 from app.modules.auth.models import User
 from app.modules.generation.schemas import (
+    GenerationArtifactsOutput,
     GenerationCancelInput,
     GenerationDashboardOutput,
     GenerationJobOutput,
@@ -63,3 +64,17 @@ def cancel_generation_job(
 ) -> GenerationJobOutput:
     reason = payload.reason if payload is not None else None
     return GenerationService(db, vault=vault).cancel_job(user.id, project_id, job_id, reason)
+
+
+@router.get("/runs/{run_id}/artifacts", response_model=GenerationArtifactsOutput)
+def get_generation_run_artifacts(
+    project_id: uuid.UUID,
+    run_id: uuid.UUID,
+    response: Response,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+    vault: CredentialVault = Depends(get_vault),
+) -> GenerationArtifactsOutput:
+    """FR-GEN-002/003/004 (#39, #40): raw response, parsed test, metadata and validation stages."""
+    response.headers["Cache-Control"] = "no-store"
+    return GenerationService(db, vault=vault).get_run_artifacts(user.id, project_id, run_id)

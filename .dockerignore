@@ -1,0 +1,21 @@
+# Build context is the repo root (see compose.yaml). Keep host-only and platform-specific files out of images:
+# a Windows/macOS node_modules copied over the image's own install breaks native packages (e.g. Rollup).
+**/node_modules
+**/dist
+**/.venv
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+**/coverage
+**/.coverage
+**/htmlcov
+.git
+.github
+.env
+.env.*
+!.env.example
+local_docs
+backend/artifacts
+*.log

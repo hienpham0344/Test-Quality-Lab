@@ -34,6 +34,7 @@ class MutantItemInput(BaseModel):
 
 class MutationReportInput(BaseModel):
     runner_status: Literal["COMPLETED", "FAILED", "TIMEOUT", "ERROR"] = "COMPLETED"
+    tool_version: str | None = Field(default=None, max_length=32)
     error_message: str | None = None
     verified: bool = True
     mutants: list[MutantItemInput] = Field(default_factory=list)
@@ -50,6 +51,9 @@ class EvaluateRunInput(BaseModel):
     target_function: str | None = None
     failure_reason: str | None = None
     coverage_trace: CoverageTraceInput | None = None
+    # FR-EVL-003 (#53): raw `coverage json` report (statements + branches); takes precedence over coverage_trace.
+    coverage_report: dict[str, Any] | None = None
+    coverage_runner_status: Literal["COMPLETED", "FAILED", "TIMEOUT", "ERROR"] = "COMPLETED"
     mutation_report: MutationReportInput | None = None
 
 
@@ -66,6 +70,7 @@ class MetricRecordOutput(BaseModel):
     reason: str | None
     source_sha256: str
     details: dict[str, Any]
+    provenance: dict[str, Any] | None = None
     evaluated_at: datetime
 
 
@@ -107,6 +112,10 @@ class CoverageDetailsOutput(BaseModel):
     total_lines: int
     covered_ranges: list[str]
     missed_ranges: list[str]
+    # FR-EVL-003 (#53): branch arcs; None when the run has no branch report.
+    covered_branches: int | None = None
+    total_branches: int | None = None
+    missing_arcs: list[str] = Field(default_factory=list)
 
 
 class RunEvaluationOutput(BaseModel):

@@ -2,14 +2,12 @@ from __future__ import annotations
 
 import hashlib
 import json
-import re
 import uuid
 from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-import httpx
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -29,6 +27,8 @@ from app.modules.ai_config.repository import AIConfigRepository
 from app.modules.ai_config.service import AIConfigService
 from app.modules.audit.service import AuditAction, AuditService
 from app.modules.experiments.models import ExperimentSnapshot
+from app.modules.generation.artifacts import check_generated_output
+from app.modules.generation.errors import RunErrorClass, RunErrorCode, classify_run_error
 from app.modules.generation.models import (
     ACTIVE_JOB_STATUSES,
     TERMINAL_JOB_STATUSES,
@@ -41,6 +41,7 @@ from app.modules.generation.models import (
 from app.modules.generation.repository import GenerationRepository
 from app.modules.generation.schemas import (
     ApprovedSnapshotOption,
+    GenerationArtifactsOutput,
     GenerationDashboardOutput,
     GenerationErrorOutput,
     GenerationJobOutput,
@@ -53,11 +54,28 @@ from app.modules.projects.repository import ProjectRepository
 from app.modules.prompts.models import StrategyCode
 from app.modules.prompts.renderer import SafePromptRenderer, normalize_newlines
 
-_TRANSIENT_HTTP_RE = re.compile(r"\bHTTP\s+(429|502|503|504)\b")
+RETRY_AFTER_DEFAULT_SECONDS = 5.0
+RETRY_AFTER_MAX_SECONDS = 300.0
 
 
 class TransientGenerationError(Exception):
-    """Raised when a run hits a retryable transient upstream provider error."""
+    """Raised when a run hits a retryable transient upstream provider error.
+
+    ``retry_after`` is the provider's Retry-After (seconds) when it sent one (FR-AIC-004).
+    """
+
+    def __init__(self, message: str, retry_after: float | None = None) -> None:
+        super().__init__(message)
+        self.retry_after = retry_after
+
+    @property
+    def countdown(self) -> float:
+        wait = self.retry_after if self.retry_after is not None else RETRY_AFTER_DEFAULT_SECONDS
+        return min(max(wait, 1.0), RETRY_AFTER_MAX_SECONDS)
+
+
+def _sha256(text: str | None) -> str | None:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest() if text is not None else None
 
 
 def _iso_utc(dt: datetime) -> str:
@@ -113,12 +131,13 @@ class GenerationService:
             celery_task_id=job.celery_task_id,
             cancel_reason=job.cancel_reason,
             cancelled_at=job.cancelled_at,
+            error_summary=job.error_summary,
             created_at=job.created_at,
             updated_at=job.updated_at,
         )
 
     @staticmethod
-    def _to_run_output(run: GenerationRun) -> GenerationRunOutput:
+    def _to_error_output(run: GenerationRun) -> GenerationErrorOutput | None:
         err: GenerationErrorOutput | None = None
         if isinstance(run.error_info, dict):
             err = GenerationErrorOutput(
@@ -127,6 +146,12 @@ class GenerationService:
                 message=redact_secrets(str(run.error_info.get("message", "Generation failed"))),
                 occurred_at=str(run.error_info.get("occurred_at", _iso_utc(run.updated_at))),
             )
+        return err
+
+    @classmethod
+    def _to_run_output(cls, run: GenerationRun) -> GenerationRunOutput:
+        err = cls._to_error_output(run)
+        validation = run.validation if isinstance(run.validation, dict) else None
         return GenerationRunOutput(
             id=run.id,
             job_id=run.job_id,
@@ -140,6 +165,28 @@ class GenerationService:
             attempt_count=run.attempt_count,
             artifact_sha256=run.artifact_sha256,
             error=err,
+            artifact_eligible=validation.get("eligible") if validation else None,
+            validation_failed_stage=validation.get("failed_stage") if validation else None,
+        )
+
+    def get_run_artifacts(
+        self, owner_id: uuid.UUID, project_id: uuid.UUID, run_id: uuid.UUID
+    ) -> GenerationArtifactsOutput:
+        """FR-GEN-002: the raw response of a run; failed runs show their error, never a fake response."""
+        self._require_project(owner_id, project_id)
+        run = self.repo.get_project_run(project_id, run_id)
+        if run is None:
+            raise AppError(ErrorCode.NOT_FOUND, "Generation run not found")
+        return GenerationArtifactsOutput(
+            run_id=run.id,
+            job_id=run.job_id,
+            status=GenerationRunStatus(run.status),
+            raw_response=run.generated_code,
+            parsed_test=run.parsed_code,
+            response_metadata=run.response_metadata,
+            validation=run.validation,
+            artifact_sha256=run.artifact_sha256,
+            error=self._to_error_output(run),
         )
 
     @staticmethod
@@ -512,36 +559,40 @@ class GenerationExecutionService:
         relpath = f"{project_id}/{job_id}/{run_id}.py"
         return relpath, digest
 
-    @staticmethod
-    def _classify_exception(exc: Exception) -> tuple[str, str, str]:
-        """Return (classification, stage, error_code) where classification in {'timeout','transient','failed'}."""
-        cause = exc.__cause__
-        if isinstance(exc, (TimeoutError, httpx.TimeoutException)) or isinstance(
-            cause, (TimeoutError, httpx.TimeoutException)
-        ):
-            return ("timeout", "provider", "PROVIDER_TIMEOUT")
-
-        if isinstance(exc, AppError):
-            if exc.code == ErrorCode.ACCESS_DENIED:
-                return ("failed", "artifact", exc.code.value)
-            if exc.code == ErrorCode.CREDENTIAL_MISSING:
-                return ("failed", "credential", exc.code.value)
-            if exc.code in (ErrorCode.PROMPT_NOT_APPROVED, ErrorCode.INPUT_INVALID):
-                return ("failed", "prompt", exc.code.value)
-            if exc.code == ErrorCode.SERVICE_UNAVAILABLE:
-                return ("transient", "provider", exc.code.value)
-            if exc.code == ErrorCode.PROVIDER_UPSTREAM_ERROR:
-                if _TRANSIENT_HTTP_RE.search(exc.message) is not None:
-                    return ("transient", "provider", exc.code.value)
-                if isinstance(cause, httpx.TransportError):
-                    return ("transient", "provider", exc.code.value)
-                return ("failed", "provider", exc.code.value)
-            return ("failed", "provider", exc.code.value)
-
-        if isinstance(exc, httpx.TransportError):
-            return ("transient", "provider", ErrorCode.PROVIDER_UPSTREAM_ERROR.value)
-
-        return ("failed", "provider", "GENERATION_ERROR")
+    def _pause_provider_runs(
+        self, job: GenerationJob, failed_run: GenerationRun, error: RunErrorClass, at: datetime
+    ) -> None:
+        """FR-AIC-004: quota/rate limit pauses this provider's unsent runs; completed runs are kept."""
+        unsent = [
+            r for r in self.repo.list_job_runs(job.id)
+            if r.id != failed_run.id
+            and r.provider == failed_run.provider
+            and r.status == GenerationRunStatus.QUEUED.value
+            and r.attempt_count == 0
+        ]
+        for run in unsent:
+            run.status = GenerationRunStatus.FAILED.value
+            run.error_info = _build_sanitized_error(
+                stage="provider",
+                code=RunErrorCode.PROVIDER_PAUSED.value,
+                message=(
+                    f"Not sent: {failed_run.provider} {error.kind.value.lower().replace('_', ' ')} "
+                    f"at run #{failed_run.ordinal}"
+                ),
+                occurred_at=at,
+            )
+            run.finished_at = at
+            run.updated_at = at
+        if job.error_summary is None:
+            job.error_summary = {
+                "code": error.code,
+                "provider": failed_run.provider,
+                "first_failed_run_id": str(failed_run.id),
+                "first_failed_ordinal": failed_run.ordinal,
+                "unsent_runs": len(unsent),
+                "retry_after_seconds": error.retry_after,
+                "occurred_at": _iso_utc(at),
+            }
 
     def execute_job(self, job_id: uuid.UUID) -> GenerationJob:
         job = self.repo.get_job_by_id(job_id)
@@ -612,40 +663,75 @@ class GenerationExecutionService:
                     ),
                     api_key,
                 )
-                sanitized_code = redact_secrets(llm_res.content, extra_secrets=extra_secrets)
-                relpath, artifact_sha = self._write_redacted_artifact(
-                    project_id=job.project_id,
-                    job_id=job.id,
-                    run_id=run.id,
-                    sanitized_code=sanitized_code,
-                )
-
-                done_at = utcnow()
-                run.status = GenerationRunStatus.COMPLETED.value
-                run.generated_code = sanitized_code
-                run.artifact_relpath = relpath
-                run.artifact_sha256 = artifact_sha
+                received_at = utcnow()
+                # FR-GEN-002: keep the original text; only secrets are redacted, nothing is rewritten.
+                raw_response = redact_secrets(llm_res.content, extra_secrets=extra_secrets)
+                run.generated_code = raw_response
+                run.response_metadata = {
+                    "provider": run.provider,
+                    "model_requested": run.model,
+                    "model_returned": redact_secrets(llm_res.model, extra_secrets=extra_secrets),
+                    "finish_reason": llm_res.finish_reason,
+                    "truncated": llm_res.finish_reason in ("length", "max_tokens", "MAX_TOKENS"),
+                    "usage": {
+                        "prompt_tokens": llm_res.usage.prompt_tokens,
+                        "completion_tokens": llm_res.usage.completion_tokens,
+                        "total_tokens": llm_res.usage.total_tokens,
+                    },
+                    "latency_ms": llm_res.latency_ms,
+                    "parameters": params.model_dump(mode="json"),
+                    "system_prompt_sha256": _sha256(system_prompt),
+                    "user_prompt_sha256": _sha256(user_prompt),
+                    "response_sha256": _sha256(raw_response),
+                    "response_chars": len(raw_response),
+                    "received_at": _iso_utc(received_at),
+                }
                 run.prompt_tokens = llm_res.usage.prompt_tokens
                 run.completion_tokens = llm_res.usage.completion_tokens
                 run.latency_ms = llm_res.latency_ms
-                run.error_info = None
+
+                # FR-GEN-003/004: parse and validate statically; never execute generated code here.
+                check = check_generated_output(raw_response, run.function_name)
+                run.validation = check.to_json()
+                run.parsed_code = check.parsed_code
+                done_at = utcnow()
+                if not check.parsed:
+                    run.status = GenerationRunStatus.FAILED.value
+                    run.error_info = _build_sanitized_error(
+                        stage="parse",
+                        code=RunErrorCode.ARTIFACT_INVALID.value,
+                        message=check.reason or "Parsing failed",
+                        occurred_at=done_at,
+                        extra_secrets=extra_secrets,
+                    )
+                else:
+                    relpath, artifact_sha = self._write_redacted_artifact(
+                        project_id=job.project_id,
+                        job_id=job.id,
+                        run_id=run.id,
+                        sanitized_code=check.parsed_code or "",
+                    )
+                    run.artifact_relpath = relpath
+                    run.artifact_sha256 = artifact_sha
+                    run.status = GenerationRunStatus.COMPLETED.value
+                    run.error_info = None
                 run.finished_at = done_at
                 run.updated_at = done_at
                 self.db.commit()
 
             except Exception as exc:
                 err_at = utcnow()
-                kind, stage, code = self._classify_exception(exc)
+                error = classify_run_error(exc)
                 raw_msg = exc.message if isinstance(exc, AppError) else str(exc)
                 err_payload = _build_sanitized_error(
-                    stage=stage,
-                    code=code,
+                    stage=error.stage,
+                    code=error.code,
                     message=raw_msg or "Generation run failed",
                     occurred_at=err_at,
                     extra_secrets=extra_secrets,
                 )
 
-                if kind == "transient" and run.attempt_count < self.max_attempts:
+                if error.retryable and run.attempt_count < self.max_attempts:
                     run.status = GenerationRunStatus.QUEUED.value
                     run.error_info = err_payload
                     run.updated_at = err_at
@@ -655,16 +741,20 @@ class GenerationExecutionService:
                         job.status = GenerationJobStatus.QUEUED.value
                         job.updated_at = err_at
                     self.db.commit()
-                    raise TransientGenerationError(err_payload["message"]) from None
+                    raise TransientGenerationError(
+                        err_payload["message"], retry_after=error.retry_after
+                    ) from None
 
                 run.status = (
                     GenerationRunStatus.TIMEOUT.value
-                    if kind == "timeout"
+                    if error.is_timeout
                     else GenerationRunStatus.FAILED.value
                 )
                 run.error_info = err_payload
                 run.finished_at = err_at
                 run.updated_at = err_at
+                if error.pauses_provider:
+                    self._pause_provider_runs(job, run, error, err_at)
                 self.db.commit()
 
         self.db.expire(job)

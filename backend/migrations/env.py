@@ -13,6 +13,7 @@ from app.modules.evaluation.models import (  # noqa: F401 — register metadata
     AssertionReview,
     MetricRecord,
 )
+from app.modules.execution.models import Execution  # noqa: F401 — register metadata
 from app.modules.experiments.models import (  # noqa: F401 — register metadata
     Experiment,
     ExperimentSnapshot,

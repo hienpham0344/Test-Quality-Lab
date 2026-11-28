@@ -84,10 +84,13 @@ docker compose ps
 
 ### 3.2 Run & Verify Alembic Migrations
 
-All schema migrations live under `backend/migrations/versions/` and must be applied to head (`20261126_0011_s7_reporting_audit`):
+All schema migrations live under `backend/migrations/versions/` and must be applied to head (`20261127_0015_metric_provenance`).
+The backend container runs `alembic upgrade head` before uvicorn starts, so it only reports healthy with a current
+schema, and the worker waits for a healthy backend. A failed migration stops the backend container (see `docker compose logs backend`).
+Running it by hand is still safe (no-op at head):
 
 ```bash
-# Apply all migrations up to head inside the running backend container
+# Optional: apply migrations manually inside the running backend container
 docker compose exec backend alembic upgrade head
 
 # Confirm current schema revision matches head
@@ -107,6 +110,10 @@ docker compose exec backend alembic current
 10. `20261126_0009_generation.py` — `generation_jobs` and `generation_runs` with `(project_id, request_id)` idempotency constraint
 11. `20261126_0010_evaluation.py` — `metric_records` (`MEASURED | N/A | FAILED | TIMEOUT`) and `assertion_reviews`
 12. `20261126_0011_s7_reporting_audit.py` — Sprint 7 reporting & audit indexes (`report_runs`)
+13. `20261127_0012_audit_resource_id.py` — nullable `audit_events.resource_id` for project create/edit audit (#86)
+14. `20261127_0013_generation_artifacts.py` — `generation_runs.response_metadata`, `parsed_code`, `validation` and `generation_jobs.error_summary` (#39, #40, #41)
+15. `20261127_0014_executions.py` - `executions` (sandbox runs: status, cases, safe logs, oracle, policy; #45-#49)
+16. `20261127_0015_metric_provenance.py` - `metric_records.provenance` (formula, tool version, parameters, input hashes; #57)
 
 ### 3.3 Access Local Services
 
@@ -140,10 +147,14 @@ pytest sandbox/tests backend/tests/unit/test_sandbox_isolation_verification.py
 
 ```bash
 cd frontend
-npm install
+npm ci            # install exactly package-lock.json; rerun after every pull that changes it
 npm run lint
 npm test -- --run
 ```
+
+`npm run dev` first runs `scripts/check-deps.js`, which stops with `Run: npm ci` when `node_modules` does not
+match `package-lock.json` (for example Vite 6 installed while the lockfile pins Vite 8). The Docker image installs
+with `npm ci`, and `.dockerignore` keeps the host `node_modules` out of the build context.
 
 ---
 
@@ -205,6 +216,10 @@ keep credentials only in the ignored `.env`. Plain remote SMTP is rejected.
 #### Sending Real Email (Gmail)
 
 By default every email goes to Mailpit (`http://localhost:8025`). To deliver to real inboxes:
+
+> **Warning:** with Gmail configured, every local sign-up, resend and password reset (including test and smoke
+> runs) sends a real email from that account. Switch back to Mailpit (`SMTP_HOST=mailpit`, `SMTP_PORT=1025`,
+> `SMTP_SECURITY=none`, empty username/password) before running automated tests against the stack.
 
 1. On the sending Gmail account, enable 2-Step Verification and create an
    [App password](https://myaccount.google.com/apppasswords). The normal password is rejected.

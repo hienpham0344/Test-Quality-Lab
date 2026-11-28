@@ -3,7 +3,7 @@ import { CheckCircle, Database, FileCode, Hash, ShieldCheck, Terminal } from 'lu
 export function ProvenanceAuditCard({ execution }) {
   if (!execution) return null
 
-  const sourceName = execution.source_name || execution.source_id || 'solution_v1.py'
+  const sourceName = execution.source_name || execution.source_id || 'Not recorded'
   const sourceHash = execution.source_sha256 || 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
   const datasetName = execution.dataset_name || execution.dataset_id || 'HumanEval Benchmarks'
   const datasetHash = execution.dataset_snapshot_id || 'snap-202611-001'

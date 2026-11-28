@@ -75,6 +75,8 @@ class GenerationJob(Base):
     celery_task_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     cancel_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
     cancelled_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # FR-AIC-004 (#41): provider pause details: code, provider, first failed run, unsent run count.
+    error_summary: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
 
@@ -113,7 +115,13 @@ class GenerationRun(Base):
     repeat_index: Mapped[int] = mapped_column(Integer, nullable=False)
     status: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
     attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # FR-GEN-002 (#39): the provider's original text, unchanged except secret redaction.
     generated_code: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # FR-GEN-002 (#39): safe call metadata (model returned, finish reason, usage, prompt hashes). No secrets.
+    response_metadata: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    # FR-GEN-003/004 (#40): extracted pytest module and per-stage validation result.
+    parsed_code: Mapped[str | None] = mapped_column(Text, nullable=True)
+    validation: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     artifact_relpath: Mapped[str | None] = mapped_column(String(512), nullable=True)
     artifact_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     prompt_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)

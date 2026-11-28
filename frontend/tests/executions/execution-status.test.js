@@ -10,6 +10,8 @@ import {
   calculateAssertionQualityScore,
   ASSERTION_STATUS_DEFINITIONS,
   ASSERTION_TYPES,
+  STATUS_DEFINITIONS,
+  CANCELLABLE_STATUSES,
 } from '../../src/features/executions/execution-status'
 
 describe('execution-status utility (UC-08 / UC-10)', () => {
@@ -229,5 +231,14 @@ describe('execution-status utility (UC-08 / UC-10)', () => {
         expect(ASSERTION_TYPES.EXCEPTION).toBeDefined()
       })
     })
+  })
+})
+
+describe('BLOCKED status (sandbox disabled, #45-#49)', () => {
+  it('is a terminal, non-cancellable status that says nothing was run', () => {
+    expect(STATUS_DEFINITIONS.BLOCKED.label).toBe('Blocked')
+    expect(STATUS_DEFINITIONS.BLOCKED.cancellable).toBe(false)
+    expect(STATUS_DEFINITIONS.BLOCKED.description).toMatch(/security review/)
+    expect(CANCELLABLE_STATUSES.has('BLOCKED')).toBe(false)
   })
 })

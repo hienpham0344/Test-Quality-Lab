@@ -101,6 +101,7 @@ class EvaluationRepository:
         outcome: MetricOutcome,
         source_sha256: str,
         evaluated_at: datetime,
+        provenance: dict[str, Any] | None = None,
     ) -> MetricRecord:
         stmt = select(MetricRecord).where(
             MetricRecord.run_id == run_id,
@@ -118,6 +119,7 @@ class EvaluationRepository:
             existing.reason = outcome.reason
             existing.source_sha256 = source_sha256
             existing.details = dict(outcome.details)
+            existing.provenance = provenance
             existing.evaluated_at = evaluated_at
             return existing
 
@@ -134,6 +136,7 @@ class EvaluationRepository:
             reason=outcome.reason,
             source_sha256=source_sha256,
             details=dict(outcome.details),
+            provenance=provenance,
             evaluated_at=evaluated_at,
         )
         self.db.add(record)

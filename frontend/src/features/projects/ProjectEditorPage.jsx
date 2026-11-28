@@ -1,14 +1,9 @@
 import { ArrowLeft, Braces, Check, FlaskConical, History, Info, Plus, RotateCcw, Save, Settings2, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import {
-  AuthApiError,
-  createProject,
-  getProject,
-  getProjectHistory,
-  updateProject,
-} from '../../services/api'
+import { AuthApiError } from '../../services/api'
+import { useCreateProject, useProject, useProjectHistory, useUpdateProject } from './queries'
+import { projectErrorMessage, projectFieldErrors } from './messages'
 import { Badge } from '../../components/common'
 import { ProjectBackLink } from '../../components/projects/ProjectBackLink'
 import { ProjectHistoryList } from '../../components/projects/ProjectHistoryList'
@@ -56,13 +51,20 @@ function UnsavedChangesDialog({ onKeepEditing, onDiscard }) {
   )
 }
 
-export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
+/** Field errors are shown inline; the banner keeps the server's specific message when there is one. */
+function saveErrorText(error, fallback) {
+  if (error instanceof AuthApiError && error.status === 422) return error.detail || projectErrorMessage(error)
+  if (error instanceof AuthApiError && error.detail && !/^Request failed/.test(error.detail)) return error.detail
+  return error instanceof AuthApiError ? projectErrorMessage(error) : fallback
+}
+
+export function ProjectEditorPage({ session, onExpire, onRefresh, mode = 'edit' }) {
   const { projectId } = useParams()
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const { pathname, search, hash, state } = useLocation()
   const showCreatedNotice = Boolean(projectId && state?.createdProjectId === projectId)
-  const queryClient = useQueryClient()
+  const auth = { session, onRefresh }
 
   useEffect(() => {
     if (!showCreatedNotice) return
@@ -82,21 +84,13 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
   const [saveErrorMessage, setSaveErrorMessage] = useState(null)
 
   // Queries for edit mode
-  const projectQuery = useQuery({
-    queryKey: ['private', 'project', projectId],
-    queryFn: ({ signal }) => getProject(session.accessToken, projectId, signal),
-    enabled: mode === 'edit' && Boolean(projectId),
-    retry: false,
-    gcTime: 0,
-  })
-
-  const historyQuery = useQuery({
-    queryKey: ['private', 'project-history', projectId],
-    queryFn: ({ signal }) => getProjectHistory(session.accessToken, projectId, signal),
+  const projectQuery = useProject(auth, projectId, { enabled: mode === 'edit' && Boolean(projectId) })
+  const historyQuery = useProjectHistory(auth, projectId, {}, {
     enabled: mode === 'edit' && activeTab === 'history' && Boolean(projectId),
-    retry: false,
-    gcTime: 0,
   })
+  const createMutation = useCreateProject(auth)
+  const updateMutation = useUpdateProject(auth, projectId)
+  const [saveFieldErrors, setSaveFieldErrors] = useState({})
 
   // Session expiration check
   const expired =
@@ -136,10 +130,10 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
     ? 'Project name is required (1 to 120 characters).'
     : trimmedName.length > 120
       ? 'Project name cannot exceed 120 characters.'
-      : null)
-  const descriptionError = description.length > 2000
+      : null) || (saveStatus === 'error' ? saveFieldErrors.name : null) || null
+  const descriptionError = (description.length > 2000
     ? 'Description cannot exceed 2000 characters.'
-    : null
+    : null) || (saveStatus === 'error' ? saveFieldErrors.description : null) || null
   const isValid = trimmedName.length >= 1 && trimmedName.length <= 120 && description.length <= 2000
 
   // Change detection for edit mode
@@ -193,14 +187,14 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
 
     setSaveStatus('saving')
     setSaveErrorMessage(null)
+    setSaveFieldErrors({})
 
     if (mode === 'create') {
       try {
-        const created = await createProject(session.accessToken, {
+        const created = await createMutation.mutateAsync({
           name: submittedName,
           description: submittedDesc || null,
         })
-        await queryClient.invalidateQueries({ queryKey: ['private', 'projects'] })
         navigate(`/projects/${created.id}`, { replace: true })
       } catch (error) {
         if (error instanceof AuthApiError && error.status === 401) {
@@ -208,19 +202,15 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
           return
         }
         setSaveStatus('error')
-        setSaveErrorMessage(error.detail || error.message || 'Failed to create project.')
+        setSaveFieldErrors(projectFieldErrors(error))
+        setSaveErrorMessage(saveErrorText(error, 'Failed to create project.'))
       }
     } else {
       try {
-        const updated = await updateProject(session.accessToken, projectId, {
+        await updateMutation.mutateAsync({
           name: submittedName,
           description: submittedDesc || null,
         })
-        queryClient.setQueryData(['private', 'project', projectId], updated)
-        await Promise.all([
-          queryClient.invalidateQueries({ queryKey: ['private', 'projects'] }),
-          queryClient.invalidateQueries({ queryKey: ['private', 'project-history', projectId] }),
-        ])
         setSaveStatus('saved')
       } catch (error) {
         if (error instanceof AuthApiError && error.status === 401) {
@@ -228,7 +218,8 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
           return
         }
         setSaveStatus('error')
-        setSaveErrorMessage(error.detail || error.message || 'Failed to update project.')
+        setSaveFieldErrors(projectFieldErrors(error))
+        setSaveErrorMessage(saveErrorText(error, 'Failed to update project.'))
       }
     }
   }
@@ -442,6 +433,8 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
                     maxLength={120}
                     placeholder="e.g. LLM Python Test Evaluator"
                     value={name}
+                    aria-invalid={nameError ? 'true' : undefined}
+                    aria-describedby={nameError ? 'edit-project-name-error' : undefined}
                     onChange={(e) => {
                       setName(e.target.value)
                       setNameTouched(true)
@@ -450,7 +443,7 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
                     className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                   {nameError && (
-                    <p role="alert" className="text-xs text-rose-400">{nameError}</p>
+                    <p id="edit-project-name-error" role="alert" className="text-xs text-rose-400">{nameError}</p>
                   )}
                 </div>
 
@@ -471,6 +464,8 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
                     maxLength={2000}
                     placeholder="Describe the scope, datasets, or evaluation objectives..."
                     value={description}
+                    aria-invalid={descriptionError ? 'true' : undefined}
+                    aria-describedby={descriptionError ? 'edit-project-description-error' : undefined}
                     onChange={(e) => {
                       setDescription(e.target.value)
                       if (saveStatus !== 'idle') setSaveStatus('idle')
@@ -478,7 +473,7 @@ export function ProjectEditorPage({ session, onExpire, mode = 'edit' }) {
                     className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                   {descriptionError && (
-                    <p role="alert" className="text-xs text-rose-400">{descriptionError}</p>
+                    <p id="edit-project-description-error" role="alert" className="text-xs text-rose-400">{descriptionError}</p>
                   )}
                 </div>
 

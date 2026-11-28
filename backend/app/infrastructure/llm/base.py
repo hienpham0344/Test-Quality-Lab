@@ -115,6 +115,26 @@ class LLMResponse:
     latency_ms: int
 
 
+class ProviderHTTPError(AppError):
+    """Provider answered with an HTTP error. Keeps the status and Retry-After for classification (FR-AIC-004)."""
+
+    def __init__(self, message: str, *, status_code: int, retry_after: float | None = None) -> None:
+        super().__init__(ErrorCode.PROVIDER_UPSTREAM_ERROR, message)
+        self.status_code = status_code
+        self.retry_after = retry_after
+
+
+def parse_retry_after(raw: str | None) -> float | None:
+    """Seconds from a `Retry-After` header (delta-seconds form only); None when absent or invalid."""
+    if raw is None:
+        return None
+    try:
+        seconds = float(raw.strip())
+    except ValueError:
+        return None
+    return seconds if 0 <= seconds <= 86_400 else None
+
+
 class ProviderAdapter(Protocol):
     @property
     def provider_id(self) -> ProviderId: ...
@@ -151,9 +171,10 @@ def execute_json_post(
     latency_ms = max(0, int((time.perf_counter() - started) * 1000))
     if response.status_code >= 400:
         safe_body = redact_secrets(response.text[:500], extra_secrets=[raw_secret])
-        raise AppError(
-            ErrorCode.PROVIDER_UPSTREAM_ERROR,
+        raise ProviderHTTPError(
             f"{provider.value} returned HTTP {response.status_code}: {safe_body}",
+            status_code=response.status_code,
+            retry_after=parse_retry_after(response.headers.get("Retry-After")),
         )
 
     try:
