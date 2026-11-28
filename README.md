@@ -16,9 +16,10 @@ and a separate research repository are explicitly out of scope.
 ```bash
 cp .env.example .env
 # Change local-only passwords before using outside a disposable dev environment.
+# Set CREDENTIAL_ENCRYPTION_KEYS in .env first (see docs/development/setup.md 2.1), or AI config answers 503.
 docker compose up --build -d
-# For the local development database, in a separate terminal:
-docker compose exec backend alembic upgrade head
+# The backend applies Alembic migrations on start; check with:
+docker compose exec backend alembic current
 ```
 
 - Frontend: http://localhost:5173
@@ -39,7 +40,7 @@ Python execution remains disabled.
 
 ```bash
 cd backend && python -m pip install -r requirements-dev.txt && pytest && ruff check app tests
-cd frontend && npm install && npm run lint && npm test -- --run && npm run build
+cd frontend && npm ci && npm run lint && npm test -- --run && npm run build
 ```
 
 ## Git workflow

@@ -27,6 +27,9 @@ services:
       SMTP_USERNAME: ${SMTP_USERNAME:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       PUBLIC_APP_URL: ${PUBLIC_APP_URL:-http://localhost:5173}
+      # Keyring for AI provider credentials (empty -> AI config answers 503 until it is set in .env).
+      CREDENTIAL_ENCRYPTION_KEYS: ${CREDENTIAL_ENCRYPTION_KEYS:-}
+    # The image runs `alembic upgrade head` before uvicorn, so "healthy" means the schema is current.
     ports:
       - "127.0.0.1:8000:8000"
     volumes:
@@ -57,6 +60,9 @@ services:
       SMTP_USERNAME: ${SMTP_USERNAME:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       PUBLIC_APP_URL: ${PUBLIC_APP_URL:-http://localhost:5173}
+      CREDENTIAL_ENCRYPTION_KEYS: ${CREDENTIAL_ENCRYPTION_KEYS:-}
+      # SANDBOX_* is intentionally NOT passed: this worker has no Docker socket and untrusted execution
+      # stays disabled until the sandbox security review (AGENTS.md); enabling belongs to a launcher service.
     volumes:
       - artifacts:/app/artifacts
     depends_on:
@@ -64,6 +70,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      backend:
+        condition: service_healthy  # backend applies migrations first; the worker never sees an old schema
     # NO docker.sock or host filesystem mounts in this trusted worker.
 
   beat:

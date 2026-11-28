@@ -188,8 +188,7 @@ cd frontend && npm run lint && npm test -- --run
 # 1. Start or rebuild the Compose stack
 docker compose up --build -d
 
-# 2. Apply Alembic migrations to head (20261127_0015_metric_provenance) and verify current revision
-docker compose exec backend alembic upgrade head
+# 2. Migrations are applied by the backend on start; verify the revision is head (20261127_0015_metric_provenance)
 docker compose exec backend alembic current
 
 # 3. Verify health and database/Redis readiness endpoints
